@@ -5,6 +5,7 @@ description = "Suite boîte noire : la pile en marche, jointe par la passerelle 
 requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.28,<0.29",
+    "pyjwt[crypto]>=2.15,<2.16",
     "pytest>=9,<10",
 ]
 

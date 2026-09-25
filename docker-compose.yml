@@ -9,7 +9,7 @@
 #
 # Deux réseaux rendent les invariants physiques :
 # - passerelle : Caddy, les services et les applications. Caddy est le seul conteneur qui publie des ports.
-# - noyau : HAPI, sa base, et les services qui parlent FHIR. Réseau interne, sans sortie.
+# - noyau : HAPI, sa base, et les services qui parlent FHIR (pas identite). Réseau interne, sans sortie.
 #   Les applications n'y sont jamais : elles ne peuvent pas joindre le noyau, même par erreur.
 
 name: lafia
@@ -91,9 +91,23 @@ services:
         condition: service_healthy
     environment:
       NOYAU_URL: http://noyau:8080/fhir
+      # Clé publique qui vérifie les jetons signés par identite. Vide, sur localhost seulement, le
+      # service prend la clé de développement ; sur tout autre domaine, il refuse de démarrer.
+      JETON_CLE_PUBLIQUE: ${JETON_CLE_PUBLIQUE:-}
+      LAFIA_DOMAINE: ${LAFIA_DOMAINE:-localhost}
     networks:
       - passerelle
       - noyau
+    mem_limit: 256m
+
+  # Identite ne parle jamais FHIR : sur le réseau passerelle seulement, il ne peut pas joindre le noyau.
+  identite:
+    build:
+      context: services/identite
+    image: lafia/identite
+    restart: unless-stopped
+    networks:
+      - passerelle
     mem_limit: 256m
 
   # Application soin : sur le réseau passerelle seulement ; elle joint son service par la passerelle.

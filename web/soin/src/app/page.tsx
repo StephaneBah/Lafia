@@ -1,6 +1,7 @@
+import { cookies } from "next/headers";
 import { connection } from "next/server";
 
-import { lireSante, type Sante } from "../service";
+import { COOKIE_DE_SESSION, lireSante, lireSession, type Sante } from "../service";
 
 function etatNoyau(sante: Sante | null): string {
   if (!sante) return "inconnu";
@@ -11,7 +12,8 @@ function etatNoyau(sante: Sante | null): string {
 export default async function Accueil() {
   // Rendue à chaque requête : la page montre l'état du moment, jamais celui de la construction.
   await connection();
-  const sante = await lireSante();
+  const jeton = (await cookies()).get(COOKIE_DE_SESSION)?.value;
+  const [sante, session] = await Promise.all([lireSante(), jeton ? lireSession(jeton) : null]);
 
   return (
     <main>
@@ -22,6 +24,19 @@ export default async function Accueil() {
         <dd>{sante?.statut ?? "injoignable"}</dd>
         <dt>Noyau</dt>
         <dd>{etatNoyau(sante)}</dd>
+        {session ? (
+          <>
+            <dt>Connecté comme</dt>
+            <dd>{session.role}</dd>
+            <dt>Établissement</dt>
+            <dd>{session.etablissement}</dd>
+          </>
+        ) : (
+          <>
+            <dt>Session</dt>
+            <dd>aucune</dd>
+          </>
+        )}
       </dl>
     </main>
   );

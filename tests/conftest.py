@@ -12,17 +12,26 @@ conteneur de la passerelle ; ailleurs contre les autorités publiques.
 
 Tout passe par la passerelle, sauf l'isolement réseau, qui ne s'y observe pas : ces vérifications
 passent par `docker`, sur la machine de la pile visée, et sont sautées quand elle tourne ailleurs.
+
+Les jetons de test sont signés de la clé privée donnée par `JETON_CLE_PRIVEE`, celle dont la pile
+visée connaît la clé publique. En local, sans elle, la clé de développement, que seule une pile
+servie sur localhost accepte ; ailleurs, sans elle, les tests qui en ont besoin sont sautés.
 """
 
+import base64
 import os
 import ssl
 import subprocess
 from collections.abc import Callable, Iterator
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import httpx
+import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import load_der_private_key
 
 RACINE_DU_DEPOT = Path(__file__).resolve().parent.parent
 RACINE_CA_CADDY = "/data/caddy/pki/authorities/local/root.crt"
@@ -30,6 +39,15 @@ RACINE_CA_CADDY = "/data/caddy/pki/authorities/local/root.crt"
 DOMAINE = os.environ.get("LAFIA_DOMAINE", "localhost")
 LOCAL = DOMAINE == "localhost"
 ADRESSE = os.environ.get("LAFIA_ADRESSE") or ("127.0.0.1" if LOCAL else None)
+
+# Clé privée de la paire de développement. Elle n'a rien de secret : une pile servie sur localhost,
+# sans JETON_CLE_PUBLIQUE, accepte les jetons qu'elle signe ; toute autre pile refuse sa clé publique
+# (commun/src/commun/jeton.py).
+CLE_PRIVEE_DE_DEVELOPPEMENT = "MC4CAQAwBQYDK2VwBCIEINp8yVHhQe5B/gcbA5wNMNwe0d+oaAY7090L95AC8EvZ"
+
+# Revendications d'un jeton de test, par rôle : identifiants synthétiques seulement.
+REVENDICATIONS_AGENT = {"sub": "agent-test-1", "etablissement": "etablissement-test-1"}
+REVENDICATIONS_CITOYEN = {"sub": "citoyen-test-1", "npi": "0000000001"}
 
 
 class _VersAdresse(httpx.HTTPTransport):
@@ -117,3 +135,36 @@ def application() -> Iterator[Callable[[str], httpx.Client]]:
     yield client_de
     for client in clients.values():
         client.close()
+
+
+@pytest.fixture(scope="session")
+def signer_jeton() -> Callable[..., str]:
+    """Signe un jeton que la pile visée accepte : `signer_jeton("médecin")`.
+
+    Les revendications par défaut du rôle se remplacent par mot-clé ; `None` en retire une.
+    `expire_dans` règle l'expiration ; `cle` signe d'une autre clé que celle de la pile visée.
+    """
+    cle_en_base64 = os.environ.get("JETON_CLE_PRIVEE") or (CLE_PRIVEE_DE_DEVELOPPEMENT if LOCAL else None)
+    if cle_en_base64 is None:
+        pytest.skip(f"JETON_CLE_PRIVEE absente : pas de jeton accepté par la pile qui sert {DOMAINE}")
+    cle_de_la_pile = load_der_private_key(base64.b64decode(cle_en_base64), password=None)
+    assert isinstance(cle_de_la_pile, Ed25519PrivateKey), "JETON_CLE_PRIVEE : une clé privée Ed25519"
+
+    def signer(
+        role: str,
+        *,
+        cle: Ed25519PrivateKey = cle_de_la_pile,
+        expire_dans: timedelta = timedelta(minutes=5),
+        **remplacements: str | None,
+    ) -> str:
+        defaut = REVENDICATIONS_CITOYEN if role == "citoyen" else REVENDICATIONS_AGENT
+        revendications: dict[str, Any] = {
+            "role": role,
+            "exp": datetime.now(timezone.utc) + expire_dans,
+            **defaut,
+            **remplacements,
+        }
+        revendications = {nom: valeur for nom, valeur in revendications.items() if valeur is not None}
+        return jwt.encode(revendications, cle, algorithm="EdDSA")
+
+    return signer

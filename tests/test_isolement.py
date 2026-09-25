@@ -1,25 +1,43 @@
 """Isolement réseau : ce que seul le réseau garantit, observé depuis les conteneurs et l'hôte.
 
-Une application n'est que sur le réseau passerelle : elle ne joint pas le noyau, ni par son nom
-ni par son adresse. Seule la passerelle publie des ports : HAPI n'est joignable que par un service.
+Les applications et identite ne sont que sur le réseau passerelle : ils ne joignent pas le noyau,
+ni par son nom ni par son adresse. Seule la passerelle publie des ports : HAPI n'est joignable que
+par un service qui parle FHIR.
 """
 
 import json
 
 import pytest
 
-# Depuis un conteneur d'application : une requête HTTP obtient-elle une réponse, quelle qu'elle soit ?
+# Depuis un conteneur : une requête HTTP obtient-elle une réponse, quelle qu'elle soit ?
 # Code 0 : une réponse. Code 3 : aucune (nom inconnu, pas de route, délai écoulé).
 # Tout autre code dit que la sonde n'a pas tourné, et ne prouve rien.
-SONDE = (
+# Chaque conteneur a la sonde de l'interpréteur qu'il embarque.
+SONDE_NODE = [
+    "node",
+    "-e",
     "fetch(process.argv[1], { signal: AbortSignal.timeout(3000) })"
-    ".then(() => process.exit(0), () => process.exit(3))"
-)
+    ".then(() => process.exit(0), () => process.exit(3))",
+]
+SONDE_PYTHON = [
+    "python",
+    "-c",
+    "import sys, urllib.error, urllib.request\n"
+    "try: urllib.request.urlopen(sys.argv[1], timeout=3)\n"
+    "except urllib.error.HTTPError: pass\n"
+    "except OSError: sys.exit(3)",
+]
 REPONSE, SANS_REPONSE = 0, 3
+
+# Les conteneurs hors du réseau noyau, et leur sonde.
+HORS_DU_NOYAU = {
+    "application-soin": SONDE_NODE,
+    "identite": SONDE_PYTHON,
+}
 
 
 def sonder(docker, conteneur: str, url: str) -> int:
-    return docker("compose", "exec", "-T", conteneur, "node", "-e", SONDE, url).returncode
+    return docker("compose", "exec", "-T", conteneur, *HORS_DU_NOYAU[conteneur], url).returncode
 
 
 def adresses_ip(docker, service: str) -> list[str]:
@@ -45,9 +63,8 @@ def ports_publies(docker) -> dict[str, set[int]]:
     return publies
 
 
-@pytest.mark.parametrize("acteur", ["soin"])
-def test_depuis_une_application_le_noyau_est_injoignable(docker, acteur):
-    conteneur = f"application-{acteur}"
+@pytest.mark.parametrize("conteneur", HORS_DU_NOYAU)
+def test_hors_du_reseau_noyau_le_noyau_est_injoignable(docker, conteneur):
     # Témoin : depuis le même conteneur, la sonde obtient une réponse de la passerelle.
     # Sans lui, une sonde qui ne tourne pas passerait pour un noyau injoignable.
     assert sonder(docker, conteneur, "http://passerelle:8080/") == REPONSE

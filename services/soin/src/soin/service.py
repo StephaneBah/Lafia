@@ -10,10 +10,16 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from commun.fhir import ClientFhir, NoyauInjoignable
+from commun.jeton import Agent, VerificateurDeJetons
+from soin.regles.acces import ROLES_ADMIS
 
 SERVICE = "soin"
 
 journal = logging.getLogger(SERVICE)
+
+# La clé publique est lue au démarrage : sans elle, le service ne démarre pas.
+jetons = VerificateurDeJetons.depuis_environnement()
+soignant_connecte = jetons.agent(ROLES_ADMIS)
 
 
 class EtatNoyau(BaseModel):
@@ -60,6 +66,18 @@ async def sante(fhir: ClientFhir = Depends(client_fhir)) -> Sante | JSONResponse
         statut="disponible",
         noyau=EtatNoyau(statut="disponible", version_fhir=version_fhir),
     )
+
+
+@routes.get(
+    "/session",
+    responses={
+        401: {"description": "Jeton absent, mal formé, expiré ou mal signé."},
+        403: {"description": "Rôle que le service soin ne sert pas."},
+    },
+)
+async def session(soignant: Agent = Depends(soignant_connecte)) -> Agent:
+    """Le soignant connecté : son identifiant, son rôle et son établissement, lus de son jeton vérifié."""
+    return soignant
 
 
 # Le contrat OpenAPI vit sous le préfixe du service : c'est tout ce que la passerelle route vers lui.

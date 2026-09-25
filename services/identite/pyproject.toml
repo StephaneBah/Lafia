@@ -1,12 +1,11 @@
 [project]
-name = "lafia-commun"
+name = "lafia-identite"
 version = "0.1.0"
-description = "Bibliothèque partagée par les services Lafia, intégrée à chaque image à la construction."
+description = "Service identite : comptes des agents, rôles, établissement, codes carnet ; émission des jetons."
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.141,<0.142",
-    "httpx>=0.28,<0.29",
-    "pyjwt[crypto]>=2.15,<2.16",
+    "uvicorn>=0.54,<0.55",
 ]
 
 [build-system]
@@ -14,4 +13,4 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/commun"]
+packages = ["src/identite"]
