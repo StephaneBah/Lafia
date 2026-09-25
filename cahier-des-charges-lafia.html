@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lafia — Cahier des charges</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --brand-teal: #1B5E52; --brand-ink: #14211D;
+    --paper: #FFFFFF; --ink-800: #1F2C29; --ink-500: #5C6F69;
+    --accent: #1B5E52; --accent-strong: #12463C;
+    --mint-100: #E8F3EF; --on-mint: #163B33; --rule: #DEE9E4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #101D19; --ink-800: #E8F1ED; --ink-500: #9FB6AE;
+      --accent: #55B49D; --accent-strong: #7BCAB6;
+      --mint-100: #17322B; --on-mint: #BFE7D9; --rule: #26403A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #101D19; --ink-800: #E8F1ED; --ink-500: #9FB6AE;
+    --accent: #55B49D; --accent-strong: #7BCAB6;
+    --mint-100: #17322B; --on-mint: #BFE7D9; --rule: #26403A;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink-800);
+    font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header.band { background: var(--brand-teal); padding: calc(56px + env(safe-area-inset-top, 0px)) 24px 44px; }
+  header.band .inner { max-width: 720px; margin: 0 auto; }
+  header.band h1 {
+    font-family: 'Lora', Georgia, serif; font-weight: 700; color: #FFFFFF;
+    font-size: clamp(2.2rem, 6vw, 3rem); margin: 0 0 14px; letter-spacing: -0.01em;
+  }
+  header.band .sub { color: #E3F1EC; font-size: 1.05rem; line-height: 1.55; margin: 0 0 22px; max-width: 48ch; }
+  header.band .meta { color: #BEDBD1; font-size: 0.85rem; margin: 0; }
+
+  .wrap { max-width: 720px; margin: 0 auto; padding: 8px 24px; }
+  section { padding: 38px 0; border-top: 1px solid var(--rule); }
+  section:first-of-type { border-top: none; padding-top: 46px; }
+
+  .label { font-weight: 700; font-size: 0.8rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent); margin: 0 0 18px; }
+  h3 { font-weight: 600; font-size: 1rem; margin: 24px 0 8px; }
+  p { font-size: 1rem; line-height: 1.65; margin: 0 0 16px; max-width: 62ch; }
+  p:last-child { margin-bottom: 0; }
+  p.muted { color: var(--ink-500); font-size: 0.95rem; }
+  strong { font-weight: 600; }
+
+  ul.check { list-style: none; margin: 0; padding: 0; }
+  ul.check li { display: flex; align-items: flex-start; gap: 12px; padding: 7px 0; font-size: 0.97rem; line-height: 1.55; }
+  ul.check svg { flex: none; margin-top: 3px; }
+
+  ul.parked { list-style: none; margin: 0; padding: 0; }
+  ul.parked li { display: flex; align-items: flex-start; gap: 12px; padding: 6px 0; font-size: 0.95rem; line-height: 1.55; color: var(--ink-500); }
+  ul.parked li .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-500); margin-top: 9px; }
+
+  .principle { background: var(--mint-100); border-left: 4px solid var(--accent); border-radius: 4px 16px 16px 4px; padding: 28px 26px; }
+  .principle .statement { font-family: 'Lora', serif; font-weight: 600; font-size: 1.4rem; line-height: 1.4; color: var(--on-mint); margin: 0 0 12px; max-width: 24ch; }
+  .principle p { margin: 0; max-width: 56ch; }
+
+  .rule-list { list-style: none; margin: 8px 0 0; padding: 0; }
+  .rule-list li { display: flex; gap: 14px; padding: 11px 0; border-top: 1px solid var(--rule); font-size: 0.96rem; line-height: 1.55; }
+  .rule-list li:first-child { border-top: none; }
+  .rule-list .k {
+    flex: none; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 0.8rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .rule-list .c { padding-top: 3px; max-width: 56ch; }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  table th { text-align: left; font-size: 0.76rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-weight: 700; padding: 0 10px 9px 0; border-bottom: 1px solid var(--rule); }
+  table td { padding: 11px 10px 11px 0; border-bottom: 1px solid var(--rule); vertical-align: top; font-size: 0.92rem; line-height: 1.5; }
+  table td.a { font-weight: 600; width: 34%; }
+  table td.b { color: var(--ink-500); }
+  .tbl-scroll { overflow-x: auto; }
+
+  .timeline { margin: 8px 0 0; padding: 0; list-style: none; }
+  .timeline li { display: flex; gap: 16px; padding-bottom: 20px; position: relative; }
+  .timeline li:last-child { padding-bottom: 0; }
+  .timeline .node {
+    flex: none; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 0.82rem;
+    display: flex; align-items: center; justify-content: center; position: relative; z-index: 1;
+  }
+  .timeline li:not(:last-child) .node::after {
+    content: ""; position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+    width: 2px; height: calc(100% + 4px); background: var(--rule);
+  }
+  .timeline .body { font-size: 0.96rem; line-height: 1.55; padding-top: 3px; }
+  .timeline .body p { margin: 0; max-width: 54ch; }
+
+  .layer { display: flex; gap: 16px; padding: 16px 0; border-top: 1px solid var(--rule); align-items: flex-start; }
+  .layer:first-of-type { border-top: none; padding-top: 6px; }
+  .layer .k {
+    flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent);
+    color: #fff; font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; margin-top: 2px;
+  }
+  .layer .t { font-weight: 700; font-size: 0.96rem; margin: 0 0 3px; }
+  .layer .d { font-size: 0.92rem; color: var(--ink-500); line-height: 1.55; margin: 0; max-width: 54ch; }
+
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 8px; }
+  .compare h3 { font-size: 0.88rem; margin: 0 0 12px; }
+  .compare .build h3 { color: var(--accent-strong); }
+  .compare .show h3 { color: var(--ink-500); }
+  ul.outline { list-style: none; margin: 0; padding: 0; }
+  ul.outline li { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; font-size: 0.91rem; line-height: 1.5; }
+  ul.outline svg { flex: none; margin-top: 3px; }
+
+  footer.band { background: var(--brand-ink); padding: 30px 24px calc(30px + env(safe-area-inset-bottom, 0px)); }
+  footer.band p {
+    max-width: 720px; margin: 0 auto; color: #D9E7E2;
+    font-family: 'Lora', serif; font-style: italic; font-size: 0.95rem; line-height: 1.6;
+  }
+  @media (max-width: 620px) {
+    .compare { grid-template-columns: 1fr; }
+    table td.a { width: 42%; }
+    header.band { padding-top: calc(40px + env(safe-area-inset-top, 0px)); }
+  }
+</style>
+</head>
+<body>
+
+<header class="band">
+  <div class="inner">
+    <h1>Lafia</h1>
+    <p class="sub">Socle interopérable du carnet de santé numérique. Un noyau qui détient la donnée, des services qui viennent s'y brancher.</p>
+    <p class="meta">Version 2 — 25 septembre 2026</p>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+<section>
+  <p class="label">Le problème</p>
+  <p>La mémoire médicale d'un citoyen béninois est éparpillée : un carnet papier qui se perd, des registres propres à chaque établissement qui ne communiquent pas, des résultats d'analyses en une seule copie physique.</p>
+  <p>La conséquence est toujours la même : <strong>le patient est le seul lien entre ses propres soignants</strong>, et c'est le maillon le plus fragile. À chaque contact il réexplique son histoire à quelqu'un qui ne la connaît pas. Le médecin change, l'interprétation change. Et quand le patient arrive inconscient, il n'y a plus de lien du tout.</p>
+  <p>Le même vide produit d'autres effets quotidiens : une caissière qui retape à la main une ordonnance écrite quelques mètres plus loin, une pharmacie qui délivre sans que personne ne sache ce qui a été pris, un ministère incapable de répondre à « combien de patients suivis pour insuffisance rénale, et à quel stade ».</p>
+</section>
+
+<section>
+  <p class="label">Ce que Lafia est</p>
+  <p>Lafia est le <strong>socle sur lequel repose la mémoire médicale d'un citoyen</strong>, partagée entre tous ceux qui le soignent, accessible par son seul numéro d'identification personnel.</p>
+  <p>Ce n'est ni un logiciel propre à un établissement, ni une application de santé pour citoyens déjà connectés. C'est un <strong>noyau central qui détient la donnée</strong>, et autour de lui des services indépendants — soin, caisse, pharmacie, laboratoire, urgence, télémédecine — qui viennent y lire et y écrire dans un langage commun.</p>
+  <p>Tout ce qui est construit doit pouvoir être branché, demain, sur l'infrastructure de l'État, et servir un centre de santé rural comme un centre hospitalier universitaire.</p>
+</section>
+
+<section>
+  <p class="label">Principes</p>
+  <div class="principle">
+    <p class="statement">Le NPI est la seule clé dont un citoyen a besoin pour être soigné.</p>
+    <p>Aucun compte à créer, aucune carte supplémentaire à ne pas perdre. Le citoyen existe dans le système par son identité civile. C'est au soignant, au caissier, au pharmacien d'aller le chercher.</p>
+  </div>
+
+  <ol class="rule-list" style="margin-top:24px;">
+    <li><div class="k">1</div><div class="c"><strong>La donnée suit la personne, pas l'établissement.</strong> Un dossier n'appartient pas à l'hôpital qui l'a ouvert.</div></li>
+    <li><div class="k">2</div><div class="c"><strong>Aucun service ne possède la donnée.</strong> Caisse, pharmacie, laboratoire lisent et écrivent dans le noyau. Aucun ne garde sa copie privée, aucun n'est irremplaçable.</div></li>
+    <li><div class="k">3</div><div class="c"><strong>Le format est ouvert et standard.</strong> Un laboratoire privé, une startup d'aide au diagnostic doivent pouvoir se brancher sans négocier un format propriétaire.</div></li>
+    <li><div class="k">4</div><div class="c"><strong>Ce qui est déjà saisi n'est jamais ressaisi.</strong> Chaque ressaisie est une minute d'attente et une occasion d'erreur.</div></li>
+    <li><div class="k">5</div><div class="c"><strong>Ne pas savoir lire n'est pas un cas particulier.</strong> C'est une condition de conception dès le premier écran.</div></li>
+  </ol>
+</section>
+
+<section>
+  <p class="label">Le cas de visite</p>
+  <p>C'est la pièce centrale du modèle, et ce qui sépare Lafia d'un dossier organisé en rendez-vous successifs.</p>
+  <p>Un patient ne vient pas « consulter ». Il vient régler <strong>un problème de santé</strong>. Ce problème peut se clore en un passage ou s'étaler sur plusieurs jours, être traité sans jamais voir de médecin, donner lieu à une visite de continuité qui n'a de sens que rattachée à ce qui la précède.</p>
+  <p>Lafia modélise donc le <strong>cas de visite</strong> : le problème dans son entier, qui regroupe toutes les visites, analyses, ordonnances et délivrances qui s'y rapportent.</p>
+
+  <h3>Règles</h3>
+  <ul class="check">
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Un patient peut avoir plusieurs cas ouverts, sans qu'ils se mélangent</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Une visite appartient toujours à un cas, et à un seul</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Un cas traverse plusieurs établissements sans être dupliqué</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Un cas se clôt avec un diagnostic de sortie, ou reste ouvert en suivi</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Rien n'est supprimable : une correction est une écriture datée et signée</li>
+  </ul>
+
+  <h3>Déroulement type</h3>
+  <ul class="timeline">
+    <li><div class="node">1</div><div class="body"><p>Un infirmier reçoit une femme aux maux de tête persistants. Il ouvre un cas, relève tension et température.</p></div></li>
+    <li><div class="node">2</div><div class="body"><p>Un médecin la voit dans le même cas, constate une tension élevée, prescrit un bilan rénal.</p></div></li>
+    <li><div class="node">3</div><div class="body"><p>Le laboratoire dépose les résultats : la créatinine en valeur chiffrée, le bordereau en document, rattachés au cas.</p></div></li>
+    <li><div class="node">4</div><div class="body"><p>Visite de continuité dans un autre centre. Le médecin ouvre le cas, voit tout le fil, ajuste le traitement.</p></div></li>
+    <li><div class="node">5</div><div class="body"><p>Trois mois plus tard, la courbe de créatinine se lit d'un coup d'œil : le suivi est possible parce que la donnée était structurée.</p></div></li>
+  </ul>
+</section>
+
+<section>
+  <p class="label">Modèle de données</p>
+  <p>Chaque information est une entité typée, datée et signée par son auteur, pour rester exploitable au-delà de la visite qui l'a produite.</p>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>Entité</th><th>Ce qu'elle porte</th></tr>
+    <tr><td class="a">Patient</td><td class="b">Identité civile par NPI, groupe sanguin, allergies, traitements de fond, couverture</td></tr>
+    <tr><td class="a">Cas de visite</td><td class="b">Motif d'ouverture, état, établissement d'origine, diagnostic de sortie</td></tr>
+    <tr><td class="a">Visite</td><td class="b">Type, date, établissement, soignant auteur, observations, conclusion</td></tr>
+    <tr><td class="a">Mesure</td><td class="b">Type codé, valeur, unité, date de prélèvement, valeurs de référence</td></tr>
+    <tr><td class="a">Document</td><td class="b">Bordereau, imagerie, compte rendu signé, en complément de la valeur chiffrée</td></tr>
+    <tr><td class="a">Diagnostic</td><td class="b">Libellé codé, stade ou sévérité, statut provisoire ou confirmé</td></tr>
+    <tr><td class="a">Ordonnance</td><td class="b">Identifiant unique, prescripteur, date, validité, lignes</td></tr>
+    <tr><td class="a">Ligne d'ordonnance</td><td class="b">Produit codé, posologie, quantité, état de paiement, état de délivrance</td></tr>
+    <tr><td class="a">Encaissement</td><td class="b">Lignes réglées, montant, caissier, mention de paiement différé</td></tr>
+    <tr><td class="a">Délivrance</td><td class="b">Quantité remise, officine, pharmacien, substitution éventuelle</td></tr>
+    <tr><td class="a">Accès</td><td class="b">Agent, établissement, nature, date, motif en cas d'urgence</td></tr>
+  </table>
+  </div>
+</section>
+
+<section>
+  <p class="label">Parcours de l'ordonnance</p>
+  <p>Une file d'attente à la caisse n'est pas de la mauvaise volonté : c'est quelqu'un qui retape ce qui existe déjà. Tracer l'ordonnance supprime cette étape.</p>
+  <ul class="timeline">
+    <li><div class="node">1</div><div class="body"><p>Le soignant crée l'ordonnance depuis la visite. Elle reçoit un identifiant unique, et reste retrouvable par le NPI si le reçu est perdu.</p></div></li>
+    <li><div class="node">2</div><div class="body"><p>À la caisse, l'identifiant affiche les lignes à régler. Rien n'est retapé.</p></div></li>
+    <li><div class="node">3</div><div class="body"><p>Le caissier coche les lignes disponibles et encaisse. Les lignes écartées restent ouvertes pour plus tard.</p></div></li>
+    <li><div class="node">4</div><div class="body"><p>À la pharmacie, la délivrance est tracée ligne par ligne. Une délivrance partielle est un état normal.</p></div></li>
+    <li><div class="node">5</div><div class="body"><p>Tout remonte au cas. Le prescripteur voit au contrôle suivant ce qui a été payé, retiré, ou jamais retiré.</p></div></li>
+  </ul>
+  <p class="muted" style="margin-top:20px;">En urgence vitale, le soin n'attend pas le paiement : les lignes sont marquées en paiement différé, conformément au dispositif national.</p>
+</section>
+
+<section>
+  <p class="label">Architecture</p>
+  <p>Un noyau qui détient la donnée, des services indépendants autour, qui ne se parlent jamais directement mais passent tous par lui.</p>
+  <div style="margin-top:10px;">
+    <div class="layer"><div class="k">1</div><div><p class="t">Noyau et registres</p><p class="d">Registre des patients indexé sur le NPI, registre des professionnels, registre des établissements, référentiels de codage.</p></div></div>
+    <div class="layer"><div class="k">2</div><div><p class="t">Dossier partagé</p><p class="d">Cas, visites, mesures, documents, diagnostics, ordonnances. La source unique de vérité.</p></div></div>
+    <div class="layer"><div class="k">3</div><div><p class="t">Services de domaine</p><p class="d">Soin, caisse, pharmacie, laboratoire, urgence, télémédecine. Chacun autonome et remplaçable.</p></div></div>
+    <div class="layer"><div class="k">4</div><div><p class="t">Analytique</p><p class="d">Entrepôt alimenté par le dossier, dédié aux requêtes de population, avec ses propres droits.</p></div></div>
+  </div>
+  <p class="muted" style="margin-top:18px;">Deux couches traversent l'ensemble : l'identité et les droits d'un côté, le journal d'audit de l'autre.</p>
+
+  <h3>Pourquoi séparer l'analytique</h3>
+  <p>Ouvrir un dossier et interroger une population sont deux actes différents. Un clinicien accède à une personne ; un chercheur qui veut la liste des insuffisants rénaux à un stade donné accède à une cohorte. Les mélanger dans la même base et sous les mêmes droits est la faille qui coule un système national.</p>
+</section>
+
+<section>
+  <p class="label">Acteurs</p>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>Acteur</th><th>Ce qu'il fait</th></tr>
+    <tr><td class="a">Citoyen</td><td class="b">Identifié par son NPI. Consulte son carnet et l'état de ses ordonnances. Ne saisit aucune donnée médicale</td></tr>
+    <tr><td class="a">Infirmier, agent communautaire</td><td class="b">Ouvre un cas, relève des mesures, prend en charge sans passage médical obligatoire</td></tr>
+    <tr><td class="a">Médecin</td><td class="b">Consulte l'historique, pose le diagnostic, édite la visite, prescrit</td></tr>
+    <tr><td class="a">Laboratoire</td><td class="b">Dépose les résultats en valeurs chiffrées et en document, rattachés au cas</td></tr>
+    <tr><td class="a">Caisse</td><td class="b">Ouvre une ordonnance par son identifiant, encaisse les lignes retenues</td></tr>
+    <tr><td class="a">Pharmacie</td><td class="b">Délivre ligne par ligne et trace ce qui a réellement été remis</td></tr>
+    <tr><td class="a">Autorité sanitaire</td><td class="b">Interroge les données agrégées, sans accès nominatif au dossier vivant</td></tr>
+  </table>
+  </div>
+</section>
+
+<section>
+  <p class="label">Inclusivité</p>
+  <p>Traitée comme une contrainte de conception, pas comme une couche de peinture finale. La population visée n'est pas une population connectée.</p>
+  <h3>Comprendre sans lire</h3>
+  <p>Chaque écran destiné au citoyen doit être compréhensible <strong>au premier regard</strong> par quelqu'un qui ne sait pas lire. L'illustration n'est pas un ornement posé à côté du texte : elle porte l'information. Un dessin d'ordonnance, un dessin de caisse, un dessin de pharmacie, et la personne sait où elle en est. C'est un travail de conception graphique à part entière.</p>
+  <ul class="check" style="margin-top:14px;">
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Contrastes élevés, texte redimensionnable, zones tactiles généreuses</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Aucune information portée par la couleur seule</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Compatibilité lecteur d'écran, navigation au clavier</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Vocabulaire courant, phrases courtes, un écran une décision</li>
+  </ul>
+</section>
+
+<section>
+  <p class="label">Confidentialité</p>
+  <p>Un dossier partagé à l'échelle nationale concentre ce qu'une personne a de plus intime. L'exigence est structurante, pas déclarative.</p>
+  <ul class="check">
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Chaque agent ne voit que ce que son rôle justifie : un caissier voit une ordonnance, pas un diagnostic</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Tout accès est enregistré, consultable par le patient</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>L'accès d'urgence dérogatoire existe, mais laisse une trace motivée</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>L'exploitation statistique se fait sur des données dépersonnalisées</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Aucune donnée n'est supprimée : l'historique des corrections reste lisible</li>
+  </ul>
+</section>
+
+<section>
+  <p class="label">Périmètre de la première version</p>
+  <div class="compare">
+    <div class="build">
+      <h3>Construit</h3>
+      <ul class="outline">
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Noyau et dossier partagé, peuplé de données synthétiques</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Service de soin : cas, visite, mesures, diagnostic, ordonnance</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Service caisse : encaissement sans ressaisie</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Service pharmacie : délivrance tracée</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Accès citoyen illustré</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Droits par rôle et journal d'accès</li>
+      </ul>
+    </div>
+    <div class="show">
+      <h3>Posé en architecture</h3>
+      <ul class="outline">
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="var(--ink-500)" stroke-width="1.4" fill="none"/></svg>Parcours d'urgence complet</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="var(--ink-500)" stroke-width="1.4" fill="none"/></svg>Télémédecine comme type de visite</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="var(--ink-500)" stroke-width="1.4" fill="none"/></svg>Entrepôt analytique et requêtes de population</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="var(--ink-500)" stroke-width="1.4" fill="none"/></svg>Registres des professionnels et établissements</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="label">Hors périmètre</p>
+  <p>Écarté volontairement pour que ce qui est livré tienne debout. Ces pistes restent ouvertes.</p>
+  <ul class="parked">
+    <li><span class="dot"></span>Assistance vocale et restitution en langues locales</li>
+    <li><span class="dot"></span>Assistance à la rédaction du dossier pendant la consultation</li>
+    <li><span class="dot"></span>Aide au diagnostic par intelligence artificielle</li>
+    <li><span class="dot"></span>Fonctionnement hors connexion</li>
+    <li><span class="dot"></span>Canal sur téléphone à touches</li>
+    <li><span class="dot"></span>Objets connectés de mesure</li>
+    <li><span class="dot"></span>Gestion des stocks pharmaceutiques</li>
+    <li><span class="dot"></span>Facturation complète avec les organismes de couverture</li>
+  </ul>
+</section>
+
+</div>
+</main>
+
+<footer class="band">
+  <p>Données synthétiques, contraintes béninoises réelles. Ce qui est posé ici doit pouvoir, demain, porter le carnet de santé numérique de chaque béninois.</p>
+</footer>
+
+</body>
+</html>

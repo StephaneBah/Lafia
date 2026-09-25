@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lafia — Dossier d'architecture technique</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --brand-teal: #1B5E52; --brand-ink: #14211D;
+    --paper: #FFFFFF; --ink-800: #1F2C29; --ink-500: #5C6F69;
+    --accent: #1B5E52; --mint-100: #E8F3EF; --on-mint: #163B33;
+    --rule: #DEE9E4; --code-bg: #F3F7F5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #101D19; --ink-800: #E8F1ED; --ink-500: #9FB6AE;
+      --accent: #55B49D; --mint-100: #17322B; --on-mint: #BFE7D9;
+      --rule: #26403A; --code-bg: #162923;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #101D19; --ink-800: #E8F1ED; --ink-500: #9FB6AE;
+    --accent: #55B49D; --mint-100: #17322B; --on-mint: #BFE7D9;
+    --rule: #26403A; --code-bg: #162923;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink-800);
+    font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header.band { background: var(--brand-teal); padding: calc(52px + env(safe-area-inset-top, 0px)) 24px 40px; }
+  header.band .inner { max-width: 780px; margin: 0 auto; }
+  header.band h1 {
+    font-family: 'Lora', Georgia, serif; font-weight: 700; color: #FFFFFF;
+    font-size: clamp(1.9rem, 5vw, 2.6rem); margin: 0 0 12px; letter-spacing: -0.01em;
+  }
+  header.band .sub { color: #E3F1EC; font-size: 1.02rem; line-height: 1.55; margin: 0 0 20px; max-width: 52ch; }
+  .docmeta { display: grid; grid-template-columns: auto 1fr; gap: 4px 18px; font-size: 0.84rem; color: #BEDBD1; margin: 0; }
+  .docmeta dt { font-weight: 600; color: #D9ECE5; }
+  .docmeta dd { margin: 0; }
+
+  .wrap { max-width: 780px; margin: 0 auto; padding: 8px 24px 16px; }
+  section { padding: 34px 0; border-top: 1px solid var(--rule); }
+  section:first-of-type { border-top: none; padding-top: 42px; }
+
+  h2 { font-family: 'Lora', Georgia, serif; font-weight: 600; font-size: 1.35rem; color: var(--ink-800); margin: 0 0 16px; }
+  h2 .n { color: var(--accent); margin-right: 10px; }
+  h3 { font-weight: 600; font-size: 0.98rem; margin: 24px 0 8px; }
+  h3 .n { color: var(--accent); margin-right: 8px; font-weight: 700; }
+  p { font-size: 0.98rem; line-height: 1.65; margin: 0 0 14px; max-width: 66ch; }
+  p:last-child { margin-bottom: 0; }
+  p.note { color: var(--ink-500); font-size: 0.92rem; }
+  code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+
+  pre { background: var(--code-bg); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; overflow-x: auto; margin: 12px 0 16px; }
+  pre code { background: none; padding: 0; font-size: 0.82rem; line-height: 1.6; }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 6px; }
+  table th { text-align: left; font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-weight: 700; padding: 0 12px 9px 0; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: top; font-size: 0.9rem; line-height: 1.5; }
+  table td.a { font-weight: 600; }
+  table td.b { color: var(--ink-500); }
+  table td.m { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; white-space: nowrap; }
+  .tbl-scroll { overflow-x: auto; }
+
+  ul.plain { margin: 6px 0 0; padding-left: 20px; }
+  ul.plain li { font-size: 0.95rem; line-height: 1.6; margin-bottom: 6px; max-width: 64ch; }
+
+  footer.band { background: var(--brand-ink); padding: 22px 24px calc(22px + env(safe-area-inset-bottom, 0px)); }
+  footer.band p { max-width: 780px; margin: 0 auto; color: #BFD3CC; font-size: 0.84rem; }
+
+  @media (max-width: 620px) {
+    header.band { padding-top: calc(38px + env(safe-area-inset-top, 0px)); }
+  }
+</style>
+</head>
+<body>
+
+<header class="band">
+  <div class="inner">
+    <h1>Lafia — Dossier d'architecture technique</h1>
+    <p class="sub">Architecture, modèle de données, services, sécurité et déploiement du socle interopérable du carnet de santé numérique.</p>
+    <dl class="docmeta">
+      <dt>Version</dt><dd>3.0</dd>
+      <dt>Date</dt><dd>25 septembre 2026</dd>
+      <dt>Référence</dt><dd>Cahier des charges Lafia, version 2</dd>
+    </dl>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+<section>
+  <h2><span class="n">1</span>Objet du document</h2>
+  <p>Ce document décrit l'architecture technique de la première version de Lafia : ses composants, la façon dont ils communiquent, la représentation des données, les mécanismes de sécurité et l'infrastructure de déploiement. Il traduit en choix techniques les exigences fonctionnelles établies dans le cahier des charges.</p>
+  <p>La version décrite couvre le noyau, les services de soin, de caisse, de pharmacie et d'accès citoyen, ainsi que le service d'identité des agents.</p>
+</section>
+
+<section>
+  <h2><span class="n">2</span>Vue d'ensemble</h2>
+
+  <h3><span class="n">2.1</span>Principe</h3>
+  <p>L'architecture repose sur un noyau unique, détenteur de toute la donnée médicale, autour duquel s'organisent des services métier indépendants. Chaque service répond à un usage précis et ne communique qu'avec le noyau, au moyen du standard HL7 FHIR. Aucun service ne conserve de copie de la donnée médicale et aucun ne dialogue directement avec un autre.</p>
+  <p>Cette organisation garantit que l'ajout ou le remplacement d'un service — laboratoire, télémédecine, application tierce — n'exige aucune modification des services existants : il suffit qu'il parle FHIR au noyau.</p>
+
+  <h3><span class="n">2.2</span>Schéma</h3>
+<pre><code>                     Navigateur (interfaces React)
+                                │  HTTPS
+                                ▼
+                    Passerelle (Caddy) ── TLS, routage
+                                │
+     ┌──────────────┬───────────┼────────────┬──────────────┐
+     ▼              ▼           ▼            ▼              ▼
+  identité         soin       caisse     pharmacie       citoyen
+     │              │           │            │              │
+     │              └───────────┴─────┬──────┴──────────────┘
+     │                                │  FHIR (REST), réseau interne
+     ▼                                ▼
+ PostgreSQL                   Noyau HAPI FHIR ──► PostgreSQL
+ (comptes, rôles)             (dossier partagé)</code></pre>
+
+  <h3><span class="n">2.3</span>Composants</h3>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>Composant</th><th>Responsabilité</th><th>Exposition</th></tr>
+    <tr><td class="a">Passerelle</td><td class="b">Terminaison TLS, distribution des interfaces, routage des requêtes vers les services</td><td class="b">Publique</td></tr>
+    <tr><td class="a">Noyau</td><td class="b">Stockage et restitution de toute la donnée médicale au format FHIR</td><td class="b">Réseau interne</td></tr>
+    <tr><td class="a">Service identité</td><td class="b">Comptes des agents, rôles, établissement de rattachement, émission des jetons</td><td class="b">Via passerelle</td></tr>
+    <tr><td class="a">Service soin</td><td class="b">Patients, cas de visite, visites, mesures, diagnostics, émission des ordonnances, accès d'urgence</td><td class="b">Via passerelle</td></tr>
+    <tr><td class="a">Service caisse</td><td class="b">Consultation des ordonnances, encaissement ligne par ligne</td><td class="b">Via passerelle</td></tr>
+    <tr><td class="a">Service pharmacie</td><td class="b">Délivrance totale ou partielle, contrôle des allergies</td><td class="b">Via passerelle</td></tr>
+    <tr><td class="a">Service citoyen</td><td class="b">Restitution simplifiée du carnet pour le parcours illustré</td><td class="b">Via passerelle</td></tr>
+    <tr><td class="a">Interfaces</td><td class="b">Une interface par profil d'utilisateur, servie en fichiers statiques</td><td class="b">Via passerelle</td></tr>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">3</span>Choix techniques</h2>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>Besoin</th><th>Choix</th><th>Justification</th></tr>
+    <tr><td class="a">Standard d'échange</td><td class="b">HL7 FHIR R4</td><td class="b">Standard international ouvert, couvrant nativement toutes les entités du modèle</td></tr>
+    <tr><td class="a">Noyau</td><td class="b">HAPI FHIR JPA Server</td><td class="b">Implémentation de référence, open source, déployable en conteneur sans développement</td></tr>
+    <tr><td class="a">Services</td><td class="b">Python 3.11, FastAPI</td><td class="b">Développement rapide, documentation d'interface générée automatiquement</td></tr>
+    <tr><td class="a">Interfaces</td><td class="b">React</td><td class="b">Composants réutilisables entre les interfaces des différents profils</td></tr>
+    <tr><td class="a">Persistance</td><td class="b">PostgreSQL</td><td class="b">Support natif de HAPI, base commune à tous les composants</td></tr>
+    <tr><td class="a">Passerelle</td><td class="b">Caddy</td><td class="b">Certificats TLS obtenus et renouvelés automatiquement</td></tr>
+    <tr><td class="a">Orchestration</td><td class="b">Docker Compose</td><td class="b">Déploiement reproductible, portable vers toute infrastructure conteneurisée</td></tr>
+    <tr><td class="a">Hébergement</td><td class="b">Microsoft Azure</td><td class="b">Crédit disponible ; aucune dépendance à un service propriétaire, donc réversible</td></tr>
+  </table>
+  </div>
+  <p class="note" style="margin-top:12px;">Le noyau HAPI est utilisé dans sa configuration standard, sans profil ni extension personnalisés. Les règles métier propres à Lafia sont implémentées dans les services, ce qui préserve la conformité du noyau au standard.</p>
+</section>
+
+<section>
+  <h2><span class="n">4</span>Modèle de données</h2>
+
+  <h3><span class="n">4.1</span>Correspondance avec FHIR</h3>
+  <p>Chaque entité du cahier des charges est représentée par une ressource FHIR standard. Aucune ressource spécifique n'est créée.</p>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>Entité</th><th>Ressource FHIR</th><th>Liaison principale</th></tr>
+    <tr><td class="a">Patient</td><td class="m">Patient</td><td class="b">Identifié par le NPI</td></tr>
+    <tr><td class="a">Cas de visite</td><td class="m">EpisodeOfCare</td><td class="b"><code>patient</code>, <code>managingOrganization</code></td></tr>
+    <tr><td class="a">Visite</td><td class="m">Encounter</td><td class="b"><code>episodeOfCare</code>, <code>participant</code></td></tr>
+    <tr><td class="a">Mesure, résultat</td><td class="m">Observation</td><td class="b"><code>encounter</code>, <code>effectiveDateTime</code></td></tr>
+    <tr><td class="a">Document</td><td class="m">DocumentReference</td><td class="b"><code>context.encounter</code></td></tr>
+    <tr><td class="a">Diagnostic</td><td class="m">Condition</td><td class="b"><code>encounter</code>, <code>verificationStatus</code></td></tr>
+    <tr><td class="a">Ligne d'ordonnance</td><td class="m">MedicationRequest</td><td class="b"><code>encounter</code>, <code>groupIdentifier</code></td></tr>
+    <tr><td class="a">Délivrance</td><td class="m">MedicationDispense</td><td class="b"><code>authorizingPrescription</code></td></tr>
+    <tr><td class="a">Encaissement</td><td class="m">Invoice</td><td class="b"><code>subject</code>, lignes réglées</td></tr>
+    <tr><td class="a">Allergie</td><td class="m">AllergyIntolerance</td><td class="b"><code>patient</code></td></tr>
+    <tr><td class="a">Soignant</td><td class="m">Practitioner</td><td class="b">Auteur des écritures</td></tr>
+    <tr><td class="a">Établissement</td><td class="m">Organization</td><td class="b">Lieu des visites</td></tr>
+    <tr><td class="a">Trace d'accès</td><td class="m">AuditEvent</td><td class="b"><code>entity</code>, <code>agent</code></td></tr>
+  </table>
+  </div>
+
+  <h3><span class="n">4.2</span>Identification du patient</h3>
+  <p>Le NPI est porté comme identifiant métier de la ressource <code>Patient</code>, distinct de son identifiant technique. La recherche d'un patient s'effectue exclusivement par cet identifiant.</p>
+<pre><code>"identifier": [{ "system": "https://npi.gouv.bj", "value": "0123456789" }]
+
+GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
+
+  <h3><span class="n">4.3</span>Regroupement des ordonnances</h3>
+  <p>FHIR représente une prescription ligne par ligne. Les lignes d'une même ordonnance partagent un identifiant commun, porté par <code>groupIdentifier</code>, qui constitue le numéro d'ordonnance présenté à la caisse et à la pharmacie.</p>
+<pre><code>GET /fhir/MedicationRequest?group-identifier=ORD-2026-0007841</code></pre>
+
+  <h3><span class="n">4.4</span>Données hors noyau</h3>
+  <p>Seul le service identité dispose d'une base propre, limitée aux comptes des agents, à leurs rôles et à leur établissement de rattachement. Aucune donnée médicale n'y figure.</p>
+</section>
+
+<section>
+  <h2><span class="n">5</span>Services et interfaces de programmation</h2>
+  <p>Chaque service expose des opérations métier sous son propre préfixe. Chaque opération se traduit en une ou plusieurs requêtes FHIR vers le noyau. La documentation de chaque interface est publiée au format OpenAPI.</p>
+
+  <h3><span class="n">5.1</span>Service identité</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>Méthode</th><th>Route</th><th>Opération</th></tr>
+    <tr><td class="m">POST</td><td class="m">/api/identite/connexion</td><td class="b">Authentification d'un agent, émission du jeton</td></tr>
+    <tr><td class="m">GET</td><td class="m">/api/identite/moi</td><td class="b">Profil et droits de l'agent connecté</td></tr>
+  </table></div>
+
+  <h3><span class="n">5.2</span>Service soin</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>Méthode</th><th>Route</th><th>Opération</th></tr>
+    <tr><td class="m">GET</td><td class="m">/api/soin/patients?npi=</td><td class="b">Recherche d'un patient par NPI</td></tr>
+    <tr><td class="m">GET</td><td class="m">/api/soin/patients/{id}/synthese</td><td class="b">Identité, allergies, traitements, cas ouverts</td></tr>
+    <tr><td class="m">GET</td><td class="m">/api/soin/patients/{id}/mesures</td><td class="b">Historique d'une mesure</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/soin/cas</td><td class="b">Ouverture d'un cas de visite</td></tr>
+    <tr><td class="m">GET</td><td class="m">/api/soin/cas/{id}/fil</td><td class="b">Chronologie complète d'un cas</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/soin/cas/{id}/visites</td><td class="b">Enregistrement d'une visite</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/soin/visites/{id}/mesures</td><td class="b">Dépôt de mesures ou de résultats</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/soin/visites/{id}/diagnostic</td><td class="b">Enregistrement d'un diagnostic</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/soin/visites/{id}/ordonnances</td><td class="b">Émission d'une ordonnance</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/soin/cas/{id}/cloture</td><td class="b">Clôture d'un cas</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/soin/urgence/acces</td><td class="b">Accès dérogatoire motivé</td></tr>
+  </table></div>
+
+  <h3><span class="n">5.3</span>Service caisse</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>Méthode</th><th>Route</th><th>Opération</th></tr>
+    <tr><td class="m">GET</td><td class="m">/api/caisse/ordonnances/{ref}</td><td class="b">Lignes à régler et leur état</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/caisse/ordonnances/{ref}/encaissement</td><td class="b">Encaissement des lignes retenues</td></tr>
+  </table></div>
+
+  <h3><span class="n">5.4</span>Service pharmacie</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>Méthode</th><th>Route</th><th>Opération</th></tr>
+    <tr><td class="m">GET</td><td class="m">/api/pharmacie/ordonnances/{ref}</td><td class="b">Lignes payées, allergies du patient</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/pharmacie/ordonnances/{ref}/delivrance</td><td class="b">Délivrance totale ou partielle</td></tr>
+  </table></div>
+
+  <h3><span class="n">5.5</span>Service citoyen</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>Méthode</th><th>Route</th><th>Opération</th></tr>
+    <tr><td class="m">GET</td><td class="m">/api/citoyen/carnet</td><td class="b">Cas en cours, ordonnances, traitement</td></tr>
+    <tr><td class="m">GET</td><td class="m">/api/citoyen/acces</td><td class="b">Journal des consultations de son dossier</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">6</span>Sécurité</h2>
+
+  <h3><span class="n">6.1</span>Isolement du noyau</h3>
+  <p>Le noyau n'est joignable que depuis le réseau interne des conteneurs et ne publie aucun port. Tout accès à la donnée médicale transite donc par un service, où s'appliquent l'authentification, le contrôle des droits et la traçabilité.</p>
+
+  <h3><span class="n">6.2</span>Authentification</h3>
+  <p>Le service identité émet, après authentification, un jeton signé portant l'identifiant de l'agent, son rôle et son établissement. Chaque service vérifie la signature du jeton de façon autonome, sans appel au service identité.</p>
+
+  <h3><span class="n">6.3</span>Contrôle d'accès</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>Rôle</th><th>Services</th><th>Périmètre de données</th></tr>
+    <tr><td class="a">Médecin</td><td class="b">Soin</td><td class="b">Dossier complet, lecture et écriture</td></tr>
+    <tr><td class="a">Infirmier</td><td class="b">Soin</td><td class="b">Dossier complet ; diagnostic confirmé exclu</td></tr>
+    <tr><td class="a">Caissier</td><td class="b">Caisse</td><td class="b">Ordonnances et montants uniquement</td></tr>
+    <tr><td class="a">Pharmacien</td><td class="b">Pharmacie</td><td class="b">Ordonnances payées, allergies, traitements de fond</td></tr>
+    <tr><td class="a">Citoyen</td><td class="b">Citoyen</td><td class="b">Son propre carnet et son journal d'accès</td></tr>
+  </table></div>
+
+  <h3><span class="n">6.4</span>Traçabilité</h3>
+  <p>Toute lecture ou écriture d'un dossier produit une ressource <code>AuditEvent</code> dans le noyau, indiquant l'agent, l'établissement, la nature de l'accès et sa date. L'accès d'urgence dérogatoire exige un motif, enregistré dans la même trace. Les ressources médicales ne sont jamais supprimées ; une correction produit une nouvelle version, l'historique restant consultable.</p>
+</section>
+
+<section>
+  <h2><span class="n">7</span>Infrastructure et déploiement</h2>
+
+  <h3><span class="n">7.1</span>Environnement</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>Élément</th><th>Spécification</th></tr>
+    <tr><td class="a">Hôte</td><td class="b">Machine virtuelle Azure, Linux Ubuntu 24.04</td></tr>
+    <tr><td class="a">Capacité</td><td class="b">2 processeurs virtuels, 8 Go de mémoire ; 4 Go constituent le minimum</td></tr>
+    <tr><td class="a">Réseau</td><td class="b">Ports 80 et 443 ouverts ; aucun autre port exposé</td></tr>
+    <tr><td class="a">Nom de domaine</td><td class="b">Nom attribué à la machine, certificat délivré automatiquement</td></tr>
+  </table></div>
+  <p class="note" style="margin-top:12px;">Le noyau HAPI, application Java, est le composant le plus consommateur de mémoire. Sa limite mémoire est fixée explicitement dans la configuration afin de préserver les autres conteneurs.</p>
+
+  <h3><span class="n">7.2</span>Conteneurs</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>Conteneur</th><th>Image</th><th>Réseau</th></tr>
+    <tr><td class="a">passerelle</td><td class="m">caddy</td><td class="b">Public et interne</td></tr>
+    <tr><td class="a">noyau</td><td class="m">hapiproject/hapi</td><td class="b">Interne</td></tr>
+    <tr><td class="a">base</td><td class="m">postgres</td><td class="b">Interne</td></tr>
+    <tr><td class="a">identite</td><td class="m">lafia/identite</td><td class="b">Interne</td></tr>
+    <tr><td class="a">soin</td><td class="m">lafia/soin</td><td class="b">Interne</td></tr>
+    <tr><td class="a">caisse</td><td class="m">lafia/caisse</td><td class="b">Interne</td></tr>
+    <tr><td class="a">pharmacie</td><td class="m">lafia/pharmacie</td><td class="b">Interne</td></tr>
+    <tr><td class="a">citoyen</td><td class="m">lafia/citoyen</td><td class="b">Interne</td></tr>
+  </table></div>
+
+  <h3><span class="n">7.3</span>Mise en production</h3>
+  <p>Le déploiement s'effectue par récupération du dépôt sur l'hôte et lancement de l'ensemble des conteneurs par Docker Compose. Un script de chargement alimente le noyau avec le jeu de données de démonstration ; il est rejouable et réinitialise les données à chaque exécution.</p>
+</section>
+
+<section>
+  <h2><span class="n">8</span>Organisation du code</h2>
+<pre><code>lafia/
+├── docker-compose.yml
+├── Caddyfile
+├── docs/                   architecture, correspondance FHIR
+├── commun/                 bibliothèque partagée par les services
+│   ├── fhir.py             client du noyau
+│   ├── jeton.py            vérification des jetons
+│   └── audit.py            production des traces
+├── services/
+│   ├── identite/
+│   ├── soin/
+│   ├── caisse/
+│   ├── pharmacie/
+│   └── citoyen/            chacun : routes, règles, Dockerfile
+├── donnees/                jeu de démonstration, script de chargement
+└── web/                    interfaces par profil, pictogrammes</code></pre>
+  <p>La bibliothèque commune évite la duplication du client FHIR, de la vérification des jetons et de la production des traces entre services, sans créer de dépendance d'exécution entre eux.</p>
+</section>
+
+<section>
+  <h2><span class="n">9</span>Données de démonstration</h2>
+  <p>Le jeu de données est synthétique et construit pour couvrir les situations décrites dans le cahier des charges :</p>
+  <ul class="plain">
+    <li>une trentaine de patients aux identités et localités béninoises plausibles ;</li>
+    <li>trois établissements et une dizaine de soignants ;</li>
+    <li>un suivi d'insuffisance rénale comportant une série de mesures de créatinine sur deux ans ;</li>
+    <li>un cas de visite couvrant deux établissements ;</li>
+    <li>un patient présentant une allergie médicamenteuse ;</li>
+    <li>des ordonnances à différents états : non réglée, réglée, partiellement délivrée, délivrée.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">10</span>Planification</h2>
+  <div class="tbl-scroll"><table>
+    <tr><th>Lot</th><th>Contenu</th><th>Critère d'achèvement</th></tr>
+    <tr><td class="a">1. Socle</td><td class="b">Conteneurs, noyau, passerelle, déploiement Azure, bibliothèque commune</td><td class="b">Le noyau répond via un service sur l'adresse publique</td></tr>
+    <tr><td class="a">2. Identité et données</td><td class="b">Service identité, jeu de démonstration chargé</td><td class="b">Un agent s'authentifie ; les patients sont présents</td></tr>
+    <tr><td class="a">3. Service soin</td><td class="b">Opérations du service soin et interface soignant</td><td class="b">Ouverture d'un cas, visite, relecture du fil</td></tr>
+    <tr><td class="a">4. Caisse et pharmacie</td><td class="b">Émission d'ordonnance, services et interfaces caisse et pharmacie</td><td class="b">Ordonnance émise, réglée, délivrée, visible au dossier</td></tr>
+    <tr><td class="a">5. Citoyen et finalisation</td><td class="b">Service et interface citoyen, accès d'urgence, documentation</td><td class="b">Parcours complet démontrable sur l'adresse publique</td></tr>
+  </table></div>
+  <p class="note" style="margin-top:12px;">Lots 1 à 3 le premier jour, lots 4 et 5 le second.</p>
+</section>
+
+<section>
+  <h2><span class="n">11</span>Points en suspens</h2>
+  <div class="tbl-scroll"><table>
+    <tr><th>Sujet</th><th>Options</th></tr>
+    <tr><td class="a">Format du numéro d'ordonnance</td><td class="b">Code graphique à scanner, ou identifiant court saisissable sans matériel de lecture</td></tr>
+    <tr><td class="a">Authentification du citoyen</td><td class="b">NPI seul, ou NPI accompagné d'un code remis lors de la visite</td></tr>
+    <tr><td class="a">Nom du projet</td><td class="b">Lafia retenu à titre provisoire</td></tr>
+  </table></div>
+</section>
+
+</div>
+</main>
+
+<footer class="band">
+  <p>Lafia — Dossier d'architecture technique, version 3.0</p>
+</footer>
+
+</body>
+</html>
