@@ -1,0 +1,41 @@
+# Secrets: environment files and signing keys never enter git.
+# Only the example file, listing every variable without values, is committed.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Node and Next.js (web/ workspace)
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+npm-debug.log*
+
+# Python (services/, commun/, donnees/, tests)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Claude Code: personal settings stay local; project skills are committed
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
