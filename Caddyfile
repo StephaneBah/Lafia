@@ -1,20 +1,27 @@
 # Passerelle : la seule entrée publique de Lafia.
-# Chaque application a son sous-domaine ; sur ce sous-domaine, /api/<son service>/*
-# va à son service, et rien d'autre n'est routé.
+# Chaque application a son sous-domaine ; sur ce sous-domaine, /api/<son service>/* va à son
+# service, tout autre /api/* reçoit 404, et le reste va à l'application.
 #
 # LAFIA_DOMAINE vaut localhost en local : Caddy signe alors les certificats de
 # soin.localhost, … par son autorité interne. Sur un vrai domaine, il les obtient
 # et les renouvelle auprès d'une autorité publique.
+#
+# Chaque sous-domaine a aussi une entrée interne, http://<sous-domaine>:8080, que seul le réseau
+# passerelle atteint (le port n'est pas publié) : le serveur d'une application y joint son service
+# en HTTP, par les mêmes règles que le public.
 {
 	# L'autorité interne reste dans le conteneur : pas d'installation dans un magasin système.
 	skip_install_trust
 }
 
-soin.{$LAFIA_DOMAINE} {
+soin.{$LAFIA_DOMAINE}, http://soin.{$LAFIA_DOMAINE}:8080 {
 	handle /api/soin/* {
 		reverse_proxy soin:8000
 	}
-	handle {
+	handle /api/* {
 		respond 404
+	}
+	handle {
+		reverse_proxy application-soin:3000
 	}
 }

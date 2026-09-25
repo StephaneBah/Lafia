@@ -10,7 +10,7 @@ Requires Docker with Compose v2. From a clean clone:
 docker compose up -d --build --wait
 ```
 
-The first start takes a few minutes while HAPI creates its schema. Then `https://soin.localhost/api/soin/sante` reports the noyau's FHIR version, and the service's OpenAPI documentation is at `https://soin.localhost/api/soin/docs`.
+The first start takes a few minutes while HAPI creates its schema. Then `https://soin.localhost` serves the soin application, showing its service's status and the noyau's FHIR version; `https://soin.localhost/api/soin/sante` reports the same as JSON, and the service's OpenAPI documentation is at `https://soin.localhost/api/soin/docs`.
 
 Locally, the gateway signs `*.localhost` certificates with Caddy's internal authority, so a browser warns until you trust its root, found in the `passerelle` container at `/data/caddy/pki/authorities/local/root.crt`.
 
@@ -20,6 +20,17 @@ The noyau's data lives in the `noyau-donnees` volume: `docker compose down` keep
 
 `.env.example` lists every variable. Without a `.env`, the stack runs on local development values; in production, copy the example to `.env` (git-ignored) and set every value.
 
+## Web workspace
+
+The applications and the design system form an npm workspace in `web/`, on Node.js 22. Compose builds each application's image on its own; to work on the code:
+
+```sh
+cd web
+npm install
+npm run typecheck    # every package
+npm run build        # every application, as Next.js standalone output
+```
+
 ## Tests
 
 A black-box suite runs against the running stack through the gateway, addressing each application by its subdomain. It needs [uv](https://docs.astral.sh/uv/):
@@ -28,15 +39,19 @@ A black-box suite runs against the running stack through the gateway, addressing
 uv run --project tests pytest tests
 ```
 
+The network isolation checks (`tests/test_isolement.py`) use `docker` on the machine that runs the targeted stack, and are skipped when that stack runs elsewhere.
+
 The same suite checks another deployment by changing the base domain: `LAFIA_DOMAINE=<domaine> uv run --project tests pytest tests`. Locally it connects to `127.0.0.1` and trusts Caddy's internal authority; `LAFIA_ADRESSE` forces the gateway's IP address elsewhere, for instance before DNS is in place.
 
 ## Layout
 
 ```
 Caddyfile            gateway: one subdomain per application
-docker-compose.yml   the stack: gateway, noyau, services
+docker-compose.yml   the stack: gateway, noyau, services, applications
 commun/              shared library, built into each service image: FHIR client
 services/<name>/     one FastAPI service per domain: soin, …
-tests/               black-box suite through the gateway
+web/design/          design system, built into each application
+web/<acteur>/        one Next.js application per actor: soin, …
+tests/               black-box suite through the gateway, network isolation checks
 docs/                how it works (architecture.md), specs, ADRs
 ```

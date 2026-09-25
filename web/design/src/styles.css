@@ -1,0 +1,22 @@
+/* Feuille de base de chaque application, importée une fois par sa mise en page racine.
+   F0 y pose les jetons (couleur, typographie, espacement) en propriétés CSS nommées par rôle.
+   D'ici là : juste de quoi rendre une page lisible. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}

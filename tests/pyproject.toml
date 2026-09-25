@@ -1,7 +1,7 @@
 [project]
 name = "lafia-tests"
 version = "0.1.0"
-description = "Suite boîte noire : la pile en marche, jointe par la passerelle seule."
+description = "Suite boîte noire : la pile en marche, jointe par la passerelle ; son isolement réseau, vu par docker."
 requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.28,<0.29",

@@ -1,0 +1,16 @@
+{
+  "name": "lafia-web",
+  "private": true,
+  "description": "Applications Lafia, une par acteur, et leur système de design.",
+  "workspaces": [
+    "design",
+    "soin"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

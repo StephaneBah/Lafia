@@ -1,4 +1,4 @@
-"""Suite boîte noire : elle parle à la pile en marche par la passerelle, et rien d'autre.
+"""Suite boîte noire : elle observe la pile en marche du dehors, comme un usager ou un attaquant.
 
 Chaque application est jointe par son sous-domaine, `<application>.<domaine>`.
 La même suite vise la pile locale ou l'adresse publique selon l'environnement :
@@ -9,6 +9,9 @@ La même suite vise la pile locale ou l'adresse publique selon l'environnement :
 
 Les certificats sont vérifiés : en local contre l'autorité interne de Caddy, lue dans le
 conteneur de la passerelle ; ailleurs contre les autorités publiques.
+
+Tout passe par la passerelle, sauf l'isolement réseau, qui ne s'y observe pas : ces vérifications
+passent par `docker`, sur la machine de la pile visée, et sont sautées quand elle tourne ailleurs.
 """
 
 import os
@@ -42,22 +45,52 @@ class _VersAdresse(httpx.HTTPTransport):
         return super().handle_request(request)
 
 
+def _docker(*arguments: str) -> subprocess.CompletedProcess[str]:
+    """La commande `docker`, lancée depuis la racine du dépôt, où `docker compose` trouve la pile."""
+    return subprocess.run(
+        ["docker", *arguments], cwd=RACINE_DU_DEPOT, capture_output=True, text=True
+    )
+
+
+def _pile_locale_absente(detail: str) -> None:
+    pytest.exit(
+        f"Pile locale injoignable : la lancer avec `docker compose up -d --build --wait`.\n{detail}",
+        returncode=1,
+    )
+
+
 def _contexte_tls() -> ssl.SSLContext:
     if not LOCAL:
         return ssl.create_default_context()
-    racine_ca = subprocess.run(
-        ["docker", "compose", "exec", "-T", "passerelle", "cat", RACINE_CA_CADDY],
-        cwd=RACINE_DU_DEPOT,
-        capture_output=True,
-        text=True,
-    )
+    racine_ca = _docker("compose", "exec", "-T", "passerelle", "cat", RACINE_CA_CADDY)
     if racine_ca.returncode != 0:
-        pytest.exit(
-            "Passerelle locale injoignable : lancer la pile avec "
-            f"`docker compose up -d --build --wait`.\n{racine_ca.stderr}",
-            returncode=1,
-        )
+        _pile_locale_absente(racine_ca.stderr)
     return ssl.create_default_context(cadata=racine_ca.stdout)
+
+
+def _domaine_servi_ici() -> str | None:
+    """Le domaine que sert la passerelle de cette machine ; `None` quand aucune n'y tourne."""
+    try:
+        domaine = _docker("compose", "exec", "-T", "passerelle", "printenv", "LAFIA_DOMAINE")
+    except FileNotFoundError:
+        return None
+    return domaine.stdout.strip() if domaine.returncode == 0 else None
+
+
+@pytest.fixture(scope="session")
+def docker() -> Callable[..., subprocess.CompletedProcess[str]]:
+    """`docker` sur la pile de cette machine : `docker("compose", "ps")`.
+
+    Seulement quand cette pile est celle que la suite vise, c'est-à-dire quand sa passerelle sert
+    `LAFIA_DOMAINE` : sinon ses conteneurs ne diraient rien de la pile visée, et le test est sauté.
+    En local, la pile est exigée.
+    """
+    domaine_servi_ici = _domaine_servi_ici()
+    if domaine_servi_ici != DOMAINE:
+        if LOCAL:
+            _pile_locale_absente(f"domaine servi par cette machine : {domaine_servi_ici}")
+        pytest.skip(f"la pile qui sert {DOMAINE} ne tourne pas sur cette machine")
+    return _docker
 
 
 @pytest.fixture(scope="session")

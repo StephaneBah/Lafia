@@ -1,4 +1,4 @@
-# Pile Lafia : passerelle, noyau FHIR, services.
+# Pile Lafia : passerelle, noyau FHIR, services, applications.
 #
 # Démarrage, depuis un clone neuf :   docker compose up -d --build --wait
 #
@@ -8,8 +8,9 @@
 # dans un .env copié sans être rempli, il reste vide et la base refuse de démarrer.
 #
 # Deux réseaux rendent les invariants physiques :
-# - passerelle : Caddy et les services. Caddy est le seul conteneur qui publie des ports.
+# - passerelle : Caddy, les services et les applications. Caddy est le seul conteneur qui publie des ports.
 # - noyau : HAPI, sa base, et les services qui parlent FHIR. Réseau interne, sans sortie.
+#   Les applications n'y sont jamais : elles ne peuvent pas joindre le noyau, même par erreur.
 
 name: lafia
 
@@ -27,7 +28,11 @@ services:
       - passerelle-donnees:/data
       - passerelle-config:/config
     networks:
-      - passerelle
+      passerelle:
+        # Sur le réseau passerelle, chaque sous-domaine désigne la passerelle : le serveur d'une
+        # application joint son entrée interne sous son propre nom (voir le Caddyfile).
+        aliases:
+          - soin.${LAFIA_DOMAINE:-localhost}
     mem_limit: 128m
 
   base-noyau:
@@ -89,6 +94,22 @@ services:
     networks:
       - passerelle
       - noyau
+    mem_limit: 256m
+
+  # Application soin : sur le réseau passerelle seulement ; elle joint son service par la passerelle.
+  application-soin:
+    build:
+      context: web
+      args:
+        APPLICATION: soin
+    image: lafia/application-soin
+    restart: unless-stopped
+    depends_on:
+      - passerelle
+    environment:
+      PASSERELLE_URL: http://soin.${LAFIA_DOMAINE:-localhost}:8080
+    networks:
+      - passerelle
     mem_limit: 256m
 
 networks:
