@@ -89,9 +89,9 @@
     <h1>Lafia — Dossier d'architecture technique</h1>
     <p class="sub">Architecture, modèle de données, services, sécurité et déploiement du socle interopérable du carnet de santé numérique.</p>
     <dl class="docmeta">
-      <dt>Version</dt><dd>3.0</dd>
+      <dt>Version</dt><dd>4.0</dd>
       <dt>Date</dt><dd>25 septembre 2026</dd>
-      <dt>Référence</dt><dd>Cahier des charges Lafia, version 2</dd>
+      <dt>Référence</dt><dd>Cahier des charges Lafia, version 3</dd>
     </dl>
   </div>
 </header>
@@ -102,7 +102,7 @@
 <section>
   <h2><span class="n">1</span>Objet du document</h2>
   <p>Ce document décrit l'architecture technique de la première version de Lafia : ses composants, la façon dont ils communiquent, la représentation des données, les mécanismes de sécurité et l'infrastructure de déploiement. Il traduit en choix techniques les exigences fonctionnelles établies dans le cahier des charges.</p>
-  <p>La version décrite couvre le noyau, les services de soin, de caisse, de pharmacie et d'accès citoyen, ainsi que le service d'identité des agents.</p>
+  <p>La version décrite couvre le noyau, les services de soin, de caisse, de pharmacie et d'accès citoyen, le service d'identité, ainsi que l'application propre à chaque acteur et le système de design qu'elles partagent.</p>
 </section>
 
 <section>
@@ -111,22 +111,26 @@
   <h3><span class="n">2.1</span>Principe</h3>
   <p>L'architecture repose sur un noyau unique, détenteur de toute la donnée médicale, autour duquel s'organisent des services métier indépendants. Chaque service répond à un usage précis et ne communique qu'avec le noyau, au moyen du standard HL7 FHIR. Aucun service ne conserve de copie de la donnée médicale et aucun ne dialogue directement avec un autre.</p>
   <p>Cette organisation garantit que l'ajout ou le remplacement d'un service — laboratoire, télémédecine, application tierce — n'exige aucune modification des services existants : il suffit qu'il parle FHIR au noyau.</p>
+  <p>Le même principe se répète au-dessus des services : <strong>chaque acteur dispose de sa propre application</strong> (citoyen, soin, caisse, pharmacie), servie sur son propre sous-domaine. Une application ne parle qu'à son service et au service identité, jamais au noyau ni au service d'un autre acteur. Les applications partagent un système de design commun, intégré à la compilation.</p>
 
   <h3><span class="n">2.2</span>Schéma</h3>
-<pre><code>                     Navigateur (interfaces React)
-                                │  HTTPS
-                                ▼
-                    Passerelle (Caddy) ── TLS, routage
-                                │
-     ┌──────────────┬───────────┼────────────┬──────────────┐
-     ▼              ▼           ▼            ▼              ▼
-  identité         soin       caisse     pharmacie       citoyen
-     │              │           │            │              │
-     │              └───────────┴─────┬──────┴──────────────┘
-     │                                │  FHIR (REST), réseau interne
-     ▼                                ▼
- PostgreSQL                   Noyau HAPI FHIR ──► PostgreSQL
- (comptes, rôles)             (dossier partagé)</code></pre>
+<pre><code>  citoyen.*       soin.*        caisse.*      pharmacie.*     sous-domaines
+      │              │              │              │           HTTPS
+      └──────────────┴──────┬───────┴──────────────┘
+                            ▼
+              Passerelle (Caddy) ── TLS, routage par sous-domaine
+                            │                          réseau passerelle
+   ┌─────────────┬──────────┼──────────┬─────────────┬─────────────┐
+   ▼             ▼          ▼          ▼             ▼             ▼
+ applications  identité    soin      caisse      pharmacie      citoyen
+ (Next.js,       │          │          │             │             │
+  une par        │          └──────────┴──────┬──────┴─────────────┘
+  acteur)        │                            │  FHIR (REST)  réseau noyau
+                 ▼                            ▼
+            PostgreSQL                 Noyau HAPI FHIR ──► PostgreSQL
+            (comptes, rôles,           (dossier partagé)
+             codes carnet)</code></pre>
+  <p class="note">Les applications ne sont rattachées qu'au réseau de la passerelle : elles ne peuvent pas joindre le noyau, même par erreur.</p>
 
   <h3><span class="n">2.3</span>Composants</h3>
   <div class="tbl-scroll">
@@ -134,12 +138,13 @@
     <tr><th>Composant</th><th>Responsabilité</th><th>Exposition</th></tr>
     <tr><td class="a">Passerelle</td><td class="b">Terminaison TLS, distribution des interfaces, routage des requêtes vers les services</td><td class="b">Publique</td></tr>
     <tr><td class="a">Noyau</td><td class="b">Stockage et restitution de toute la donnée médicale au format FHIR</td><td class="b">Réseau interne</td></tr>
-    <tr><td class="a">Service identité</td><td class="b">Comptes des agents, rôles, établissement de rattachement, émission des jetons</td><td class="b">Via passerelle</td></tr>
-    <tr><td class="a">Service soin</td><td class="b">Patients, cas de visite, visites, mesures, diagnostics, émission des ordonnances, accès d'urgence</td><td class="b">Via passerelle</td></tr>
-    <tr><td class="a">Service caisse</td><td class="b">Consultation des ordonnances, encaissement ligne par ligne</td><td class="b">Via passerelle</td></tr>
+    <tr><td class="a">Service identité</td><td class="b">Comptes des agents, rôles, établissement de rattachement, codes carnet des citoyens, émission des jetons</td><td class="b">Via passerelle</td></tr>
+    <tr><td class="a">Service soin</td><td class="b">Patients, relation de soin, cas de visite, visites, mesures et résultats de laboratoire, diagnostics, émission des ordonnances, accès d'urgence</td><td class="b">Via passerelle</td></tr>
+    <tr><td class="a">Service caisse</td><td class="b">Consultation des ordonnances et de leurs tarifs, encaissement ligne par ligne</td><td class="b">Via passerelle</td></tr>
     <tr><td class="a">Service pharmacie</td><td class="b">Délivrance totale ou partielle, contrôle des allergies</td><td class="b">Via passerelle</td></tr>
-    <tr><td class="a">Service citoyen</td><td class="b">Restitution simplifiée du carnet pour le parcours illustré</td><td class="b">Via passerelle</td></tr>
-    <tr><td class="a">Interfaces</td><td class="b">Une interface par profil d'utilisateur, servie en fichiers statiques</td><td class="b">Via passerelle</td></tr>
+    <tr><td class="a">Service citoyen</td><td class="b">Restitution simplifiée du carnet et du journal d'accès</td><td class="b">Via passerelle</td></tr>
+    <tr><td class="a">Applications</td><td class="b">Une application Next.js par acteur : citoyen, soin, caisse, pharmacie. Chacune appelle son service et le service identité, rien d'autre</td><td class="b">Sous-domaine propre, via passerelle</td></tr>
+    <tr><td class="a">Système de design</td><td class="b">Jetons, pictogrammes et composants partagés par les applications, intégrés à la compilation</td><td class="b">Aucune</td></tr>
   </table>
   </div>
 </section>
@@ -152,9 +157,9 @@
     <tr><td class="a">Standard d'échange</td><td class="b">HL7 FHIR R4</td><td class="b">Standard international ouvert, couvrant nativement toutes les entités du modèle</td></tr>
     <tr><td class="a">Noyau</td><td class="b">HAPI FHIR JPA Server</td><td class="b">Implémentation de référence, open source, déployable en conteneur sans développement</td></tr>
     <tr><td class="a">Services</td><td class="b">Python 3.11, FastAPI</td><td class="b">Développement rapide, documentation d'interface générée automatiquement</td></tr>
-    <tr><td class="a">Interfaces</td><td class="b">React</td><td class="b">Composants réutilisables entre les interfaces des différents profils</td></tr>
+    <tr><td class="a">Applications</td><td class="b">Next.js (App Router, TypeScript), une par acteur, en espace de travail npm</td><td class="b">Rendu serveur rapide sur téléphone d'entrée de gamme, routes dynamiques, système de design partagé sans dépendance d'exécution</td></tr>
     <tr><td class="a">Persistance</td><td class="b">PostgreSQL</td><td class="b">Support natif de HAPI, base commune à tous les composants</td></tr>
-    <tr><td class="a">Passerelle</td><td class="b">Caddy</td><td class="b">Certificats TLS obtenus et renouvelés automatiquement</td></tr>
+    <tr><td class="a">Passerelle</td><td class="b">Caddy</td><td class="b">Certificats TLS obtenus et renouvelés automatiquement pour chaque sous-domaine</td></tr>
     <tr><td class="a">Orchestration</td><td class="b">Docker Compose</td><td class="b">Déploiement reproductible, portable vers toute infrastructure conteneurisée</td></tr>
     <tr><td class="a">Hébergement</td><td class="b">Microsoft Azure</td><td class="b">Crédit disponible ; aucune dépendance à un service propriétaire, donc réversible</td></tr>
   </table>
@@ -178,7 +183,8 @@
     <tr><td class="a">Diagnostic</td><td class="m">Condition</td><td class="b"><code>encounter</code>, <code>verificationStatus</code></td></tr>
     <tr><td class="a">Ligne d'ordonnance</td><td class="m">MedicationRequest</td><td class="b"><code>encounter</code>, <code>groupIdentifier</code></td></tr>
     <tr><td class="a">Délivrance</td><td class="m">MedicationDispense</td><td class="b"><code>authorizingPrescription</code></td></tr>
-    <tr><td class="a">Encaissement</td><td class="m">Invoice</td><td class="b"><code>subject</code>, lignes réglées</td></tr>
+    <tr><td class="a">Tarif</td><td class="m">ChargeItemDefinition</td><td class="b">Code produit, prix en FCFA</td></tr>
+    <tr><td class="a">Encaissement</td><td class="m">Invoice</td><td class="b"><code>subject</code>, lignes réglées, mention de paiement différé</td></tr>
     <tr><td class="a">Allergie</td><td class="m">AllergyIntolerance</td><td class="b"><code>patient</code></td></tr>
     <tr><td class="a">Soignant</td><td class="m">Practitioner</td><td class="b">Auteur des écritures</td></tr>
     <tr><td class="a">Établissement</td><td class="m">Organization</td><td class="b">Lieu des visites</td></tr>
@@ -194,20 +200,23 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
 
   <h3><span class="n">4.3</span>Regroupement des ordonnances</h3>
   <p>FHIR représente une prescription ligne par ligne. Les lignes d'une même ordonnance partagent un identifiant commun, porté par <code>groupIdentifier</code>, qui constitue le numéro d'ordonnance présenté à la caisse et à la pharmacie.</p>
-<pre><code>GET /fhir/MedicationRequest?group-identifier=ORD-2026-0007841</code></pre>
+  <p>Le numéro est court : <code>ORD-</code> suivi de six caractères en deux groupes, tirés d'un alphabet sans caractère ambigu (ni <code>0 O 1 I L</code>). Il se lit à voix haute, se tape sans lecteur et s'imprime accompagné d'un code QR. Il reste retrouvable par le NPI si le reçu est perdu.</p>
+<pre><code>GET /fhir/MedicationRequest?group-identifier=ORD-7K4-M2P</code></pre>
 
   <h3><span class="n">4.4</span>Données hors noyau</h3>
-  <p>Seul le service identité dispose d'une base propre, limitée aux comptes des agents, à leurs rôles et à leur établissement de rattachement. Aucune donnée médicale n'y figure.</p>
+  <p>Seul le service identité dispose d'une base propre, limitée aux comptes des agents, à leurs rôles, à leur établissement de rattachement et aux codes carnet des citoyens, conservés sous forme hachée. Aucune donnée médicale n'y figure. Les applications ne conservent aucune donnée.</p>
 </section>
 
 <section>
   <h2><span class="n">5</span>Services et interfaces de programmation</h2>
-  <p>Chaque service expose des opérations métier sous son propre préfixe. Chaque opération se traduit en une ou plusieurs requêtes FHIR vers le noyau. La documentation de chaque interface est publiée au format OpenAPI.</p>
+  <p>Chaque service expose des opérations métier sous son propre préfixe. Chaque opération se traduit en une ou plusieurs requêtes FHIR vers le noyau. La documentation de chaque interface est publiée au format OpenAPI. Chaque service expose aussi <code>GET /api/&lt;service&gt;/sante</code>, qui vérifie qu'il joint le noyau.</p>
+  <p>Sur le sous-domaine d'une application, la passerelle ne route que vers son service et vers le service identité : <code>caisse.*/api/soin/…</code> n'aboutit pas.</p>
 
   <h3><span class="n">5.1</span>Service identité</h3>
   <div class="tbl-scroll"><table>
     <tr><th>Méthode</th><th>Route</th><th>Opération</th></tr>
     <tr><td class="m">POST</td><td class="m">/api/identite/connexion</td><td class="b">Authentification d'un agent, émission du jeton</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/identite/citoyen/connexion</td><td class="b">Authentification d'un citoyen par NPI et code carnet</td></tr>
     <tr><td class="m">GET</td><td class="m">/api/identite/moi</td><td class="b">Profil et droits de l'agent connecté</td></tr>
   </table></div>
 
@@ -253,22 +262,27 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
   <h2><span class="n">6</span>Sécurité</h2>
 
   <h3><span class="n">6.1</span>Isolement du noyau</h3>
-  <p>Le noyau n'est joignable que depuis le réseau interne des conteneurs et ne publie aucun port. Tout accès à la donnée médicale transite donc par un service, où s'appliquent l'authentification, le contrôle des droits et la traçabilité.</p>
+  <p>Le noyau n'est joignable que depuis le réseau interne des services et ne publie aucun port. Les applications sont rattachées au seul réseau de la passerelle. Tout accès à la donnée médicale transite donc par un service, où s'appliquent l'authentification, le contrôle des droits et la traçabilité.</p>
 
   <h3><span class="n">6.2</span>Authentification</h3>
-  <p>Le service identité émet, après authentification, un jeton signé portant l'identifiant de l'agent, son rôle et son établissement. Chaque service vérifie la signature du jeton de façon autonome, sans appel au service identité.</p>
+  <p>Le service identité émet, après authentification, un jeton signé et de courte durée portant l'identifiant de l'agent, son rôle et son établissement. Chaque service vérifie la signature du jeton de façon autonome, sans appel au service identité.</p>
+  <p>Le citoyen s'authentifie avec son NPI et le <strong>code carnet</strong> imprimé sur le reçu remis à chaque visite. Le NPI seul ne suffit pas : il n'est pas un secret. Le jeton citoyen est limité à ce NPI.</p>
+  <p>Le jeton circule dans un cookie <code>httpOnly</code>, <code>Secure</code>, <code>SameSite=Strict</code>, propre au sous-domaine de l'application : un jeton de la caisse n'est jamais envoyé à l'application soin, et le code JavaScript ne le lit jamais.</p>
 
   <h3><span class="n">6.3</span>Contrôle d'accès</h3>
   <div class="tbl-scroll"><table>
     <tr><th>Rôle</th><th>Services</th><th>Périmètre de données</th></tr>
-    <tr><td class="a">Médecin</td><td class="b">Soin</td><td class="b">Dossier complet, lecture et écriture</td></tr>
-    <tr><td class="a">Infirmier</td><td class="b">Soin</td><td class="b">Dossier complet ; diagnostic confirmé exclu</td></tr>
+    <tr><td class="a">Médecin</td><td class="b">Soin</td><td class="b">Dossier complet, lecture et écriture ; confirme les diagnostics</td></tr>
+    <tr><td class="a">Infirmier</td><td class="b">Soin</td><td class="b">Dossier complet, lecture et écriture ; diagnostics provisoires uniquement</td></tr>
     <tr><td class="a">Caissier</td><td class="b">Caisse</td><td class="b">Ordonnances et montants uniquement</td></tr>
     <tr><td class="a">Pharmacien</td><td class="b">Pharmacie</td><td class="b">Ordonnances payées, allergies, traitements de fond</td></tr>
     <tr><td class="a">Citoyen</td><td class="b">Citoyen</td><td class="b">Son propre carnet et son journal d'accès</td></tr>
   </table></div>
 
-  <h3><span class="n">6.4</span>Traçabilité</h3>
+  <h3><span class="n">6.4</span>Relation de soin</h3>
+  <p>Un soignant n'ouvre un dossier que s'il existe une <strong>relation de soin</strong> : un cas de visite ouvert dans son établissement, ou un cas qu'il ouvre ou poursuit à l'instant, le patient présent. La caisse et la pharmacie n'atteignent qu'une ordonnance, par le numéro que présente le patient. Tout autre accès est un accès d'urgence : motif obligatoire, vue vitale restreinte, trace marquée comme urgence et visible par le citoyen.</p>
+
+  <h3><span class="n">6.5</span>Traçabilité</h3>
   <p>Toute lecture ou écriture d'un dossier produit une ressource <code>AuditEvent</code> dans le noyau, indiquant l'agent, l'établissement, la nature de l'accès et sa date. L'accès d'urgence dérogatoire exige un motif, enregistré dans la même trace. Les ressources médicales ne sont jamais supprimées ; une correction produit une nouvelle version, l'historique restant consultable.</p>
 </section>
 
@@ -281,21 +295,25 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
     <tr><td class="a">Hôte</td><td class="b">Machine virtuelle Azure, Linux Ubuntu 24.04</td></tr>
     <tr><td class="a">Capacité</td><td class="b">2 processeurs virtuels, 8 Go de mémoire ; 4 Go constituent le minimum</td></tr>
     <tr><td class="a">Réseau</td><td class="b">Ports 80 et 443 ouverts ; aucun autre port exposé</td></tr>
-    <tr><td class="a">Nom de domaine</td><td class="b">Nom attribué à la machine, certificat délivré automatiquement</td></tr>
+    <tr><td class="a">Nom de domaine</td><td class="b">Un sous-domaine par application (<code>citoyen</code>, <code>soin</code>, <code>caisse</code>, <code>pharmacie</code>), par enregistrement générique ou individuel ; certificats délivrés automatiquement</td></tr>
   </table></div>
-  <p class="note" style="margin-top:12px;">Le noyau HAPI, application Java, est le composant le plus consommateur de mémoire. Sa limite mémoire est fixée explicitement dans la configuration afin de préserver les autres conteneurs.</p>
+  <p class="note" style="margin-top:12px;">Le noyau HAPI, application Java, est le composant le plus consommateur de mémoire. Chaque conteneur reçoit une limite mémoire explicite : le noyau d'abord, puis les quatre applications (environ 150 Mo chacune), afin que l'ensemble tienne sur 8 Go.</p>
 
   <h3><span class="n">7.2</span>Conteneurs</h3>
   <div class="tbl-scroll"><table>
     <tr><th>Conteneur</th><th>Image</th><th>Réseau</th></tr>
-    <tr><td class="a">passerelle</td><td class="m">caddy</td><td class="b">Public et interne</td></tr>
-    <tr><td class="a">noyau</td><td class="m">hapiproject/hapi</td><td class="b">Interne</td></tr>
-    <tr><td class="a">base</td><td class="m">postgres</td><td class="b">Interne</td></tr>
-    <tr><td class="a">identite</td><td class="m">lafia/identite</td><td class="b">Interne</td></tr>
-    <tr><td class="a">soin</td><td class="m">lafia/soin</td><td class="b">Interne</td></tr>
-    <tr><td class="a">caisse</td><td class="m">lafia/caisse</td><td class="b">Interne</td></tr>
-    <tr><td class="a">pharmacie</td><td class="m">lafia/pharmacie</td><td class="b">Interne</td></tr>
-    <tr><td class="a">citoyen</td><td class="m">lafia/citoyen</td><td class="b">Interne</td></tr>
+    <tr><td class="a">passerelle</td><td class="m">caddy</td><td class="b">Public et passerelle</td></tr>
+    <tr><td class="a">noyau</td><td class="m">hapiproject/hapi</td><td class="b">Noyau</td></tr>
+    <tr><td class="a">base</td><td class="m">postgres</td><td class="b">Noyau</td></tr>
+    <tr><td class="a">identite</td><td class="m">lafia/identite</td><td class="b">Passerelle</td></tr>
+    <tr><td class="a">soin</td><td class="m">lafia/soin</td><td class="b">Passerelle et noyau</td></tr>
+    <tr><td class="a">caisse</td><td class="m">lafia/caisse</td><td class="b">Passerelle et noyau</td></tr>
+    <tr><td class="a">pharmacie</td><td class="m">lafia/pharmacie</td><td class="b">Passerelle et noyau</td></tr>
+    <tr><td class="a">citoyen</td><td class="m">lafia/citoyen</td><td class="b">Passerelle et noyau</td></tr>
+    <tr><td class="a">app-citoyen</td><td class="m">lafia/app-citoyen</td><td class="b">Passerelle</td></tr>
+    <tr><td class="a">app-soin</td><td class="m">lafia/app-soin</td><td class="b">Passerelle</td></tr>
+    <tr><td class="a">app-caisse</td><td class="m">lafia/app-caisse</td><td class="b">Passerelle</td></tr>
+    <tr><td class="a">app-pharmacie</td><td class="m">lafia/app-pharmacie</td><td class="b">Passerelle</td></tr>
   </table></div>
 
   <h3><span class="n">7.3</span>Mise en production</h3>
@@ -318,9 +336,14 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
 │   ├── caisse/
 │   ├── pharmacie/
 │   └── citoyen/            chacun : routes, règles, Dockerfile
-├── donnees/                jeu de démonstration, script de chargement
-└── web/                    interfaces par profil, pictogrammes</code></pre>
-  <p>La bibliothèque commune évite la duplication du client FHIR, de la vérification des jetons et de la production des traces entre services, sans créer de dépendance d'exécution entre eux.</p>
+├── donnees/                jeu de démonstration, tarifs, script de chargement
+└── web/                    espace de travail npm
+    ├── design/             système de design : jetons, pictogrammes, composants
+    ├── citoyen/
+    ├── soin/
+    ├── caisse/
+    └── pharmacie/          chacune : application Next.js, Dockerfile</code></pre>
+  <p>La bibliothèque commune évite la duplication du client FHIR, de la vérification des jetons et de la production des traces entre services, sans créer de dépendance d'exécution entre eux. Le système de design joue le même rôle pour les applications.</p>
 </section>
 
 <section>
@@ -332,29 +355,33 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
     <li>un suivi d'insuffisance rénale comportant une série de mesures de créatinine sur deux ans ;</li>
     <li>un cas de visite couvrant deux établissements ;</li>
     <li>un patient présentant une allergie médicamenteuse ;</li>
-    <li>des ordonnances à différents états : non réglée, réglée, partiellement délivrée, délivrée.</li>
+    <li>des ordonnances à différents états : non réglée, réglée, partiellement délivrée, délivrée ;</li>
+    <li>une liste de 20 à 40 produits et actes avec leur tarif en FCFA ;</li>
+    <li>un code carnet connu pour quelques citoyens de démonstration.</li>
   </ul>
 </section>
 
 <section>
   <h2><span class="n">10</span>Planification</h2>
   <div class="tbl-scroll"><table>
-    <tr><th>Lot</th><th>Contenu</th><th>Critère d'achèvement</th></tr>
-    <tr><td class="a">1. Socle</td><td class="b">Conteneurs, noyau, passerelle, déploiement Azure, bibliothèque commune</td><td class="b">Le noyau répond via un service sur l'adresse publique</td></tr>
-    <tr><td class="a">2. Identité et données</td><td class="b">Service identité, jeu de démonstration chargé</td><td class="b">Un agent s'authentifie ; les patients sont présents</td></tr>
-    <tr><td class="a">3. Service soin</td><td class="b">Opérations du service soin et interface soignant</td><td class="b">Ouverture d'un cas, visite, relecture du fil</td></tr>
-    <tr><td class="a">4. Caisse et pharmacie</td><td class="b">Émission d'ordonnance, services et interfaces caisse et pharmacie</td><td class="b">Ordonnance émise, réglée, délivrée, visible au dossier</td></tr>
-    <tr><td class="a">5. Citoyen et finalisation</td><td class="b">Service et interface citoyen, accès d'urgence, documentation</td><td class="b">Parcours complet démontrable sur l'adresse publique</td></tr>
+    <tr><th>Lot</th><th>Contenu</th><th>Critère d'achèvement</th><th>Jour</th></tr>
+    <tr><td class="a">F0. Système de design</td><td class="b">Jetons, pictogrammes, composants partagés</td><td class="b">Les composants et leurs états sont visibles dans une application</td><td class="b">1</td></tr>
+    <tr><td class="a">F1. Socle</td><td class="b">Conteneurs, noyau, passerelle et sous-domaines, bibliothèque commune, espace de travail web, déploiement Azure</td><td class="b">Chaque sous-domaine joint son service, qui joint le noyau, sur l'adresse publique</td><td class="b">1</td></tr>
+    <tr><td class="a">F2. Identité et données</td><td class="b">Service identité (agents, code carnet), jeu de démonstration et tarifs chargés</td><td class="b">Un agent s'authentifie ; les patients sont présents</td><td class="b">1</td></tr>
+    <tr><td class="a">F3. Soin</td><td class="b">Service et application soin, relation de soin</td><td class="b">Ouverture d'un cas, visite, relecture du fil</td><td class="b">2</td></tr>
+    <tr><td class="a">F4. Caisse</td><td class="b">Émission d'ordonnance, service et application caisse</td><td class="b">Ordonnance émise puis réglée sans ressaisie</td><td class="b">2</td></tr>
+    <tr><td class="a">F5. Pharmacie</td><td class="b">Service et application pharmacie</td><td class="b">Ordonnance délivrée en partie, visible au dossier</td><td class="b">3</td></tr>
+    <tr><td class="a">F6. Citoyen</td><td class="b">Service et application citoyen, carnet illustré</td><td class="b">Le citoyen ouvre son carnet avec NPI et code carnet</td><td class="b">3</td></tr>
+    <tr><td class="a">F7. Urgence</td><td class="b">Accès d'urgence motivé, journal d'accès</td><td class="b">Parcours complet démontrable sur l'adresse publique</td><td class="b">3</td></tr>
   </table></div>
-  <p class="note" style="margin-top:12px;">Lots 1 à 3 le premier jour, lots 4 et 5 le second.</p>
 </section>
 
 <section>
   <h2><span class="n">11</span>Points en suspens</h2>
   <div class="tbl-scroll"><table>
     <tr><th>Sujet</th><th>Options</th></tr>
-    <tr><td class="a">Format du numéro d'ordonnance</td><td class="b">Code graphique à scanner, ou identifiant court saisissable sans matériel de lecture</td></tr>
-    <tr><td class="a">Authentification du citoyen</td><td class="b">NPI seul, ou NPI accompagné d'un code remis lors de la visite</td></tr>
+    <tr><td class="a">Durée de validité du code carnet</td><td class="b">Un nouveau code révoque le précédent, ou plusieurs codes restent valides jusqu'à expiration</td></tr>
+    <tr><td class="a">Ressource de l'encaissement</td><td class="b"><code>Invoice</code> retenu à titre provisoire ; <code>PaymentReconciliation</code> à évaluer pour la trace du paiement</td></tr>
     <tr><td class="a">Nom du projet</td><td class="b">Lafia retenu à titre provisoire</td></tr>
   </table></div>
 </section>
@@ -363,7 +390,7 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
 </main>
 
 <footer class="band">
-  <p>Lafia — Dossier d'architecture technique, version 3.0</p>
+  <p>Lafia — Dossier d'architecture technique, version 4.0</p>
 </footer>
 
 </body>

@@ -135,7 +135,7 @@
   <div class="inner">
     <h1>Lafia</h1>
     <p class="sub">Socle interopérable du carnet de santé numérique. Un noyau qui détient la donnée, des services qui viennent s'y brancher.</p>
-    <p class="meta">Version 2 — 25 septembre 2026</p>
+    <p class="meta">Version 3 — 25 septembre 2026</p>
   </div>
 </header>
 
@@ -152,7 +152,7 @@
 <section>
   <p class="label">Ce que Lafia est</p>
   <p>Lafia est le <strong>socle sur lequel repose la mémoire médicale d'un citoyen</strong>, partagée entre tous ceux qui le soignent, accessible par son seul numéro d'identification personnel.</p>
-  <p>Ce n'est ni un logiciel propre à un établissement, ni une application de santé pour citoyens déjà connectés. C'est un <strong>noyau central qui détient la donnée</strong>, et autour de lui des services indépendants — soin, caisse, pharmacie, laboratoire, urgence, télémédecine — qui viennent y lire et y écrire dans un langage commun.</p>
+  <p>Ce n'est ni un logiciel propre à un établissement, ni une application de santé pour citoyens déjà connectés. C'est un <strong>noyau central qui détient la donnée</strong>, et autour de lui des services indépendants — soin, caisse, pharmacie, laboratoire, urgence, télémédecine — qui viennent y lire et y écrire dans un langage commun. Chaque acteur dispose de <strong>sa propre application</strong>, branchée sur son service : le citoyen, le soignant, la caisse et la pharmacie ne partagent ni écran ni accès.</p>
   <p>Tout ce qui est construit doit pouvoir être branché, demain, sur l'infrastructure de l'État, et servir un centre de santé rural comme un centre hospitalier universitaire.</p>
 </section>
 
@@ -191,7 +191,7 @@
   <ul class="timeline">
     <li><div class="node">1</div><div class="body"><p>Un infirmier reçoit une femme aux maux de tête persistants. Il ouvre un cas, relève tension et température.</p></div></li>
     <li><div class="node">2</div><div class="body"><p>Un médecin la voit dans le même cas, constate une tension élevée, prescrit un bilan rénal.</p></div></li>
-    <li><div class="node">3</div><div class="body"><p>Le laboratoire dépose les résultats : la créatinine en valeur chiffrée, le bordereau en document, rattachés au cas.</p></div></li>
+    <li><div class="node">3</div><div class="body"><p>Les résultats du laboratoire sont versés au cas : la créatinine en valeur chiffrée, le bordereau en document. En première version, le soignant les saisit ; demain, le laboratoire les déposera depuis sa propre application.</p></div></li>
     <li><div class="node">4</div><div class="body"><p>Visite de continuité dans un autre centre. Le médecin ouvre le cas, voit tout le fil, ajuste le traitement.</p></div></li>
     <li><div class="node">5</div><div class="body"><p>Trois mois plus tard, la courbe de créatinine se lit d'un coup d'œil : le suivi est possible parce que la donnée était structurée.</p></div></li>
   </ul>
@@ -209,8 +209,9 @@
     <tr><td class="a">Mesure</td><td class="b">Type codé, valeur, unité, date de prélèvement, valeurs de référence</td></tr>
     <tr><td class="a">Document</td><td class="b">Bordereau, imagerie, compte rendu signé, en complément de la valeur chiffrée</td></tr>
     <tr><td class="a">Diagnostic</td><td class="b">Libellé codé, stade ou sévérité, statut provisoire ou confirmé</td></tr>
-    <tr><td class="a">Ordonnance</td><td class="b">Identifiant unique, prescripteur, date, validité, lignes</td></tr>
+    <tr><td class="a">Ordonnance</td><td class="b">Numéro court lisible à voix haute (ex. ORD-7K4-M2P), prescripteur, date, validité, lignes</td></tr>
     <tr><td class="a">Ligne d'ordonnance</td><td class="b">Produit codé, posologie, quantité, état de paiement, état de délivrance</td></tr>
+    <tr><td class="a">Tarif</td><td class="b">Prix en FCFA d'un produit ou d'un acte, pour qu'aucun montant ne soit saisi à la caisse</td></tr>
     <tr><td class="a">Encaissement</td><td class="b">Lignes réglées, montant, caissier, mention de paiement différé</td></tr>
     <tr><td class="a">Délivrance</td><td class="b">Quantité remise, officine, pharmacien, substitution éventuelle</td></tr>
     <tr><td class="a">Accès</td><td class="b">Agent, établissement, nature, date, motif en cas d'urgence</td></tr>
@@ -222,8 +223,8 @@
   <p class="label">Parcours de l'ordonnance</p>
   <p>Une file d'attente à la caisse n'est pas de la mauvaise volonté : c'est quelqu'un qui retape ce qui existe déjà. Tracer l'ordonnance supprime cette étape.</p>
   <ul class="timeline">
-    <li><div class="node">1</div><div class="body"><p>Le soignant crée l'ordonnance depuis la visite. Elle reçoit un identifiant unique, et reste retrouvable par le NPI si le reçu est perdu.</p></div></li>
-    <li><div class="node">2</div><div class="body"><p>À la caisse, l'identifiant affiche les lignes à régler. Rien n'est retapé.</p></div></li>
+    <li><div class="node">1</div><div class="body"><p>Le soignant crée l'ordonnance depuis la visite. Elle reçoit un numéro court, sans caractère ambigu, qui se lit à voix haute et se tape sans lecteur. Elle reste retrouvable par le NPI si le reçu est perdu.</p></div></li>
+    <li><div class="node">2</div><div class="body"><p>À la caisse, le numéro affiche les lignes à régler avec leur tarif. Rien n'est retapé, aucun montant n'est saisi.</p></div></li>
     <li><div class="node">3</div><div class="body"><p>Le caissier coche les lignes disponibles et encaisse. Les lignes écartées restent ouvertes pour plus tard.</p></div></li>
     <li><div class="node">4</div><div class="body"><p>À la pharmacie, la délivrance est tracée ligne par ligne. Une délivrance partielle est un état normal.</p></div></li>
     <li><div class="node">5</div><div class="body"><p>Tout remonte au cas. Le prescripteur voit au contrôle suivant ce qui a été payé, retiré, ou jamais retiré.</p></div></li>
@@ -237,8 +238,9 @@
   <div style="margin-top:10px;">
     <div class="layer"><div class="k">1</div><div><p class="t">Noyau et registres</p><p class="d">Registre des patients indexé sur le NPI, registre des professionnels, registre des établissements, référentiels de codage.</p></div></div>
     <div class="layer"><div class="k">2</div><div><p class="t">Dossier partagé</p><p class="d">Cas, visites, mesures, documents, diagnostics, ordonnances. La source unique de vérité.</p></div></div>
-    <div class="layer"><div class="k">3</div><div><p class="t">Services de domaine</p><p class="d">Soin, caisse, pharmacie, laboratoire, urgence, télémédecine. Chacun autonome et remplaçable.</p></div></div>
-    <div class="layer"><div class="k">4</div><div><p class="t">Analytique</p><p class="d">Entrepôt alimenté par le dossier, dédié aux requêtes de population, avec ses propres droits.</p></div></div>
+    <div class="layer"><div class="k">3</div><div><p class="t">Services de domaine</p><p class="d">Soin, caisse, pharmacie, citoyen, et demain laboratoire ou télémédecine. Chacun autonome et remplaçable, aucun ne parle à un autre.</p></div></div>
+    <div class="layer"><div class="k">4</div><div><p class="t">Applications par acteur</p><p class="d">Une application pour le citoyen, le soignant, la caisse, la pharmacie. Chacune ne parle qu'à son service, jamais au noyau, et partage le même système de design.</p></div></div>
+    <div class="layer"><div class="k">5</div><div><p class="t">Analytique</p><p class="d">Entrepôt alimenté par le dossier, dédié aux requêtes de population, avec ses propres droits.</p></div></div>
   </div>
   <p class="muted" style="margin-top:18px;">Deux couches traversent l'ensemble : l'identité et les droits d'un côté, le journal d'audit de l'autre.</p>
 
@@ -251,10 +253,10 @@
   <div class="tbl-scroll">
   <table>
     <tr><th>Acteur</th><th>Ce qu'il fait</th></tr>
-    <tr><td class="a">Citoyen</td><td class="b">Identifié par son NPI. Consulte son carnet et l'état de ses ordonnances. Ne saisit aucune donnée médicale</td></tr>
-    <tr><td class="a">Infirmier, agent communautaire</td><td class="b">Ouvre un cas, relève des mesures, prend en charge sans passage médical obligatoire</td></tr>
-    <tr><td class="a">Médecin</td><td class="b">Consulte l'historique, pose le diagnostic, édite la visite, prescrit</td></tr>
-    <tr><td class="a">Laboratoire</td><td class="b">Dépose les résultats en valeurs chiffrées et en document, rattachés au cas</td></tr>
+    <tr><td class="a">Citoyen</td><td class="b">Se connecte avec son NPI et le code carnet imprimé sur son reçu. Consulte son carnet, l'état de ses ordonnances et qui a ouvert son dossier. Ne saisit aucune donnée médicale</td></tr>
+    <tr><td class="a">Infirmier, agent communautaire</td><td class="b">Ouvre un cas, relève des mesures, saisit les résultats de laboratoire, pose un diagnostic provisoire, prend en charge sans passage médical obligatoire</td></tr>
+    <tr><td class="a">Médecin</td><td class="b">Consulte l'historique, pose et confirme le diagnostic, édite la visite, prescrit</td></tr>
+    <tr><td class="a">Laboratoire</td><td class="b">Posé en architecture : demain, dépose les résultats depuis sa propre application. En première version, le soignant les saisit</td></tr>
     <tr><td class="a">Caisse</td><td class="b">Ouvre une ordonnance par son identifiant, encaisse les lignes retenues</td></tr>
     <tr><td class="a">Pharmacie</td><td class="b">Délivre ligne par ligne et trace ce qui a réellement été remis</td></tr>
     <tr><td class="a">Autorité sanitaire</td><td class="b">Interroge les données agrégées, sans accès nominatif au dossier vivant</td></tr>
@@ -280,6 +282,8 @@
   <p>Un dossier partagé à l'échelle nationale concentre ce qu'une personne a de plus intime. L'exigence est structurante, pas déclarative.</p>
   <ul class="check">
     <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Chaque agent ne voit que ce que son rôle justifie : un caissier voit une ordonnance, pas un diagnostic</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Un soignant n'ouvre un dossier que s'il existe une relation de soin : un cas ouvert dans son établissement, ou le patient présent devant lui</li>
+    <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Le NPI n'est pas un secret : le citoyen ouvre son carnet avec son NPI et un code carnet remis à chaque visite</li>
     <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Tout accès est enregistré, consultable par le patient</li>
     <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>L'accès d'urgence dérogatoire existe, mais laisse une trace motivée</li>
     <li><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.6"/><path d="M6 10.2l2.4 2.4L14 7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>L'exploitation statistique se fait sur des données dépersonnalisées</li>
@@ -293,18 +297,21 @@
     <div class="build">
       <h3>Construit</h3>
       <ul class="outline">
-        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Noyau et dossier partagé, peuplé de données synthétiques</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Noyau et dossier partagé, peuplé de données synthétiques et de tarifs</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Système de design commun et une application par acteur</li>
         <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Service de soin : cas, visite, mesures, diagnostic, ordonnance</li>
         <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Service caisse : encaissement sans ressaisie</li>
         <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Service pharmacie : délivrance tracée</li>
         <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Accès citoyen illustré</li>
-        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Droits par rôle et journal d'accès</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Droits par rôle, relation de soin et journal d'accès</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="var(--accent)"/></svg>Accès d'urgence motivé et tracé</li>
       </ul>
     </div>
     <div class="show">
       <h3>Posé en architecture</h3>
       <ul class="outline">
-        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="var(--ink-500)" stroke-width="1.4" fill="none"/></svg>Parcours d'urgence complet</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="var(--ink-500)" stroke-width="1.4" fill="none"/></svg>Service et application laboratoire</li>
+        <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="var(--ink-500)" stroke-width="1.4" fill="none"/></svg>Parcours d'urgence complet, au-delà de l'accès motivé</li>
         <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="var(--ink-500)" stroke-width="1.4" fill="none"/></svg>Télémédecine comme type de visite</li>
         <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="var(--ink-500)" stroke-width="1.4" fill="none"/></svg>Entrepôt analytique et requêtes de population</li>
         <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="var(--ink-500)" stroke-width="1.4" fill="none"/></svg>Registres des professionnels et établissements</li>
