@@ -32,6 +32,7 @@ Commands live in `docker-compose.yml`, each service's `pyproject.toml`, the `web
 - Business rules live in each service's `regles/`; FHIR translation lives in `commun/fhir`; route handlers stay thin.
 - Test at the service seam: HTTP request in, FHIR resources out, against a real HAPI container and synthetic data.
 - A decision that is hard to reverse becomes an ADR in `docs/adr/`.
+- A change to how the running system works (a container, a network, a route through the gateway, what can reach what) updates `docs/architecture.md` in the same commit.
 
 ## Agent skills
 

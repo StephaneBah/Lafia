@@ -1,6 +1,6 @@
 # Lafia
 
-Interoperable foundation for Benin's national digital health record: one FHIR core, the **noyau**, holds all medical data; independent domain services read and write it; each actor has its own application on its own subdomain. The brief and the architecture invariants are in `SYSTEM_PROMPT.md`, the vocabulary in `CONTEXT.md`.
+Interoperable foundation for Benin's national digital health record: one FHIR core, the **noyau**, holds all medical data; independent domain services read and write it; each actor has its own application on its own subdomain. The brief and the architecture invariants are in `SYSTEM_PROMPT.md`, the vocabulary in `CONTEXT.md`. How the running system works, piece by piece and request by request, is in `docs/architecture.md`.
 
 ## Run the stack
 
@@ -38,5 +38,5 @@ docker-compose.yml   the stack: gateway, noyau, services
 commun/              shared library, built into each service image: FHIR client
 services/<name>/     one FastAPI service per domain: soin, …
 tests/               black-box suite through the gateway
-docs/                specs and ADRs
+docs/                how it works (architecture.md), specs, ADRs
 ```
