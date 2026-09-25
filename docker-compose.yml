@@ -1,0 +1,102 @@
+# Pile Lafia : passerelle, noyau FHIR, services.
+#
+# Démarrage, depuis un clone neuf :   docker compose up -d --build --wait
+#
+# Les valeurs par défaut ci-dessous servent au développement local seulement.
+# En production, chaque variable de .env.example est fixée dans .env (ignoré par git).
+# Le mot de passe s'écrit ${VAR-défaut} : absent, il prend la valeur locale ; laissé vide
+# dans un .env copié sans être rempli, il reste vide et la base refuse de démarrer.
+#
+# Deux réseaux rendent les invariants physiques :
+# - passerelle : Caddy et les services. Caddy est le seul conteneur qui publie des ports.
+# - noyau : HAPI, sa base, et les services qui parlent FHIR. Réseau interne, sans sortie.
+
+name: lafia
+
+services:
+  passerelle:
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      LAFIA_DOMAINE: ${LAFIA_DOMAINE:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - passerelle-donnees:/data
+      - passerelle-config:/config
+    networks:
+      - passerelle
+    mem_limit: 128m
+
+  base-noyau:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: noyau
+      POSTGRES_USER: noyau
+      POSTGRES_PASSWORD: ${NOYAU_BASE_MOT_DE_PASSE-noyau-local}
+    volumes:
+      - noyau-donnees:/var/lib/postgresql/data
+    networks:
+      - noyau
+    healthcheck:
+      test: ["CMD", "pg_isready", "--username=noyau", "--dbname=noyau"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 512m
+
+  # HAPI FHIR R4 en configuration par défaut : seule la base est changée, par l'environnement.
+  noyau:
+    image: hapiproject/hapi:v8.12.0-1
+    restart: unless-stopped
+    depends_on:
+      base-noyau:
+        condition: service_healthy
+    environment:
+      spring.datasource.url: jdbc:postgresql://base-noyau:5432/noyau
+      spring.datasource.username: noyau
+      spring.datasource.password: ${NOYAU_BASE_MOT_DE_PASSE-noyau-local}
+      spring.datasource.driverClassName: org.postgresql.Driver
+      spring.jpa.properties.hibernate.dialect: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect
+      JAVA_TOOL_OPTIONS: -Xmx1g
+    networks:
+      - noyau
+    healthcheck:
+      # Sonde livrée dans l'image officielle (distroless, sans shell) : santé Spring, base comprise.
+      test: ["CMD", "java", "-Xmx32m", "-cp", "/app", "HealthCheck"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 5m
+      start_interval: 5s
+    mem_limit: 2g
+
+  soin:
+    build:
+      context: services/soin
+      additional_contexts:
+        commun: commun
+    image: lafia/soin
+    restart: unless-stopped
+    depends_on:
+      noyau:
+        condition: service_healthy
+    environment:
+      NOYAU_URL: http://noyau:8080/fhir
+    networks:
+      - passerelle
+      - noyau
+    mem_limit: 256m
+
+networks:
+  passerelle:
+  noyau:
+    internal: true
+
+volumes:
+  passerelle-donnees:
+  passerelle-config:
+  noyau-donnees:

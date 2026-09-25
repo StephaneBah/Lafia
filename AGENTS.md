@@ -18,10 +18,11 @@ services/<name>/ identite, soin, caisse, pharmacie, citoyen
 donnees/         synthetic dataset and its loader
 web/design/      design system: tokens, pictograms, components (workspace package)
 web/<acteur>/    one Next.js application per actor: citoyen, soin, caisse, pharmacie
+tests/           black-box suite against the running stack, through the gateway
 docs/            architecture, specs, ADRs (docs/adr/), design (docs/design/)
 ```
 
-Commands live in `docker-compose.yml`, each service's `pyproject.toml` and the `web/` workspace's `package.json`.
+Commands live in `docker-compose.yml`, each service's `pyproject.toml`, the `web/` workspace's `package.json` and `tests/pyproject.toml`; `README.md` lists the ones to start the stack and run the suite.
 
 `SYSTEM_PROMPT.md` and `CONTEXT.md` are canonical. The HTML files at the root are the French deliverables derived from them.
 
