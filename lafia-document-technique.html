@@ -371,12 +371,12 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
     <li>une liste de 20 à 40 produits et actes, avec leur tarif en FCFA dans chaque établissement ;</li>
     <li>un code carnet connu pour quelques citoyens de démonstration.</li>
   </ul>
-  <p>Ajouté par les services soin, caisse et pharmacie (F3 à F5) :</p>
+  <p>Historique clinique de démonstration (F3), chargé avec le reste :</p>
   <ul class="plain">
-    <li>un suivi d'insuffisance rénale comportant une série de mesures de créatinine sur deux ans ;</li>
-    <li>un cas de visite couvrant deux établissements ;</li>
-    <li>un patient présentant une allergie médicamenteuse ;</li>
-    <li>des ordonnances à différents états : non réglée, réglée, partiellement délivrée, délivrée.</li>
+    <li>un cas de paludisme clos il y a deux mois dans un autre établissement, avec TDR positif, ordonnance réglée et délivrée ;</li>
+    <li>un cas de fièvre et toux en cours, mesures et diagnostic provisoire, ordonnance réglée et délivrée en partie, traitement du jour ;</li>
+    <li>une allergie aux AINS, et une ordonnance non réglée portant de l'ibuprofène : l'arrêt de la pharmacie se démontre ;</li>
+    <li>un journal d'accès avec un accès d'urgence motivé ; un citoyen sans historique pour l'état vide.</li>
   </ul>
 </section>
 
@@ -387,11 +387,8 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
     <tr><td class="a">F0. Système de design</td><td class="b">Jetons, pictogrammes, composants partagés</td><td class="b">Les composants et leurs états sont visibles dans une application</td><td class="b">1</td></tr>
     <tr><td class="a">F1. Socle</td><td class="b">Conteneurs, noyau, passerelle et sous-domaines, bibliothèque commune, espace de travail web, déploiement Azure</td><td class="b">Chaque sous-domaine joint son service, qui joint le noyau, sur l'adresse publique</td><td class="b">1</td></tr>
     <tr><td class="a">F2. Identité et données</td><td class="b">Service identité (agents, officines, code carnet), jeu de démonstration et tarifs chargés</td><td class="b">Un agent s'authentifie ; les patients sont présents</td><td class="b">1</td></tr>
-    <tr><td class="a">F3. Soin</td><td class="b">Service et application soin, relation de soin</td><td class="b">Ouverture d'un cas, visite, relecture du fil</td><td class="b">2</td></tr>
-    <tr><td class="a">F4. Caisse</td><td class="b">Émission d'ordonnance, service et application caisse</td><td class="b">Ordonnance émise puis réglée sans ressaisie</td><td class="b">2</td></tr>
-    <tr><td class="a">F5. Pharmacie et officines</td><td class="b">Service et application pharmacie, utilisés aussi par les officines de ville</td><td class="b">Ordonnance délivrée en partie, visible au dossier</td><td class="b">3</td></tr>
-    <tr><td class="a">F6. Citoyen</td><td class="b">Service et application citoyen, carnet illustré</td><td class="b">Le citoyen ouvre son carnet avec NPI et code carnet</td><td class="b">3</td></tr>
-    <tr><td class="a">F7. Urgence</td><td class="b">Accès d'urgence motivé, journal d'accès</td><td class="b">Parcours complet démontrable sur l'adresse publique</td><td class="b">3</td></tr>
+    <tr><td class="a">F3. v1 complète</td><td class="b">Soin (relation de soin, cas, visite, mesures, diagnostic, ordonnance, reçu, accès d'urgence), caisse, pharmacie, carnet citoyen et journal d'accès, construits en parallèle sur un contrat FHIR commun</td><td class="b">Parcours complet démontrable sur l'adresse publique : de la visite au carnet</td><td class="b">2</td></tr>
+    <tr><td class="a">Conçu, non construit</td><td class="b">Contrôle d'ordonnance par les officines, paiement différé</td><td class="b">Décrits ici ; hors de la v1 livrée</td><td class="b">—</td></tr>
   </table></div>
 </section>
 
