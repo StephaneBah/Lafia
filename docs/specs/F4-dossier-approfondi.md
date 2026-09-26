@@ -20,6 +20,10 @@ F3 walks the whole journey, but testing it shows three gaps. The dossier has no 
 - **Patients are addressed by their Patient id** in every soin route and page; the NPI is sent once, in a POST body, to `recherche`. Access logs are off in service containers.
 - Audit motifs: `recherche` for the NPI search, `relation-de-soin`, `acces-urgence` (and every read by that soignant on that cas while it is open), `citoyen`, `numero-d-ordonnance`.
 - Designed, not built: vaccinations, habitudes, grossesse.
+- **No transition period for `{npi}` routes.** F4.2 removes them outright; the soin application stays broken on the branch until F4.3, and nothing is deployed before F4.6.
+- **Moving FHIR reading to `commun/fhir` comes first in F4.2**, as a commit with no behaviour change (existing tests stay green), before any feature.
+- **The `acces-urgence` motif is derived from the noyau:** a read is traced `acces-urgence` when the cas is open and holds an `EMER` visite in which this soignant participates. Nothing in the token, nothing in `identite`.
+- **Order:** F4.2 first, then F4.3, F4.4 and F4.5 in parallel on the real routes, then F4.6. F4.6 also brings the two French HTML deliverables up to date with F3.7 and F4.
 
 ## FHIR contract (additions to F3)
 
