@@ -1,0 +1,58 @@
+/* Écrans de la caisse (docs/design/maquettes/ecrans-lafia.html, « Encaisser sans rien retaper »). */
+
+.caisse-meta { margin: 0; color: var(--color-text-muted); font-size: 15px; line-height: 22px; }
+.caisse-chiffres { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.caisse-entete { display: flex; justify-content: space-between; align-items: end; gap: var(--space-4); flex-wrap: wrap; }
+.caisse-session { display: grid; grid-template-columns: auto auto; gap: 2px var(--space-3); margin: 0; font-size: 15px; line-height: 22px; }
+.caisse-session dt { color: var(--color-text-muted); }
+.caisse-session dd { margin: 0; font-weight: 700; }
+
+.caisse-recherche { display: flex; gap: var(--space-3); align-items: end; flex-wrap: wrap; }
+.caisse-champ-numero { width: 360px; max-width: 100%; }
+.caisse-champ-numero .lf-input { font-family: var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
+.caisse-recherche .caisse-meta { padding-bottom: 10px; }
+
+.caisse-grille { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--space-5); align-items: start; }
+.caisse-ordonnance { position: relative; background: var(--color-surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-card); overflow: hidden; }
+.caisse-ordonnance-tete { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); }
+.caisse-numero { margin: 0; font: 700 22px/28px var(--font-mono); letter-spacing: .06em; }
+.caisse-ordonnance .lf-line-price { font-variant-numeric: tabular-nums; }
+
+.caisse-total { position: sticky; top: var(--space-4); display: grid; gap: var(--space-3); padding: var(--space-4); background: var(--color-surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-card); }
+.caisse-montant { margin: 0; font: 800 40px/44px var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+
+.caisse-tampon { position: absolute; right: 150px; top: 10px; padding: 6px 18px; border: 5px solid var(--status-paye-fg); border-radius: 10px; color: var(--status-paye-fg); background: var(--status-paye-bg); font: 800 34px/1 var(--font-sans); transform: rotate(-10deg); pointer-events: none; animation: caisse-tampon var(--motion-standard) var(--ease-standard) both; }
+@keyframes caisse-tampon { from { opacity: 0; transform: rotate(-10deg) scale(1.25); } to { opacity: 1; transform: rotate(-10deg) scale(1); } }
+
+/* Le récépissé : un ticket, qui sort de l'imprimante. */
+.caisse-main--recepisse { max-width: 560px; }
+.caisse-recepisse { position: relative; display: grid; gap: var(--space-2); padding: var(--space-5); background: #FFFFFF; color: #121212; border: 1px dashed var(--color-border-control); border-radius: var(--radius-sm); font-size: 16px; line-height: 22px; animation: caisse-impression 600ms var(--ease-standard) both; }
+@keyframes caisse-impression { from { transform: translateY(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.caisse-recepisse p { margin: 0; }
+.caisse-recepisse-titre { font-weight: 800; }
+.caisse-recepisse-numero { font: 700 26px/32px var(--font-mono); letter-spacing: .06em; }
+.caisse-recepisse-lignes { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: grid; gap: var(--space-1); }
+.caisse-recepisse-lignes li, .caisse-recepisse-total { display: flex; justify-content: space-between; gap: var(--space-3); }
+.caisse-recepisse-total { margin-top: var(--space-2) !important; padding-top: var(--space-2); border-top: 1px dashed #121212; font-weight: 800; font-size: 18px; }
+.caisse-tampon--recepisse { top: var(--space-4); right: var(--space-4); font-size: 26px; }
+.caisse-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+
+@media (max-width: 860px) {
+  .caisse-grille { grid-template-columns: 1fr; }
+  .caisse-total { position: static; }
+  .caisse-tampon { right: var(--space-4); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caisse-tampon, .caisse-recepisse { animation: none; }
+}
+
+/* À l'impression, le récépissé seul, sur fond blanc. */
+@media print {
+  body { background: #FFFFFF; }
+  .lf-appheader, .caisse-ecran { display: none !important; }
+  .caisse-main--recepisse { padding: 0; max-width: none; }
+  .caisse-recepisse { border: none; box-shadow: none; animation: none; padding: 0; }
+  .caisse-tampon { animation: none; }
+}
