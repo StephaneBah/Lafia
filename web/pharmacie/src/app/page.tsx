@@ -29,6 +29,14 @@ export default async function Accueil() {
         signOut
       />
       <main className="lf-app-main">
+        <dl className="pharmacie-session">
+          <dt>Connecté comme</dt>
+          <dd>{session.role}</dd>
+          <dt>Nom</dt>
+          <dd>{session.nom}</dd>
+          <dt>Établissement</dt>
+          <dd>{session.nom_etablissement}</dd>
+        </dl>
         <Comptoir />
       </main>
     </>

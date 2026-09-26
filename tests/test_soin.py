@@ -68,6 +68,10 @@ def test_sans_relation_de_soin_le_dossier_reste_ferme_sauf_acces_d_urgence(
         if c.role == "médecin" and not c.reserve_aux_tests and c.etablissement not in (ici.etablissement, "chu-mel")
     )
     autre = _porteur(jeton_pose(connecter(ailleurs)))
+    # Un passage interrompu a pu laisser ouvert un cas d'urgence là-bas : le clore rend la suite rejouable.
+    for reste in soin.get(f"/api/soin/patients/{NPI}", headers=autre).json()["cas"]:
+        if reste.get("de_mon_etablissement"):
+            soin.post(f"/api/soin/cas/{reste['id']}/cloture", headers=autre)
     assert soin.get(f"/api/soin/patients/{NPI}", headers=autre).json()["relation_de_soin"] is False
     assert soin.get(f"/api/soin/patients/{NPI}/dossier", headers=autre).status_code == 403
     assert soin.post(f"/api/soin/cas/{cas.json()['cas_id']}/cloture", headers=autre).status_code == 403
