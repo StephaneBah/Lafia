@@ -1,0 +1,22 @@
+{
+  "name": "@lafia/commun",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Code partagé par les applications Lafia : joindre son service par la passerelle, montrer l'état de l'acteur. Intégré à chaque application à la construction.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "next": "16.3.6",
+    "react": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}

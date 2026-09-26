@@ -10,7 +10,7 @@ Requires Docker with Compose v2. From a clean clone:
 docker compose up -d --build --wait
 ```
 
-The first start takes a few minutes while HAPI creates its schema. Then `https://soin.localhost` serves the soin application, showing its service's status, the noyau's FHIR version and, with a session cookie, the connected role and établissement; `https://soin.localhost/api/soin/sante` reports the same as JSON, and the service's OpenAPI documentation is at `https://soin.localhost/api/soin/docs`. `https://soin.localhost/api/identite/sante` reaches the identite service.
+The first start takes a few minutes while HAPI creates its schema. Then each actor's application is served on its own subdomain: `https://soin.localhost`, `https://caisse.localhost` and `https://pharmacie.localhost`. Each page shows its service's status, the noyau's FHIR version and, with a session cookie, the connected role and établissement. On each subdomain, `/api/<actor>/sante` reports the same as JSON (for instance `https://caisse.localhost/api/caisse/sante`), the service's OpenAPI documentation is at `/api/<actor>/docs`, and `/api/identite/sante` reaches the identite service. Any other `/api/*` path answers 404: `caisse.localhost` has no route to soin's service.
 
 Locally, the gateway signs `*.localhost` certificates with Caddy's internal authority, so a browser warns until you trust its root, found in the `passerelle` container at `/data/caddy/pki/authorities/local/root.crt`.
 
@@ -22,7 +22,7 @@ The noyau's data lives in the `noyau-donnees` volume: `docker compose down` keep
 
 ## Web workspace
 
-The applications and the design system form an npm workspace in `web/`, on Node.js 22. Compose builds each application's image on its own; to work on the code:
+The applications, the code they share (`web/commun/`) and the design system (`web/design/`) form an npm workspace in `web/`, on Node.js 22. Compose builds each application's image on its own; to work on the code:
 
 ```sh
 cd web
@@ -48,12 +48,14 @@ The suite signs its own session tokens with `JETON_CLE_PRIVEE`, the private half
 ## Layout
 
 ```
-Caddyfile            gateway: one subdomain per application
+Caddyfile            gateway: one subdomain per actor, one `import acteur <name>` line each
 docker-compose.yml   the stack: gateway, noyau, services, applications
-commun/              shared library, built into each service image: FHIR client, token verification
-services/<name>/     one FastAPI service per domain: soin, identite, …
+commun/              shared library, built into each service image: service skeleton, FHIR client, token verification
+services/<name>/     one FastAPI service per domain: soin, caisse, pharmacie, identite, …
+services/Dockerfile  one image per service, commun included
+web/commun/          shared application code, built into each application: service through the gateway, status page
 web/design/          design system, built into each application
-web/<acteur>/        one Next.js application per actor: soin, …
-tests/               black-box suite through the gateway, network isolation checks
+web/<acteur>/        one Next.js application per actor: soin, caisse, pharmacie, …
+tests/               black-box suite through the gateway, one table of actors, network isolation checks
 docs/                how it works (architecture.md), specs, ADRs
 ```

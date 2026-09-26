@@ -4,7 +4,10 @@
   "description": "Applications Lafia, une par acteur, et leur système de design.",
   "workspaces": [
     "design",
-    "soin"
+    "commun",
+    "soin",
+    "caisse",
+    "pharmacie"
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",

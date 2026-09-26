@@ -14,6 +14,33 @@
 
 name: lafia
 
+# Un service qui parle FHIR : sur les deux réseaux, démarré quand le noyau répond. Il vérifie seul
+# les jetons signés par identite, par la clé publique JETON_CLE_PUBLIQUE ; vide, sur localhost
+# seulement, il prend la clé de développement ; sur tout autre domaine, il refuse de démarrer.
+x-service-fhir: &service-fhir
+  restart: unless-stopped
+  depends_on:
+    noyau:
+      condition: service_healthy
+  environment:
+    NOYAU_URL: http://noyau:8080/fhir
+    JETON_CLE_PUBLIQUE: ${JETON_CLE_PUBLIQUE:-}
+    LAFIA_DOMAINE: ${LAFIA_DOMAINE:-localhost}
+  networks:
+    - passerelle
+    - noyau
+  mem_limit: 256m
+
+# L'application d'un acteur : sur le réseau passerelle seulement ; elle joint son service par la
+# passerelle, à l'entrée interne de son sous-domaine (PASSERELLE_URL).
+x-application: &application
+  restart: unless-stopped
+  depends_on:
+    - passerelle
+  networks:
+    - passerelle
+  mem_limit: 256m
+
 services:
   passerelle:
     image: caddy:2.11-alpine
@@ -33,6 +60,8 @@ services:
         # application joint son entrée interne sous son propre nom (voir le Caddyfile).
         aliases:
           - soin.${LAFIA_DOMAINE:-localhost}
+          - caisse.${LAFIA_DOMAINE:-localhost}
+          - pharmacie.${LAFIA_DOMAINE:-localhost}
     mem_limit: 128m
 
   base-noyau:
@@ -79,52 +108,81 @@ services:
       start_interval: 5s
     mem_limit: 2g
 
+  # Chaque service est construit par services/Dockerfile, commun compris.
   soin:
+    <<: *service-fhir
     build:
-      context: services/soin
+      context: services
       additional_contexts:
         commun: commun
+      args:
+        SERVICE: soin
     image: lafia/soin
-    restart: unless-stopped
-    depends_on:
-      noyau:
-        condition: service_healthy
-    environment:
-      NOYAU_URL: http://noyau:8080/fhir
-      # Clé publique qui vérifie les jetons signés par identite. Vide, sur localhost seulement, le
-      # service prend la clé de développement ; sur tout autre domaine, il refuse de démarrer.
-      JETON_CLE_PUBLIQUE: ${JETON_CLE_PUBLIQUE:-}
-      LAFIA_DOMAINE: ${LAFIA_DOMAINE:-localhost}
-    networks:
-      - passerelle
-      - noyau
-    mem_limit: 256m
+
+  caisse:
+    <<: *service-fhir
+    build:
+      context: services
+      additional_contexts:
+        commun: commun
+      args:
+        SERVICE: caisse
+    image: lafia/caisse
+
+  pharmacie:
+    <<: *service-fhir
+    build:
+      context: services
+      additional_contexts:
+        commun: commun
+      args:
+        SERVICE: pharmacie
+    image: lafia/pharmacie
 
   # Identite ne parle jamais FHIR : sur le réseau passerelle seulement, il ne peut pas joindre le noyau.
   identite:
     build:
-      context: services/identite
+      context: services
+      additional_contexts:
+        commun: commun
+      args:
+        SERVICE: identite
     image: lafia/identite
     restart: unless-stopped
     networks:
       - passerelle
     mem_limit: 256m
 
-  # Application soin : sur le réseau passerelle seulement ; elle joint son service par la passerelle.
+  # Chaque application est construite par web/Dockerfile, système de design et code commun compris.
   application-soin:
+    <<: *application
     build:
       context: web
       args:
         APPLICATION: soin
     image: lafia/application-soin
-    restart: unless-stopped
-    depends_on:
-      - passerelle
     environment:
       PASSERELLE_URL: http://soin.${LAFIA_DOMAINE:-localhost}:8080
-    networks:
-      - passerelle
-    mem_limit: 256m
+
+  application-caisse:
+    <<: *application
+    build:
+      context: web
+      args:
+        APPLICATION: caisse
+    image: lafia/application-caisse
+    environment:
+      PASSERELLE_URL: http://caisse.${LAFIA_DOMAINE:-localhost}:8080
+
+  application-pharmacie:
+    <<: *application
+    build:
+      context: web
+      args:
+        APPLICATION: pharmacie
+    image: lafia/application-pharmacie
+    environment:
+      PASSERELLE_URL: http://pharmacie.${LAFIA_DOMAINE:-localhost}:8080
 
 networks:
   passerelle:

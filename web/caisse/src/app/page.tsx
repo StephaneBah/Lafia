@@ -1,5 +1,5 @@
 import { EtatDeLActeur } from "@lafia/commun";
 
 export default function Accueil() {
-  return <EtatDeLActeur titre="Soin" service="soin" />;
+  return <EtatDeLActeur titre="Caisse" service="caisse" />;
 }

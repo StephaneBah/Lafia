@@ -1,6 +1,7 @@
 # Image d'une application Lafia, construite depuis l'espace de travail web/ :
 #   docker build --build-arg APPLICATION=soin web
-# Le système de design est compilé dans l'application ; l'image ne garde que la sortie autonome de Next.js.
+# Le code commun et le système de design sont compilés dans l'application ; l'image ne garde que la
+# sortie autonome de Next.js.
 
 FROM node:22-alpine AS construction
 ARG APPLICATION

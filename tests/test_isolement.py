@@ -32,6 +32,8 @@ REPONSE, SANS_REPONSE = 0, 3
 # Les conteneurs hors du réseau noyau, et leur sonde.
 HORS_DU_NOYAU = {
     "application-soin": SONDE_NODE,
+    "application-caisse": SONDE_NODE,
+    "application-pharmacie": SONDE_NODE,
     "identite": SONDE_PYTHON,
 }
 

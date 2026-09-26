@@ -14,17 +14,25 @@
 	skip_install_trust
 }
 
-soin.{$LAFIA_DOMAINE}, http://soin.{$LAFIA_DOMAINE}:8080 {
-	handle /api/soin/* {
-		reverse_proxy soin:8000
-	}
-	handle /api/identite/* {
-		reverse_proxy identite:8000
-	}
-	handle /api/* {
-		respond 404
-	}
-	handle {
-		reverse_proxy application-soin:3000
+# La règle de tout acteur : `import acteur <nom>` sert <nom>.<domaine>, où son service est le
+# conteneur <nom> et son application le conteneur application-<nom>.
+(acteur) {
+	{args[0]}.{$LAFIA_DOMAINE}, http://{args[0]}.{$LAFIA_DOMAINE}:8080 {
+		handle /api/{args[0]}/* {
+			reverse_proxy {args[0]}:8000
+		}
+		handle /api/identite/* {
+			reverse_proxy identite:8000
+		}
+		handle /api/* {
+			respond 404
+		}
+		handle {
+			reverse_proxy application-{args[0]}:3000
+		}
 	}
 }
+
+import acteur soin
+import acteur caisse
+import acteur pharmacie

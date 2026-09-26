@@ -24,6 +24,7 @@ import ssl
 import subprocess
 from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta, timezone
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
@@ -168,3 +169,102 @@ def signer_jeton() -> Callable[..., str]:
         return jwt.encode(revendications, cle, algorithm="EdDSA")
 
     return signer
+
+
+# Le jeton arrive au service par le cookie de session de l'application, ou par l'en-tête Authorization.
+def _par_cookie(jeton: str) -> dict[str, str]:
+    return {"Cookie": f"__Host-session={jeton}"}
+
+
+def _par_porteur(jeton: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {jeton}"}
+
+
+@pytest.fixture(params=[_par_cookie, _par_porteur], ids=["cookie", "porteur"])
+def transport(request: pytest.FixtureRequest) -> Callable[[str], dict[str, str]]:
+    """Les en-têtes qui portent un jeton : `transport(jeton)`. Un test qui le demande passe par les deux voies."""
+    porter: Callable[[str], dict[str, str]] = request.param
+    return porter
+
+
+# Balises dont le contenu n'apparaît pas dans la page affichée.
+BALISES_INVISIBLES = {"title", "script", "style", "template"}
+
+
+class _LecteurDeTexteVisible(HTMLParser):
+    """Recueille le texte qu'un lecteur voit dans la page : ni balises, ni commentaires, ni scripts."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.morceaux: list[str] = []
+        self._dans_une_balise_invisible = 0
+
+    def handle_starttag(self, tag: str, attrs: object) -> None:
+        if tag in BALISES_INVISIBLES:
+            self._dans_une_balise_invisible += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in BALISES_INVISIBLES and self._dans_une_balise_invisible:
+            self._dans_une_balise_invisible -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not self._dans_une_balise_invisible:
+            self.morceaux.append(data)
+
+
+def _texte_visible(html: str) -> str:
+    lecteur = _LecteurDeTexteVisible()
+    lecteur.feed(html)
+    return " ".join(" ".join(lecteur.morceaux).split())
+
+
+@pytest.fixture(scope="session")
+def page(application: Callable[[str], httpx.Client]) -> Callable[..., str]:
+    """Le texte qu'un lecteur voit sur l'accueil d'une application : `page("soin")`.
+
+    `jeton` voyage dans le cookie de session, comme depuis un navigateur.
+    """
+
+    def lire(acteur: str, *, jeton: str | None = None) -> str:
+        reponse = application(acteur).get("/", headers=_par_cookie(jeton) if jeton else None)
+        assert reponse.status_code == 200
+        assert reponse.headers["content-type"].startswith("text/html")
+        return _texte_visible(reponse.text)
+
+    return lire
+
+
+def _sans_signature(signer: Callable[..., str]) -> str:
+    """Un jeton de médecin dont l'en-tête annonce l'algorithme `none`, et sans signature."""
+    _, charge, _ = signer("médecin").split(".")
+    entete = base64.urlsafe_b64encode(b'{"alg":"none","typ":"JWT"}').rstrip(b"=").decode()
+    return f"{entete}.{charge}."
+
+
+def _charge_modifiee(signer: Callable[..., str]) -> str:
+    """La signature d'un jeton de caissier sous les revendications d'un jeton de médecin."""
+    entete, _, signature = signer("caissier").split(".")
+    _, charge, _ = signer("médecin").split(".")
+    return f"{entete}.{charge}.{signature}"
+
+
+JETONS_INVALIDES = [
+    pytest.param(lambda signer: "pas-un-jeton", id="malformé"),
+    pytest.param(lambda signer: signer("médecin", expire_dans=timedelta(minutes=-1)), id="expiré"),
+    pytest.param(lambda signer: signer("médecin", expire_dans=timedelta(days=365)), id="valable un an"),
+    pytest.param(
+        lambda signer: signer("médecin", cle=Ed25519PrivateKey.generate()), id="signé d'une autre clé"
+    ),
+    pytest.param(_sans_signature, id="non signé"),
+    pytest.param(_charge_modifiee, id="revendications modifiées"),
+    pytest.param(lambda signer: signer("médecin", etablissement=None), id="médecin sans établissement"),
+    pytest.param(lambda signer: signer("médecin", npi="0000000001"), id="médecin portant un NPI"),
+    pytest.param(lambda signer: signer("administrateur"), id="rôle inconnu"),
+]
+
+
+@pytest.fixture(params=JETONS_INVALIDES)
+def jeton_invalide(request: pytest.FixtureRequest, signer_jeton: Callable[..., str]) -> str:
+    """Un jeton que tout service refuse par 401, quel que soit le rôle qu'il sert. Un test par cas."""
+    forger: Callable[[Callable[..., str]], str] = request.param
+    return forger(signer_jeton)

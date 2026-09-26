@@ -1,8 +1,8 @@
 {
-  "name": "@lafia/soin",
+  "name": "@lafia/pharmacie",
   "version": "0.1.0",
   "private": true,
-  "description": "Application soin : l'interface des soignants, appariée au service soin.",
+  "description": "Application pharmacie : l'interface des pharmaciens, appariée au service pharmacie.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -13,9 +13,10 @@ Read `SYSTEM_PROMPT.md` before any grilling, spec, ticket or implementation: it 
 ## Repository map
 
 ```
-commun/          shared library: FHIR client, token verification, audit
+commun/          shared library: service skeleton, FHIR client, token verification, audit
 services/<name>/ identite, soin, caisse, pharmacie, citoyen
 donnees/         synthetic dataset and its loader
+web/commun/      shared application code: reaching its service through the gateway, status page (workspace package)
 web/design/      design system: tokens, pictograms, components (workspace package)
 web/<acteur>/    one Next.js application per actor: citoyen, soin, caisse, pharmacie
 tests/           black-box suite against the running stack, through the gateway

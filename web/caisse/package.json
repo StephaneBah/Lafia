@@ -1,8 +1,8 @@
 {
-  "name": "@lafia/soin",
+  "name": "@lafia/caisse",
   "version": "0.1.0",
   "private": true,
-  "description": "Application soin : l'interface des soignants, appariée au service soin.",
+  "description": "Application caisse : l'interface des caissiers, appariée au service caisse.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
