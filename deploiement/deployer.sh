@@ -18,5 +18,12 @@ done
 
 # Le premier démarrage du noyau prend quelques minutes : HAPI crée son schéma.
 docker compose up -d --wait --remove-orphans
+
+# La passerelle monte le Caddyfile fichier par fichier : git le remplace par un nouveau fichier, qu'elle
+# ne voit qu'une fois recréée. Elle l'est quand le Caddyfile qu'elle sert diffère de celui du dépôt.
+if ! docker compose exec -T passerelle cat /etc/caddy/Caddyfile | cmp -s - Caddyfile; then
+  docker compose up -d --wait --force-recreate --no-deps passerelle
+fi
+
 docker image prune -f
 docker compose ps
