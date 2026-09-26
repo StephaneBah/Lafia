@@ -111,7 +111,7 @@
   <h3><span class="n">2.1</span>Principe</h3>
   <p>L'architecture repose sur un noyau unique, détenteur de toute la donnée médicale, autour duquel s'organisent des services métier indépendants. Chaque service répond à un usage précis et ne communique qu'avec le noyau, au moyen du standard HL7 FHIR. Aucun service ne conserve de copie de la donnée médicale et aucun ne dialogue directement avec un autre.</p>
   <p>Cette organisation garantit que l'ajout ou le remplacement d'un service — laboratoire, télémédecine, application tierce — n'exige aucune modification des services existants : il suffit qu'il parle FHIR au noyau.</p>
-  <p>Le même principe se répète au-dessus des services : <strong>chaque acteur dispose de sa propre application</strong> (citoyen, soin, caisse, pharmacie), servie sur son propre sous-domaine. Une application ne parle qu'à son service et au service identité, jamais au noyau ni au service d'un autre acteur. Les applications partagent un système de design commun, intégré à la compilation.</p>
+  <p>Le même principe se répète au-dessus des services : <strong>chaque acteur dispose de sa propre application</strong> (citoyen, soin, caisse, pharmacie), servie sur son propre sous-domaine. Une application ne parle qu'à son service et au service identité, jamais au noyau ni au service d'un autre acteur. Les applications partagent, intégrés à la compilation, un système de design commun et le code qu'elles répéteraient sinon, comme l'appel de leur service par la passerelle ; ce code commun n'ouvre jamais de chemin vers le service d'un autre acteur ni vers le noyau.</p>
 
   <h3><span class="n">2.2</span>Schéma</h3>
 <pre><code>  citoyen.*       soin.*        caisse.*      pharmacie.*     sous-domaines
@@ -327,6 +327,7 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
 ├── Caddyfile
 ├── docs/                   architecture, correspondance FHIR
 ├── commun/                 bibliothèque partagée par les services
+│   ├── service.py          squelette d'un service : routes, santé, contrat OpenAPI
 │   ├── fhir.py             client du noyau
 │   ├── jeton.py            vérification des jetons
 │   └── audit.py            production des traces
@@ -335,15 +336,18 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
 │   ├── soin/
 │   ├── caisse/
 │   ├── pharmacie/
-│   └── citoyen/            chacun : routes, règles, Dockerfile
+│   ├── citoyen/            chacun : routes, règles
+│   └── Dockerfile          une image par service, bibliothèque commune comprise
 ├── donnees/                jeu de démonstration, tarifs, script de chargement
 └── web/                    espace de travail npm
     ├── design/             système de design : jetons, pictogrammes, composants
+    ├── commun/             code partagé : joindre son service par la passerelle
     ├── citoyen/
     ├── soin/
     ├── caisse/
-    └── pharmacie/          chacune : application Next.js, Dockerfile</code></pre>
-  <p>La bibliothèque commune évite la duplication du client FHIR, de la vérification des jetons et de la production des traces entre services, sans créer de dépendance d'exécution entre eux. Le système de design joue le même rôle pour les applications.</p>
+    ├── pharmacie/          chacune : application Next.js
+    └── Dockerfile          une image par application</code></pre>
+  <p>La bibliothèque commune évite la duplication du client FHIR, de la vérification des jetons et de la production des traces entre services, sans créer de dépendance d'exécution entre eux. Le code commun et le système de design jouent le même rôle pour les applications.</p>
 </section>
 
 <section>
