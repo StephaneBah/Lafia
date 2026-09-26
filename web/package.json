@@ -7,7 +7,8 @@
     "commun",
     "soin",
     "caisse",
-    "pharmacie"
+    "pharmacie",
+    "citoyen"
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",

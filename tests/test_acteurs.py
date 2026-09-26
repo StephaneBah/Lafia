@@ -1,7 +1,9 @@
 """Chaque acteur : son application sur <acteur>.<domaine>, son service sous <acteur>.<domaine>/api/<acteur>/*.
 
-Chaque ligne de `ACTEURS` soumet un acteur aux mêmes vérifications que les autres. Un nouvel acteur
-s'ajoute aussi à `tests/test_identite.py` et aux sondes de `tests/test_isolement.py`.
+Chaque ligne de `ACTEURS` soumet un acteur aux mêmes vérifications que les autres, sauf la session
+admise : celle d'un agent porte son établissement, celle du citoyen se vérifie dans
+`tests/test_citoyen.py`. Un nouvel acteur s'ajoute aussi à `tests/test_identite.py` et aux sondes de
+`tests/test_isolement.py`.
 """
 
 from typing import NamedTuple
@@ -20,10 +22,14 @@ ACTEURS = {
     "soin": Acteur("Soin", ("médecin", "infirmier")),
     "caisse": Acteur("Caisse", ("caissier",)),
     "pharmacie": Acteur("Pharmacie", ("pharmacien",)),
+    "citoyen": Acteur("Mon carnet", ("citoyen",)),
 }
 ROLES = ("médecin", "infirmier", "caissier", "pharmacien", "citoyen")
 
-ROLES_ADMIS = [(nom, role) for nom, acteur in ACTEURS.items() for role in acteur.roles_admis]
+# Les agents que chaque service sert : leur session porte un établissement.
+AGENTS_ADMIS = [
+    (nom, role) for nom, acteur in ACTEURS.items() for role in acteur.roles_admis if role != "citoyen"
+]
 ROLES_REFUSES = [
     (nom, role) for nom, acteur in ACTEURS.items() for role in ROLES if role not in acteur.roles_admis
 ]
@@ -65,7 +71,7 @@ def test_application_affiche_son_service_et_la_version_fhir_du_noyau(page, acteu
     assert "Session aucune" in texte
 
 
-@pytest.mark.parametrize(("acteur", "role"), ROLES_ADMIS)
+@pytest.mark.parametrize(("acteur", "role"), AGENTS_ADMIS)
 def test_application_affiche_l_agent_connecte(page, signer_jeton, acteur, role):
     texte = page(acteur, jeton=signer_jeton(role, etablissement="etablissement-test-3"))
 
@@ -80,7 +86,7 @@ def test_session_sans_jeton_refusee(application, acteur):
     assert reponse.status_code == 401
 
 
-@pytest.mark.parametrize(("acteur", "role"), ROLES_ADMIS)
+@pytest.mark.parametrize(("acteur", "role"), AGENTS_ADMIS)
 def test_session_rend_l_agent_du_jeton(application, signer_jeton, transport, acteur, role):
     jeton = signer_jeton(role, sub="agent-test-7", etablissement="etablissement-test-3")
 

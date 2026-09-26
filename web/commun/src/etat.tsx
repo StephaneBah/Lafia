@@ -11,7 +11,8 @@ function etatNoyau(sante: Sante | null): string {
 
 /**
  * L'accueil d'une application au socle : le nom de son acteur, l'état de son service et du noyau
- * derrière lui, et l'agent connecté, que le service lit du cookie de session.
+ * derrière lui, et qui est connecté, que le service lit du cookie de session : le rôle et
+ * l'établissement d'un agent, le seul rôle d'un citoyen.
  */
 export async function EtatDeLActeur({ titre, service }: { titre: string; service: string }) {
   // Rendu à chaque requête : la page montre l'état du moment, jamais celui de la construction.
@@ -36,8 +37,12 @@ export async function EtatDeLActeur({ titre, service }: { titre: string; service
           <>
             <dt>Connecté comme</dt>
             <dd>{session.role}</dd>
-            <dt>Établissement</dt>
-            <dd>{session.etablissement}</dd>
+            {session.role !== "citoyen" && (
+              <>
+                <dt>Établissement</dt>
+                <dd>{session.etablissement}</dd>
+              </>
+            )}
           </>
         ) : (
           <>

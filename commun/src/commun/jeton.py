@@ -114,6 +114,10 @@ def _refus(detail: str) -> HTTPException:
     )
 
 
+def _role_non_admis() -> HTTPException:
+    return HTTPException(status.HTTP_403_FORBIDDEN, detail="rôle non admis")
+
+
 class VerificateurDeJetons:
     def __init__(self, cle_publique: Ed25519PublicKey) -> None:
         self._cle_publique = cle_publique
@@ -181,7 +185,20 @@ class VerificateurDeJetons:
 
         def agent_admis(porteur: Porteur = Depends(self.porteur)) -> Agent:
             if not isinstance(porteur, Agent) or porteur.role not in roles_admis:
-                raise HTTPException(status.HTTP_403_FORBIDDEN, detail="rôle non admis")
+                raise _role_non_admis()
             return porteur
 
         return agent_admis
+
+    def citoyen(self) -> Callable[..., Citoyen]:
+        """Dépendance FastAPI, garde du service citoyen : le citoyen du jeton.
+
+        401 sans jeton valide ; 403 pour un agent, quel que soit son rôle.
+        """
+
+        def citoyen_admis(porteur: Porteur = Depends(self.porteur)) -> Citoyen:
+            if not isinstance(porteur, Citoyen):
+                raise _role_non_admis()
+            return porteur
+
+        return citoyen_admis

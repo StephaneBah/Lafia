@@ -218,18 +218,30 @@ def _texte_visible(html: str) -> str:
     return " ".join(" ".join(lecteur.morceaux).split())
 
 
+def _accueil(client: httpx.Client, jeton: str | None) -> str:
+    """Le HTML de l'accueil d'une application. `jeton` voyage dans le cookie de session, comme depuis un navigateur."""
+    reponse = client.get("/", headers=_par_cookie(jeton) if jeton else None)
+    assert reponse.status_code == 200
+    assert reponse.headers["content-type"].startswith("text/html")
+    return reponse.text
+
+
 @pytest.fixture(scope="session")
 def page(application: Callable[[str], httpx.Client]) -> Callable[..., str]:
-    """Le texte qu'un lecteur voit sur l'accueil d'une application : `page("soin")`.
-
-    `jeton` voyage dans le cookie de session, comme depuis un navigateur.
-    """
+    """Le texte qu'un lecteur voit sur l'accueil d'une application : `page("soin", jeton=…)`."""
 
     def lire(acteur: str, *, jeton: str | None = None) -> str:
-        reponse = application(acteur).get("/", headers=_par_cookie(jeton) if jeton else None)
-        assert reponse.status_code == 200
-        assert reponse.headers["content-type"].startswith("text/html")
-        return _texte_visible(reponse.text)
+        return _texte_visible(_accueil(application(acteur), jeton))
+
+    return lire
+
+
+@pytest.fixture(scope="session")
+def html_de_page(application: Callable[[str], httpx.Client]) -> Callable[..., str]:
+    """Tout le HTML de l'accueil d'une application, balises et scripts compris : `html_de_page("citoyen", jeton=…)`."""
+
+    def lire(acteur: str, *, jeton: str | None = None) -> str:
+        return _accueil(application(acteur), jeton)
 
     return lire
 
@@ -259,6 +271,11 @@ JETONS_INVALIDES = [
     pytest.param(_charge_modifiee, id="revendications modifiées"),
     pytest.param(lambda signer: signer("médecin", etablissement=None), id="médecin sans établissement"),
     pytest.param(lambda signer: signer("médecin", npi="0000000001"), id="médecin portant un NPI"),
+    pytest.param(lambda signer: signer("citoyen", npi=None), id="citoyen sans NPI"),
+    pytest.param(
+        lambda signer: signer("citoyen", etablissement="etablissement-test-1"),
+        id="citoyen rattaché à un établissement",
+    ),
     pytest.param(lambda signer: signer("administrateur"), id="rôle inconnu"),
 ]
 

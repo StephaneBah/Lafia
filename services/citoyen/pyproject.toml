@@ -1,0 +1,17 @@
+[project]
+name = "lafia-citoyen"
+version = "0.1.0"
+description = "Service citoyen : le carnet du citoyen et son journal d'accès, sur son seul NPI."
+requires-python = ">=3.11"
+dependencies = [
+    "lafia-commun",
+    "fastapi>=0.141,<0.142",
+    "uvicorn>=0.54,<0.55",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/citoyen"]

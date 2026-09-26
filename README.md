@@ -10,7 +10,7 @@ Requires Docker with Compose v2. From a clean clone:
 docker compose up -d --build --wait
 ```
 
-The first start takes a few minutes while HAPI creates its schema. Then each actor's application is served on its own subdomain: `https://soin.localhost`, `https://caisse.localhost` and `https://pharmacie.localhost`. Each page shows its service's status, the noyau's FHIR version and, with a session cookie, the connected role and établissement. On each subdomain, `/api/<actor>/sante` reports the same as JSON (for instance `https://caisse.localhost/api/caisse/sante`), the service's OpenAPI documentation is at `/api/<actor>/docs`, and `/api/identite/sante` reaches the identite service. Any other `/api/*` path answers 404: `caisse.localhost` has no route to soin's service.
+The first start takes a few minutes while HAPI creates its schema. Then each actor's application is served on its own subdomain: `https://soin.localhost`, `https://caisse.localhost`, `https://pharmacie.localhost` and `https://citoyen.localhost`. Each page shows its service's status, the noyau's FHIR version and, with a session cookie, the connected role, with the établissement for an agent; a citoyen's page never shows their NPI. On each subdomain, `/api/<actor>/sante` reports the same as JSON (for instance `https://caisse.localhost/api/caisse/sante`), the service's OpenAPI documentation is at `/api/<actor>/docs`, and `/api/identite/sante` reaches the identite service. Any other `/api/*` path answers 404: `caisse.localhost` has no route to soin's service.
 
 Locally, the gateway signs `*.localhost` certificates with Caddy's internal authority, so a browser warns until you trust its root, found in the `passerelle` container at `/data/caddy/pki/authorities/local/root.crt`.
 
@@ -51,11 +51,11 @@ The suite signs its own session tokens with `JETON_CLE_PRIVEE`, the private half
 Caddyfile            gateway: one subdomain per actor, one `import acteur <name>` line each
 docker-compose.yml   the stack: gateway, noyau, services, applications
 commun/              shared library, built into each service image: service skeleton, FHIR client, token verification
-services/<name>/     one FastAPI service per domain: soin, caisse, pharmacie, identite, …
+services/<name>/     one FastAPI service per domain: soin, caisse, pharmacie, citoyen, identite
 services/Dockerfile  one image per service, commun included
 web/commun/          shared application code, built into each application: service through the gateway, status page
 web/design/          design system, built into each application
-web/<acteur>/        one Next.js application per actor: soin, caisse, pharmacie, …
+web/<acteur>/        one Next.js application per actor: soin, caisse, pharmacie, citoyen
 tests/               black-box suite through the gateway, one table of actors, network isolation checks
 docs/                how it works (architecture.md), specs, ADRs
 ```

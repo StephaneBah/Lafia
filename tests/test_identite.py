@@ -3,7 +3,7 @@
 import pytest
 
 
-@pytest.mark.parametrize("acteur", ["soin", "caisse", "pharmacie"])
+@pytest.mark.parametrize("acteur", ["soin", "caisse", "pharmacie", "citoyen"])
 def test_sante_identite_joignable_depuis_le_sous_domaine_d_une_application(application, acteur):
     reponse = application(acteur).get("/api/identite/sante")
 

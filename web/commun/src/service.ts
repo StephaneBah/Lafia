@@ -20,22 +20,31 @@ export type Sante = {
 /** Le rôle d'un agent, professionnel rattaché à un établissement (`commun.jeton.Role`, sans citoyen). */
 export type RoleAgent = "médecin" | "infirmier" | "caissier" | "pharmacien";
 
-/** Réponse de `GET /api/<service>/session` : l'agent connecté, tel que le service lit son jeton vérifié. */
+/** Réponse de `GET /api/<service>/session` d'un service d'agents : l'agent, tel que le service lit son jeton vérifié. */
 export type SessionAgent = {
   sub: string;
   role: RoleAgent;
   etablissement: string;
 };
 
+/** Réponse de `GET /api/citoyen/session` : le citoyen, sans son NPI, que le service ne renvoie jamais. */
+export type SessionCitoyen = {
+  sub: string;
+  role: "citoyen";
+};
+
+/** Qui est connecté, selon le service : un agent, ou le citoyen. Le rôle les distingue. */
+export type Session = SessionAgent | SessionCitoyen;
+
 /** Ce qu'une application demande à son service. */
 export type Service = {
   /** État du service et du noyau derrière lui ; `null` quand le service ne répond pas. */
   lireSante(): Promise<Sante | null>;
   /**
-   * L'agent que désigne le jeton de session, vérifié par le service : l'application ne lit pas le
-   * jeton elle-même. `null` quand le service le refuse (401, 403) ou ne répond pas.
+   * L'agent ou le citoyen que désigne le jeton de session, vérifié par le service : l'application ne
+   * lit pas le jeton elle-même. `null` quand le service le refuse (401, 403) ou ne répond pas.
    */
-  lireSession(jeton: string): Promise<SessionAgent | null>;
+  lireSession(jeton: string): Promise<Session | null>;
 };
 
 /** Adresse interne de la passerelle pour le sous-domaine de l'application, lue dans `PASSERELLE_URL`. */
@@ -81,7 +90,7 @@ export function serviceParLaPasserelle(service: string): Service {
     // 200 : toute la chaîne répond. 503 : le service répond, le noyau non. Les deux décrivent l'état.
     lireSante: () => demander<Sante>(service, `/api/${service}/sante`, [200, 503]),
     lireSession: (jeton) =>
-      demander<SessionAgent>(service, `/api/${service}/session`, [200], {
+      demander<Session>(service, `/api/${service}/session`, [200], {
         Cookie: `${COOKIE_DE_SESSION}=${jeton}`,
       }),
   };

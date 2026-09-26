@@ -36,3 +36,4 @@
 import acteur soin
 import acteur caisse
 import acteur pharmacie
+import acteur citoyen
