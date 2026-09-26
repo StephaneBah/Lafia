@@ -33,7 +33,7 @@ app citoyen   app soin   app caisse   app pharmacie      Next.js, one per actor
 3. **HAPI runs in default configuration** and is consumed through its standard REST API. Project rules live in the services.
 4. **The noyau is internal.** HAPI publishes no port; the Caddy gateway is the only public entry.
 5. **One application per actor.** `web/citoyen`, `web/soin`, `web/caisse`, `web/pharmacie` are separate Next.js apps, each on its own subdomain. An app calls **its own service plus `identite`**, through the gateway, and nothing else. Apps are not on the noyau's network, never speak FHIR and store no medical data. They share two workspace packages, built in, never a runtime dependency: the design system `web/design/`, and `web/commun/`, the application code every app would otherwise repeat, such as reaching its own service through the gateway. `web/commun/` must never open a path around the services: it calls only the app's own service and `identite`, never another actor's service, the noyau or FHIR. A new actor (laboratoire, télémédecine, a third party) joins the same way: its own app, its own service, FHIR to the noyau. See `docs/adr/0001-une-application-par-acteur.md`.
-6. **Identity is the NPI**, carried in `Patient.identifier` with system `https://npi.gouv.bj`. Lafia creates no patient identifier of its own.
+6. **Identity is the NPI**, carried in `Patient.identifier` with system `https://npi.gouv.bj`. Lafia creates no patient identifier of its own; a person without an NPI has no Lafia dossier in v1.
 7. **Only `identite` owns a database**: agent accounts, roles, facility, codes carnet. It stores no medical data.
 8. **Records are append-only.** A correction is a new version; history stays readable.
 9. **Portable by design.** Docker Compose on one Azure VM; the critical path uses no provider-specific managed service.
@@ -75,14 +75,15 @@ A shared national record concentrates the most intimate data a person has. These
   | infirmier | soin | full record, read and write; diagnostics provisional only |
   | caissier | caisse | ordonnances and amounts only |
   | pharmacien | pharmacie | paid lines, allergies, long-term treatments |
+  | officine | pharmacie | an ordonnance by its numéro: prescriber, date, établissement, lines not yet handed over; declares the lines it sold |
   | citoyen | citoyen | own carnet and own access log |
 
-- **Access follows a relation de soin.** A soignant opens a dossier only when their établissement holds an open cas for that patient, or when they open or continue one now with the patient present. Caisse and pharmacie reach an ordonnance through the numéro the patient presents. Anything else is an accès d'urgence. See `docs/adr/0002-acces-par-relation-de-soin.md`.
+- **Access follows a relation de soin.** A soignant opens a dossier only when their établissement holds an open cas for that patient, or when they open or continue one now with the patient present. Caisse, pharmacie and officine reach an ordonnance through the numéro the patient presents. Anything else is an accès d'urgence. See `docs/adr/0002-acces-par-relation-de-soin.md`.
 - **Accès d'urgence** bypasses the relation de soin for vital emergencies, requires a stated reason, and is audited like any access.
 - **Every read or write of a patient record emits an `AuditEvent`**: agent, facility, action, timestamp.
 - **The citoyen signs in with NPI plus code carnet**, a short code printed on the receipt handed over at each visite. `identite` issues a `citoyen` token scoped to that NPI. No SMS in v1. See `docs/adr/0003-connexion-citoyen-par-code-carnet.md`.
-- **Tokens are signed, short-lived, and verified independently by each service.** They travel in an `httpOnly`, `Secure`, `SameSite=Strict` cookie scoped to the application's subdomain; client JavaScript never reads them.
-- **Synthetic data only.** Fixtures come from `donnees/`. Logs, commits, prompts, issues and test names carry resource ids, never names, NPIs or clinical content.
+- **Tokens are signed, short-lived, and verified independently by each service.** Only `identite` holds the signing key. They travel in an `httpOnly`, `Secure`, `SameSite=Strict` cookie scoped to the application's subdomain; client JavaScript never reads them. Clients that are not browsers (the test suite, future integrators) send the same token in an `Authorization: Bearer` header. See `docs/adr/0004-contrat-du-jeton-de-session.md`.
+- **Synthetic data only.** Fixtures come from `donnees/`. Because of that, the deployed platform carries demo accounts whose passwords are public. Logs, commits, prompts, issues and test names carry resource ids, never names, NPIs or clinical content.
 - **Secrets come from environment variables**; `.env` stays out of git.
 - Population statistics run on de-identified extracts, never on the live record (analytics is out of v1 scope).
 
@@ -92,23 +93,23 @@ The population served is not a connected one. Citizen screens are understandable
 
 ## Scope
 
-**v1 builds:** noyau and dataset (with tarifs); design system; `soin` (cas, visite, mesures including lab results entered by the soignant, diagnostic, ordonnance); `caisse` (encaissement without re-typing); `pharmacie` (traced délivrance, partial allowed); `citoyen` (illustrated carnet, code carnet sign-in); roles, relation de soin and audit; accès d'urgence. Each with its application.
+**v1 builds:** noyau and dataset (with tarifs); design system; `soin` (cas, visite, mesures including lab results entered by the soignant, diagnostic, ordonnance); `caisse` (encaissement without re-typing); `pharmacie` (traced délivrance, partial allowed; an officine, signed in under its own name, checks an ordonnance and declares the lines it sold); `citoyen` (illustrated carnet, code carnet sign-in); roles, relation de soin and audit; accès d'urgence. Each with its application.
 
-**Designed, not built:** laboratoire service and application, télémédecine as a visite type, analytics warehouse, registries of professionals and établissements.
+**Designed, not built:** laboratoire service and application, an API for officines' own software, télémédecine as a visite type, analytics warehouse, registries of professionals and établissements.
 
 **Out of v1:** offline mode, voice, USSD and SMS, AI clinical scribe, AI diagnosis support, stock management, full insurance billing.
 
 ## Feature map
 
-One PRD per session, in dependency order. Status lives in the issue tracker.
+Each row is a feature, not a ticket, worked in dependency order. One session grills a feature and publishes its spec (the PRD: one GitHub issue, archived in `docs/specs/`), then splits it into tickets numbered `F<n>.<m>`, each implemented in its own session: F1.1 to F1.7 are the tickets of F1. Status lives in the issue tracker.
 
 | # | Feature | Blocked by | Day |
 |---|---|---|---|
 | F0 | Design system: tokens, pictograms, components in `web/design/` | none | 1 |
 | F1 | Socle: Compose, noyau, gateway and subdomains, `commun/`, web workspace, Azure deploy | none | 1 |
-| F2 | Identité (agents, code carnet) and synthetic dataset with tarifs | F1 | 1 |
+| F2 | Identité (agents, officines, code carnet) and synthetic dataset with tarifs | F1 | 1 |
 | F3 | Service and application soin, relation de soin | F0, F2 | 2 |
 | F4 | Ordonnance to caisse: service and application | F3 | 2 |
-| F5 | Pharmacie: service and application | F4 | 3 |
+| F5 | Pharmacie and officines: service and application | F4 | 3 |
 | F6 | Citoyen: service and carnet application | F3 | 3 |
 | F7 | Accès d'urgence and access log | F3 | 3 |

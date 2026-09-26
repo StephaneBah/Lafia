@@ -204,7 +204,7 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
 <pre><code>GET /fhir/MedicationRequest?group-identifier=ORD-7K4-M2P</code></pre>
 
   <h3><span class="n">4.4</span>Données hors noyau</h3>
-  <p>Seul le service identité dispose d'une base propre, limitée aux comptes des agents, à leurs rôles, à leur établissement de rattachement et aux codes carnet des citoyens, conservés sous forme hachée. Aucune donnée médicale n'y figure. Les applications ne conservent aucune donnée.</p>
+  <p>Seul le service identité dispose d'une base propre, sur un réseau que lui seul atteint, limitée aux comptes des agents et des officines, à leurs rôles, à leur établissement de rattachement, aux sessions et aux codes carnet des citoyens. Mots de passe, codes et identifiants de session y sont conservés sous forme hachée. Aucune donnée médicale n'y figure. Les applications ne conservent aucune donnée.</p>
 </section>
 
 <section>
@@ -215,9 +215,13 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
   <h3><span class="n">5.1</span>Service identité</h3>
   <div class="tbl-scroll"><table>
     <tr><th>Méthode</th><th>Route</th><th>Opération</th></tr>
-    <tr><td class="m">POST</td><td class="m">/api/identite/connexion</td><td class="b">Authentification d'un agent, émission du jeton</td></tr>
-    <tr><td class="m">POST</td><td class="m">/api/identite/citoyen/connexion</td><td class="b">Authentification d'un citoyen par NPI et code carnet</td></tr>
-    <tr><td class="m">GET</td><td class="m">/api/identite/moi</td><td class="b">Profil et droits de l'agent connecté</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/identite/connexion</td><td class="b">Authentification d'un agent ou d'une officine par identifiant et mot de passe, sur l'application de son rôle ; ouverture de la session</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/identite/citoyen/connexion</td><td class="b">Authentification d'un citoyen par NPI et code carnet, sur l'application citoyen</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/identite/session/renouveler</td><td class="b">Nouveau jeton, tant que la session est ouverte</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/identite/deconnexion</td><td class="b">Fin de la session</td></tr>
+    <tr><td class="m">GET</td><td class="m">/api/identite/session</td><td class="b">Qui est connecté : nom, rôle, établissement ; jamais le NPI du citoyen</td></tr>
+    <tr><td class="m">POST</td><td class="m">/api/identite/codes-carnet</td><td class="b">Nouveau code carnet pour un NPI, demandé par l'application soin en fin de visite ; remplace le précédent</td></tr>
+    <tr><td class="m">GET</td><td class="m">/api/identite/comptes-de-demonstration</td><td class="b">Comptes de démonstration de l'application, affichés sur sa page de connexion</td></tr>
   </table></div>
 
   <h3><span class="n">5.2</span>Service soin</h3>
@@ -265,9 +269,11 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
   <p>Le noyau n'est joignable que depuis le réseau interne des services et ne publie aucun port. Les applications sont rattachées au seul réseau de la passerelle. Tout accès à la donnée médicale transite donc par un service, où s'appliquent l'authentification, le contrôle des droits et la traçabilité.</p>
 
   <h3><span class="n">6.2</span>Authentification</h3>
-  <p>Le service identité émet, après authentification, un jeton signé et de courte durée portant l'identifiant de l'agent, son rôle et son établissement. Chaque service vérifie la signature du jeton de façon autonome, sans appel au service identité.</p>
-  <p>Le citoyen s'authentifie avec son NPI et le <strong>code carnet</strong> imprimé sur le reçu remis à chaque visite. Le NPI seul ne suffit pas : il n'est pas un secret. Le jeton citoyen est limité à ce NPI.</p>
-  <p>Le jeton circule dans un cookie <code>httpOnly</code>, <code>Secure</code>, <code>SameSite=Strict</code>, propre au sous-domaine de l'application : un jeton de la caisse n'est jamais envoyé à l'application soin, et le code JavaScript ne le lit jamais.</p>
+  <p>Le service identité émet, après authentification, un jeton signé (EdDSA) et valable quinze minutes, portant l'identifiant de l'agent (celui de sa ressource <code>Practitioner</code>), son rôle et son établissement. Il est seul à détenir la clé privée. Chaque service vérifie la signature du jeton de façon autonome, sans appel au service identité. Le jeton se renouvelle depuis une session que tient le service identité : douze heures au plus, trente minutes d'inactivité, fin immédiate à la déconnexion.</p>
+  <p>Une officine se connecte en son nom propre, sans compte par pharmacien ; son jeton ne désigne qu'elle.</p>
+  <p>Le citoyen s'authentifie avec son NPI et le <strong>code carnet</strong> imprimé sur le reçu remis à chaque visite. Le NPI seul ne suffit pas : il n'est pas un secret. Seul le code du dernier reçu est valable. Le jeton citoyen est limité à ce NPI, que l'application ne reçoit jamais.</p>
+  <p>Cinq échecs sur un même identifiant ou un même NPI le bloquent quinze minutes ; une adresse qui cumule les échecs est refusée un temps.</p>
+  <p>Le jeton circule dans un cookie <code>httpOnly</code>, <code>Secure</code>, <code>SameSite=Strict</code>, propre au sous-domaine de l'application : un jeton de la caisse n'est jamais envoyé à l'application soin, et le code JavaScript ne le lit jamais. Les clients qui ne sont pas des navigateurs, comme la suite de tests, présentent le même jeton dans l'en-tête <code>Authorization</code>.</p>
 
   <h3><span class="n">6.3</span>Contrôle d'accès</h3>
   <div class="tbl-scroll"><table>
@@ -276,11 +282,12 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
     <tr><td class="a">Infirmier</td><td class="b">Soin</td><td class="b">Dossier complet, lecture et écriture ; diagnostics provisoires uniquement</td></tr>
     <tr><td class="a">Caissier</td><td class="b">Caisse</td><td class="b">Ordonnances et montants uniquement</td></tr>
     <tr><td class="a">Pharmacien</td><td class="b">Pharmacie</td><td class="b">Ordonnances payées, allergies, traitements de fond</td></tr>
+    <tr><td class="a">Officine</td><td class="b">Pharmacie</td><td class="b">Une ordonnance par son numéro : prescripteur, date, établissement, lignes non encore délivrées ; déclare les lignes vendues</td></tr>
     <tr><td class="a">Citoyen</td><td class="b">Citoyen</td><td class="b">Son propre carnet et son journal d'accès</td></tr>
   </table></div>
 
   <h3><span class="n">6.4</span>Relation de soin</h3>
-  <p>Un soignant n'ouvre un dossier que s'il existe une <strong>relation de soin</strong> : un cas de visite ouvert dans son établissement, ou un cas qu'il ouvre ou poursuit à l'instant, le patient présent. La caisse et la pharmacie n'atteignent qu'une ordonnance, par le numéro que présente le patient. Tout autre accès est un accès d'urgence : motif obligatoire, vue vitale restreinte, trace marquée comme urgence et visible par le citoyen.</p>
+  <p>Un soignant n'ouvre un dossier que s'il existe une <strong>relation de soin</strong> : un cas de visite ouvert dans son établissement, ou un cas qu'il ouvre ou poursuit à l'instant, le patient présent. La caisse, la pharmacie et l'officine n'atteignent qu'une ordonnance, par le numéro que présente le patient. Tout autre accès est un accès d'urgence : motif obligatoire, vue vitale restreinte, trace marquée comme urgence et visible par le citoyen.</p>
 
   <h3><span class="n">6.5</span>Traçabilité</h3>
   <p>Toute lecture ou écriture d'un dossier produit une ressource <code>AuditEvent</code> dans le noyau, indiquant l'agent, l'établissement, la nature de l'accès et sa date. L'accès d'urgence dérogatoire exige un motif, enregistré dans la même trace. Les ressources médicales ne sont jamais supprimées ; une correction produit une nouvelle version, l'historique restant consultable.</p>
@@ -305,7 +312,9 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
     <tr><td class="a">passerelle</td><td class="m">caddy</td><td class="b">Public et passerelle</td></tr>
     <tr><td class="a">noyau</td><td class="m">hapiproject/hapi</td><td class="b">Noyau</td></tr>
     <tr><td class="a">base</td><td class="m">postgres</td><td class="b">Noyau</td></tr>
-    <tr><td class="a">identite</td><td class="m">lafia/identite</td><td class="b">Passerelle</td></tr>
+    <tr><td class="a">identite</td><td class="m">lafia/identite</td><td class="b">Passerelle et identité</td></tr>
+    <tr><td class="a">base-identite</td><td class="m">postgres</td><td class="b">Identité</td></tr>
+    <tr><td class="a">chargement</td><td class="m">lafia/chargement</td><td class="b">Noyau ; s'exécute à chaque démarrage, puis s'arrête</td></tr>
     <tr><td class="a">soin</td><td class="m">lafia/soin</td><td class="b">Passerelle et noyau</td></tr>
     <tr><td class="a">caisse</td><td class="m">lafia/caisse</td><td class="b">Passerelle et noyau</td></tr>
     <tr><td class="a">pharmacie</td><td class="m">lafia/pharmacie</td><td class="b">Passerelle et noyau</td></tr>
@@ -317,7 +326,7 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
   </table></div>
 
   <h3><span class="n">7.3</span>Mise en production</h3>
-  <p>Le déploiement s'effectue par récupération du dépôt sur l'hôte et lancement de l'ensemble des conteneurs par Docker Compose. Un script de chargement alimente le noyau avec le jeu de données de démonstration ; il est rejouable et réinitialise les données à chaque exécution.</p>
+  <p>Le déploiement s'effectue par récupération du dépôt sur l'hôte et lancement de l'ensemble des conteneurs par Docker Compose. Un conteneur de chargement alimente le noyau avec le jeu de données de démonstration à chaque démarrage. Il est rejouable : chaque ressource porte un identifiant fixe, et rien n'est effacé, de sorte qu'un redéploiement conserve ce que les utilisateurs ont saisi. Une remise à zéro complète passe par la suppression des volumes.</p>
 </section>
 
 <section>
@@ -352,16 +361,22 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
 
 <section>
   <h2><span class="n">9</span>Données de démonstration</h2>
-  <p>Le jeu de données est synthétique et construit pour couvrir les situations décrites dans le cahier des charges :</p>
+  <p>Le jeu de données est synthétique et construit pour couvrir les situations décrites dans le cahier des charges. Seuls les noms des établissements sont réels : ce sont des structures publiques, choisies pour représenter la pyramide sanitaire ; aucune personne, aucun compte ni aucun fait clinique réel ne s'y rattache. Il grandit avec les services, chacun ajoutant les ressources dont il fixe la forme.</p>
+  <p>Chargé avec le service identité (F2) :</p>
   <ul class="plain">
-    <li>une trentaine de patients aux identités et localités béninoises plausibles ;</li>
-    <li>trois établissements et une dizaine de soignants ;</li>
+    <li>cinq établissements : CNHU Hubert Koutoukou Maga et CHU de la Mère et de l'Enfant Lagune à Cotonou, CHUD Borgou-Alibori à Parakou, CHU de Zone Abomey-Calavi/Sô-Ava, centre de santé de Kpanroun ; chacun avec sa caisse et sa pharmacie ;</li>
+    <li>deux officines de ville, aux noms fictifs ;</li>
+    <li>une douzaine de soignants, un caissier et un pharmacien par établissement, un compte par officine ;</li>
+    <li>une trentaine de patients aux identités et localités béninoises plausibles : NPI synthétiques commençant par six zéros, nationalité, lieu de naissance, adresse jusqu'au quartier, langue parlée, téléphone et personne à prévenir pour certains ;</li>
+    <li>une liste de 20 à 40 produits et actes, avec leur tarif en FCFA dans chaque établissement ;</li>
+    <li>un code carnet connu pour quelques citoyens de démonstration.</li>
+  </ul>
+  <p>Ajouté par les services soin, caisse et pharmacie (F3 à F5) :</p>
+  <ul class="plain">
     <li>un suivi d'insuffisance rénale comportant une série de mesures de créatinine sur deux ans ;</li>
     <li>un cas de visite couvrant deux établissements ;</li>
     <li>un patient présentant une allergie médicamenteuse ;</li>
-    <li>des ordonnances à différents états : non réglée, réglée, partiellement délivrée, délivrée ;</li>
-    <li>une liste de 20 à 40 produits et actes avec leur tarif en FCFA ;</li>
-    <li>un code carnet connu pour quelques citoyens de démonstration.</li>
+    <li>des ordonnances à différents états : non réglée, réglée, partiellement délivrée, délivrée.</li>
   </ul>
 </section>
 
@@ -371,10 +386,10 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
     <tr><th>Lot</th><th>Contenu</th><th>Critère d'achèvement</th><th>Jour</th></tr>
     <tr><td class="a">F0. Système de design</td><td class="b">Jetons, pictogrammes, composants partagés</td><td class="b">Les composants et leurs états sont visibles dans une application</td><td class="b">1</td></tr>
     <tr><td class="a">F1. Socle</td><td class="b">Conteneurs, noyau, passerelle et sous-domaines, bibliothèque commune, espace de travail web, déploiement Azure</td><td class="b">Chaque sous-domaine joint son service, qui joint le noyau, sur l'adresse publique</td><td class="b">1</td></tr>
-    <tr><td class="a">F2. Identité et données</td><td class="b">Service identité (agents, code carnet), jeu de démonstration et tarifs chargés</td><td class="b">Un agent s'authentifie ; les patients sont présents</td><td class="b">1</td></tr>
+    <tr><td class="a">F2. Identité et données</td><td class="b">Service identité (agents, officines, code carnet), jeu de démonstration et tarifs chargés</td><td class="b">Un agent s'authentifie ; les patients sont présents</td><td class="b">1</td></tr>
     <tr><td class="a">F3. Soin</td><td class="b">Service et application soin, relation de soin</td><td class="b">Ouverture d'un cas, visite, relecture du fil</td><td class="b">2</td></tr>
     <tr><td class="a">F4. Caisse</td><td class="b">Émission d'ordonnance, service et application caisse</td><td class="b">Ordonnance émise puis réglée sans ressaisie</td><td class="b">2</td></tr>
-    <tr><td class="a">F5. Pharmacie</td><td class="b">Service et application pharmacie</td><td class="b">Ordonnance délivrée en partie, visible au dossier</td><td class="b">3</td></tr>
+    <tr><td class="a">F5. Pharmacie et officines</td><td class="b">Service et application pharmacie, utilisés aussi par les officines de ville</td><td class="b">Ordonnance délivrée en partie, visible au dossier</td><td class="b">3</td></tr>
     <tr><td class="a">F6. Citoyen</td><td class="b">Service et application citoyen, carnet illustré</td><td class="b">Le citoyen ouvre son carnet avec NPI et code carnet</td><td class="b">3</td></tr>
     <tr><td class="a">F7. Urgence</td><td class="b">Accès d'urgence motivé, journal d'accès</td><td class="b">Parcours complet démontrable sur l'adresse publique</td><td class="b">3</td></tr>
   </table></div>
@@ -384,7 +399,6 @@ GET /fhir/Patient?identifier=https://npi.gouv.bj|0123456789</code></pre>
   <h2><span class="n">11</span>Points en suspens</h2>
   <div class="tbl-scroll"><table>
     <tr><th>Sujet</th><th>Options</th></tr>
-    <tr><td class="a">Durée de validité du code carnet</td><td class="b">Un nouveau code révoque le précédent, ou plusieurs codes restent valides jusqu'à expiration</td></tr>
     <tr><td class="a">Ressource de l'encaissement</td><td class="b"><code>Invoice</code> retenu à titre provisoire ; <code>PaymentReconciliation</code> à évaluer pour la trace du paiement</td></tr>
     <tr><td class="a">Nom du projet</td><td class="b">Lafia retenu à titre provisoire</td></tr>
   </table></div>

@@ -59,21 +59,32 @@ _Avoid_: prix saisi
 Payment of some or all lignes of an ordonnance at the caisse.
 _Avoid_: facture, vente
 
+**Récépissé**:
+The proof of encaissement handed over at the caisse; the pharmacie hands over the paid lignes against it, when they are in stock.
+_Avoid_: reçu (for this meaning), facture
+
 **Paiement différé**:
 Care started before payment, for vital emergencies; settled afterwards.
 
 **Délivrance**:
-What the pharmacie actually hands over for a ligne. May be partial; a partial délivrance is a normal state.
+What a pharmacie or an officine actually hands over for a ligne. May be partial; a partial délivrance is a normal state.
 _Avoid_: dispensation, vente
 
 **Soignant**:
-A médecin, infirmier or agent de santé communautaire writing in the dossier.
+A médecin or infirmier writing in the dossier.
 
 **Agent**:
 Any authenticated professional user: soignant, caissier or pharmacien.
 
 **Établissement**:
 A health facility where visites happen.
+
+**Pharmacie**:
+The pharmacy of an établissement, where paid lignes are handed over against the récépissé.
+
+**Officine**:
+An independent pharmacie de ville, attached to no établissement, which sells through its own management and payment software.
+_Avoid_: pharmacie (for this meaning)
 
 **Relation de soin**:
 What entitles a soignant to open a dossier: their établissement holds an open cas de visite for the patient, or they open or continue one now with the patient present.
@@ -83,8 +94,12 @@ _Avoid_: consentement (the patient does not sign anything in v1)
 A dossier access without relation de soin in a vital emergency; requires a stated reason, and is audited.
 _Avoid_: break-the-glass (in code and UI)
 
+**Reçu**:
+The paper handed to the patient at the end of each visite: the numéro d'ordonnance when there is one, and the code carnet.
+_Avoid_: ticket, bon
+
 **Code carnet**:
-The short code printed on the receipt handed over at each visite. With the NPI, it lets the citoyen open their carnet.
+The short code printed on the reçu. With the NPI, it lets the citoyen open their carnet.
 _Avoid_: mot de passe, PIN
 
 **Noyau**:
@@ -104,14 +119,19 @@ _Avoid_: front, portail
 - A **Cas de visite** holds one or more **Visites** and may span several **Établissements**
 - A **Visite** produces **Mesures**, **Diagnostics** and at most one **Ordonnance** per issue
 - An **Ordonnance** has many **Lignes d'ordonnance**
-- A **Ligne d'ordonnance** is settled by an **Encaissement** and handed over by one or more **Délivrances**
+- A **Ligne d'ordonnance** is either paid by an **Encaissement** then handed over by the **Pharmacie**, or sold by an **Officine**, whose payment stays in its own software; each hand-over is a **Délivrance**, and there may be several
 - A **Ligne d'ordonnance** is priced by a **Tarif**
 - A **Service** reads and writes the **Noyau** only, never another **Service**
 - An **Application** calls its own **Service** and `identite`, never the **Noyau**
 - A **Soignant** opens a **Dossier** through a **Relation de soin** or an **Accès d'urgence**
+- An **Officine** checks an **Ordonnance** by its numéro or QR code (prescriber, date, établissement) before selling its **Lignes**
+- An **Officine** signs in under its own name; its pharmaciens have no account in Lafia
+- A **Patient** has at most one valid **Code carnet**: the one on their latest **Reçu**; each new one replaces the previous
 
 ## Flagged ambiguities
 
 - "service" means a hospital department in everyday Beninese usage. Resolved: **Service** is the software component only; a hospital department is an **Unité**.
 - "consultation" was used for every contact. Resolved: the generic term is **Visite**; consultation is one type.
 - "dossier" was used for both the whole record and one health problem. Resolved: **Dossier** is the whole record; one problem is a **Cas de visite**.
+- "pharmacie" was used for both a hospital's pharmacy and an independent one. Resolved: the **Pharmacie** belongs to an **Établissement** and hands over lignes paid at its caisse; an independent one is an **Officine**, with its own payment.
+- The agent de santé communautaire was listed as a **Soignant**, but has no role and works outside any **Établissement**. Resolved: a **Soignant** is a médecin or an infirmier; the agent de santé communautaire is out of v1.

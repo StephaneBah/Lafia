@@ -17,5 +17,5 @@ The NPI is not a secret: relatives, employers and neighbours know it. With the N
 
 - A citoyen with no visite since Lafia went live has no code, which is acceptable: they have no carnet yet either.
 - A lost receipt means no carnet access until the next visite; the paper and the code travel together, as the paper booklet does today.
-- Open: whether a new code revokes the previous one, and how long a code stays valid.
+- How a code is issued, and that a new code replaces the previous one: ADR 0005.
 - Rejected: NPI alone (anyone reads anyone's carnet); SMS one-time code (phone numbers, shared phones, out of v1).
