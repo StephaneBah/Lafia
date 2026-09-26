@@ -1,0 +1,80 @@
+/* Les écrans du carnet (docs/design/maquettes/ecrans-lafia.html, écrans citoyen). Mobile d'abord :
+   tout tient à 360 px ; texte de 18 px au moins ; cibles de 48 px au moins. Jetons de @lafia/design. */
+
+.carnet { display: grid; gap: var(--space-4); align-content: start; padding-block: var(--space-4) var(--space-8, 64px); }
+.carnet > * { min-width: 0; }
+.carnet-titre { font-weight: 800; font-size: 28px; line-height: 34px; margin: 0; }
+.carnet-doux { font-size: 18px; line-height: 26px; color: var(--color-text-muted); margin: 0; }
+.carnet-grand { font-weight: 800; font-size: 22px; line-height: 30px; margin: 0; }
+.carnet-retour { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; font-weight: 700; font-size: 18px; color: var(--color-link); text-decoration: none; justify-self: start; }
+.carnet-carte { display: grid; gap: var(--space-3); padding: var(--space-4); background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+
+/* Connexion */
+.carnet-illu-connexion svg, .carnet-scene-illu svg { display: block; width: 100%; height: auto; }
+.carnet-illu-connexion { max-width: 320px; justify-self: center; width: 100%; }
+.carnet-formulaire { display: grid; gap: var(--space-4); }
+.carnet-demo { display: grid; gap: var(--space-2); }
+.carnet-demo-liste { display: grid; gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
+.carnet-demo-liste li { display: grid; gap: 2px; padding: var(--space-3); border: 2px solid var(--color-border); border-radius: var(--radius-md, 12px); font-size: 16px; }
+.carnet-demo-liste code { font-family: var(--font-mono); font-size: 17px; font-weight: 700; letter-spacing: .04em; }
+
+/* Accueil */
+.carnet-etat-hero { display: grid; gap: var(--space-3); justify-items: start; padding: var(--space-5); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-card); }
+.carnet-pictos { display: flex; align-items: center; gap: var(--space-2); }
+.carnet-tuiles { display: grid; gap: var(--space-3); }
+.carnet-tuile { display: flex; align-items: center; gap: var(--space-3); min-height: 72px; padding: var(--space-3) var(--space-4); background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); text-decoration: none; color: var(--color-text); font-weight: 700; font-size: 20px; line-height: 26px; }
+.carnet-tuile:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.carnet-tuile small { display: block; font-weight: 400; font-size: 16px; line-height: 22px; color: var(--color-text-muted); }
+.carnet-tuile .carnet-aller { margin-left: auto; color: var(--color-action); transform: scaleX(-1); flex: none; }
+.carnet-tuile-marque { flex: none; display: grid; place-items: center; width: 48px; }
+
+/* Ordonnance */
+.carnet-ord-tete { display: grid; gap: 4px; padding: var(--space-4); background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.carnet-ord-tete .lf-badge { justify-self: start; }
+.carnet-ord-numero { font: 700 26px/32px var(--font-mono); letter-spacing: .06em; }
+.carnet-lignes { border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card); background: var(--color-surface); }
+.carnet-lignes .lf-line--citoyen { padding: var(--space-4); }
+.carnet-autres { display: grid; gap: var(--space-2); }
+
+/* Traitement */
+.carnet-soleil { position: relative; height: 56px; border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-card); overflow: hidden; }
+.carnet-soleil svg { position: absolute; top: 8px; left: 8px; width: 40px; height: 40px; }
+.carnet-soleil[data-moment="matin"] svg { left: 8px; }
+.carnet-soleil[data-moment="midi"] svg { left: calc(35% - 20px); }
+.carnet-soleil[data-moment="soir"] svg { left: calc(65% - 20px); }
+.carnet-soleil[data-moment="nuit"] svg { left: calc(100% - 48px); }
+@media (prefers-reduced-motion: no-preference) { .carnet-soleil svg { animation: carnet-soleil 1600ms var(--ease-standard, ease) both; } }
+@keyframes carnet-soleil { from { transform: translateX(-40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.carnet-moment { display: grid; grid-template-columns: 72px 1fr; gap: var(--space-3); align-items: center; padding: var(--space-3) var(--space-4); background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.carnet-moment.is-vide { background: transparent; box-shadow: none; border: 2px dashed var(--color-border); }
+.carnet-moment.is-prochain { box-shadow: inset 0 0 0 3px var(--color-action), var(--shadow-card); }
+.carnet-moment-nom { display: grid; justify-items: center; gap: 2px; font-weight: 700; font-size: 16px; }
+.carnet-doses { display: grid; gap: var(--space-2); }
+.carnet-dose { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.carnet-dose-nom { width: 100%; font-weight: 700; font-size: 17px; line-height: 22px; }
+.carnet-dose-mots { font-size: 16px; color: var(--color-text-muted); }
+
+/* Cas */
+.carnet-cas-tete { display: grid; gap: var(--space-2); justify-items: start; }
+.carnet-mesures { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; padding: 0; list-style: none; }
+.carnet-mesures li { padding: 4px 10px; border-radius: 999px; background: var(--color-surface-soft, #f1f3f9); font-size: 16px; }
+.carnet-mesures li.is-alerte { font-weight: 700; box-shadow: inset 0 0 0 2px var(--status-danger-fg); }
+.carnet-visite-texte { display: grid; gap: 4px; font-size: 17px; line-height: 24px; }
+
+/* Qui a ouvert mon dossier */
+.carnet-journal { display: grid; gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
+.carnet-acces { display: grid; grid-template-columns: 40px 1fr; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); font-size: 16px; line-height: 22px; }
+.carnet-acces b { display: block; font-size: 17px; }
+.carnet-acces .carnet-quand { color: var(--color-text-muted); }
+.carnet-acces.is-urgence { box-shadow: inset 0 0 0 2px var(--status-danger-fg), var(--shadow-card); }
+.carnet-acces.is-urgence .carnet-raison { font-weight: 700; }
+
+/* Scènes : états vides et moments clés */
+.carnet-scene { display: grid; gap: var(--space-3); text-align: left; }
+.carnet-scene-illu { background: var(--color-surface); border-radius: var(--radius-lg); overflow: hidden; }
+
+/* État du service, discret en bas de l'accueil */
+.carnet-service { font-size: 16px; color: var(--color-text-muted); }
+.carnet-service summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; }
+.carnet-service dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+.carnet-service dd { margin: 0; }

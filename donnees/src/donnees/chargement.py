@@ -12,6 +12,7 @@ import logging
 from collections import Counter
 
 import donnees
+from donnees import historique
 from commun.fhir.client import ClientFhir, Ressource, ecriture
 from commun.fhir.ressources import charge_item_definition, organization, patient, practitioner
 
@@ -19,13 +20,15 @@ journal = logging.getLogger("donnees.chargement")
 
 
 def ressources() -> list[Ressource]:
-    """Tout le jeu, traduit en ressources FHIR."""
+    """Tout le jeu, traduit en ressources FHIR : ses référentiels, puis l'histoire clinique qui s'y réfère."""
     return [
         *(organization(etablissement) for etablissement in donnees.etablissements()),
         *(organization(officine) for officine in donnees.officines()),
         *(practitioner(agent) for agent in donnees.agents()),
         *(patient(personne) for personne in donnees.patients()),
         *(charge_item_definition(tarif) for tarif in donnees.tarifs()),
+        # L'histoire clinique de démonstration, datée par rapport à ce chargement.
+        *historique.ressources(),
     ]
 
 
