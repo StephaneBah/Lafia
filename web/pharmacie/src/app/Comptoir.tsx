@@ -15,6 +15,8 @@ import {
 } from "@lafia/design";
 import { useState, type FormEvent } from "react";
 
+import { Scanner } from "./Scanner";
+
 // Ce que le service pharmacie rend (`pharmacie.ordonnance.OrdonnanceVue`) ; la page le demande depuis
 // le navigateur, par la passerelle, sous le cookie de session de l'application.
 type Ligne = {
@@ -39,7 +41,7 @@ type Delivrance = { id: string; ligne: string; libelle: string; quantite: number
 
 const API = "/api/pharmacie/ordonnances";
 
-async function detail(reponse: Response): Promise<string | null> {
+export async function detail(reponse: Response): Promise<string | null> {
   try {
     const corps = (await reponse.json()) as { detail?: unknown };
     return typeof corps.detail === "string" ? corps.detail : null;
@@ -102,13 +104,17 @@ export function Comptoir() {
 
   async function chercher(evenement: FormEvent) {
     evenement.preventDefault();
-    if (!saisie.trim()) return;
+    await lancer(saisie);
+  }
+
+  async function lancer(numero: string) {
+    if (!numero.trim()) return;
     setChargement(true);
     setErreur(null);
     setRemises(null);
     setOrdonnance(null);
     try {
-      await ouvrir(saisie);
+      await ouvrir(numero);
     } catch {
       setErreur(messageDeRefus(0, null));
     } finally {
@@ -138,6 +144,12 @@ export function Comptoir() {
           <Button type="submit" size="pro" icon="magnifying-glass" loading={chargement}>
             Ouvrir
           </Button>
+          <Scanner
+            onNumero={(numero) => {
+              setSaisie(numero);
+              void lancer(numero);
+            }}
+          />
         </form>
         {erreur && (
           <Alert tone="attention" title="Ordonnance non ouverte">
@@ -233,18 +245,30 @@ export function Comptoir() {
             tone="allergie"
             title={`Allergie : ${allergie.libelle} · ${allergie.lignes.map(libelleDe).join(", ")}`}
             actions={
-              <label className="cp-reconnaitre">
-                <input
-                  type="checkbox"
-                  checked={allergieReconnue}
-                  onChange={(e) => setAllergieReconnue(e.target.checked)}
-                />
-                <span>J’ai vu l’allergie. Je remets en connaissance de cause, après avis du prescripteur.</span>
-              </label>
+              <div className="cp-allergie-actions">
+                <Button
+                  size="pro"
+                  variant="secondary"
+                  icon="x"
+                  onClick={() =>
+                    setChoisies({ ...choisies, ...Object.fromEntries(allergie.lignes.map((id) => [id, false])) })
+                  }
+                >
+                  {allergie.lignes.length > 1 ? "Ne pas remettre ces lignes" : "Ne pas remettre cette ligne"}
+                </Button>
+                <label className="cp-reconnaitre">
+                  <input
+                    type="checkbox"
+                    checked={allergieReconnue}
+                    onChange={(e) => setAllergieReconnue(e.target.checked)}
+                  />
+                  <span>J’ai vu l’allergie. Je remets en connaissance de cause, après avis du prescripteur.</span>
+                </label>
+              </div>
             }
           >
             Le patient a déclaré une allergie qui concerne cette ligne. Ne la remettez pas sans l’avis du prescripteur ;
-            décochez-la pour la laisser de côté.
+            laissez-la de côté, ou reconnaissez l’allergie pour la remettre.
           </Alert>
         ))}
 

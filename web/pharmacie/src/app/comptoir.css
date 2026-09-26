@@ -45,3 +45,21 @@
 .pharmacie-session { display: grid; grid-template-columns: auto auto; justify-content: start; gap: 2px var(--space-3); margin: 0 0 var(--space-5); font-size: 15px; line-height: 22px; }
 .pharmacie-session dt { color: var(--color-text-muted); }
 .pharmacie-session dd { margin: 0; font-weight: 700; }
+
+/* L'alerte d'allergie : laisser la ligne de côté, ou la remettre en connaissance de cause. */
+.cp-allergie-actions { display: flex; gap: var(--space-4); align-items: center; flex-wrap: wrap; }
+
+/* Le scanner du QR code du reçu : la caméra par-dessus l'écran, un viseur carré. */
+.cp-scanner { position: fixed; inset: 0; z-index: 50; display: grid; place-content: center; justify-items: center; gap: var(--space-4); padding: var(--space-4); background: rgb(12 16 32 / .88); color: #fff; }
+.cp-scanner-cadre { position: relative; width: min(88vw, 420px); aspect-ratio: 1; border-radius: var(--radius-md); overflow: hidden; background: #000; }
+.cp-scanner-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cp-scanner-viseur { position: absolute; inset: 18%; border: 3px solid #fff; border-radius: var(--radius-sm); box-shadow: 0 0 0 999px rgb(0 0 0 / .35); }
+.cp-scanner-texte { margin: 0; font-size: 17px; line-height: 24px; text-align: center; }
+
+/* L'officine : la vérification de l'ordonnance, avant toute vente. */
+.of-verification { display: grid; gap: var(--space-4); }
+.of-authentique { display: flex; gap: var(--space-3); align-items: center; color: var(--status-paye-fg, var(--color-text)); }
+.of-authentique-titre { font-weight: 800; font-size: 18px; line-height: 24px; color: var(--color-text); }
+.of-faits { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3) var(--space-5); margin: 0; }
+.of-faits dt { color: var(--color-text-muted); font-size: 14px; line-height: 20px; text-transform: uppercase; letter-spacing: .05em; }
+.of-faits dd { margin: 0; font-weight: 700; font-size: 17px; line-height: 24px; }

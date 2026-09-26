@@ -161,8 +161,7 @@ async def nom_du_prescripteur(fhir: ClientFhir, practitioner: str | None) -> str
     return " ".join(p for p in (prenoms, nom) if p) or None
 
 
-def medication_dispense(ligne: Ligne, quantite: int, pharmacien: str, etablissement: str) -> Ressource:
-    """La remise de `quantite` unités de `ligne`, en `MedicationDispense`."""
+def _delivrance(ligne: Ligne, quantite: int, performers: list[dict[str, str]]) -> Ressource:
     medicament = dict(ligne.medicament)
     medicament.setdefault("text", ligne.libelle)
     ressource: Ressource = {
@@ -171,12 +170,30 @@ def medication_dispense(ligne: Ligne, quantite: int, pharmacien: str, etablissem
         "medicationCodeableConcept": medicament,
         "authorizingPrescription": [reference("MedicationRequest", ligne.id)],
         "quantity": {"value": quantite},
-        "performer": [
-            {"actor": reference("Practitioner", pharmacien)},
-            {"actor": reference("Organization", etablissement)},
-        ],
+        "performer": [{"actor": acteur} for acteur in performers],
         "whenHandedOver": maintenant(),
     }
     if ligne.patient:
         ressource["subject"] = reference("Patient", ligne.patient)
     return ressource
+
+
+def medication_dispense(ligne: Ligne, quantite: int, pharmacien: str, etablissement: str) -> Ressource:
+    """La remise de `quantite` unités de `ligne` au comptoir d'un établissement, en `MedicationDispense`."""
+    return _delivrance(
+        ligne, quantite, [reference("Practitioner", pharmacien), reference("Organization", etablissement)]
+    )
+
+
+def vente_d_officine(ligne: Ligne, quantite: int, officine: str) -> Ressource:
+    """La vente de `quantite` unités de `ligne` par une officine, en `MedicationDispense` : son seul
+    `performer` est l'Organization de l'officine, dont les pharmaciens n'ont pas de compte."""
+    return _delivrance(ligne, quantite, [reference("Organization", officine)])
+
+
+async def nom_de_l_organisation(fhir: ClientFhir, organisation: str | None) -> str | None:
+    """Le nom d'un établissement ou d'une officine, `Organization.name`."""
+    if not organisation:
+        return None
+    ressource = await fhir.lire("Organization", organisation)
+    return str(ressource["name"]) if ressource and ressource.get("name") else None

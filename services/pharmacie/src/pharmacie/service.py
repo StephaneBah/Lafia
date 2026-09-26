@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from commun.fhir.client import ClientFhir
 from commun.jeton import Agent, Officine, Role, VerificateurDeJetons
 from commun.service import client_fhir, creer_service
+from pharmacie import officine as en_officine
 from pharmacie import ordonnance
 from pharmacie.regles.acces import ROLES_ADMIS
 from pharmacie.regles.delivrance import DelivranceRefusee
@@ -15,8 +16,16 @@ SERVICE = "pharmacie"
 # La clé publique est lue au démarrage : sans elle, le service ne démarre pas.
 jetons = VerificateurDeJetons.depuis_environnement()
 pharmacien_ou_officine_connecte = jetons.agent_ou_officine(ROLES_ADMIS)
-# Le comptoir d'un établissement : le pharmacien seul. L'officine (F3.7) n'y a pas accès.
+# Le comptoir d'un établissement : le pharmacien seul. L'officine a ses propres routes.
 pharmacien_connecte = jetons.agent({Role.PHARMACIEN})
+_officine_ou_agent = jetons.agent_ou_officine({Role.OFFICINE})
+
+
+def officine_connectee(porteur: Agent | Officine = Depends(_officine_ou_agent)) -> Officine:
+    """L'officine du jeton ; tout autre porteur est refusé (403)."""
+    if not isinstance(porteur, Officine):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="rôle non admis")
+    return porteur
 
 routes = APIRouter()
 
@@ -94,6 +103,59 @@ async def delivrer(
         )
     except (ordonnance.Introuvable, ordonnance.AutreEtablissement) as erreur:
         raise _refus_de_lecture(erreur) from None
+    except DelivranceRefusee as refus:
+        raise HTTPException(refus.statut, detail=refus.detail) from None
+
+
+REFUS_OFFICINE: dict[int | str, dict[str, str]] = {
+    401: {"description": "Jeton absent, mal formé, expiré ou mal signé."},
+    403: {"description": "Rôle autre qu'officine."},
+    404: {"description": "Aucun médicament ne porte ce numéro d'ordonnance."},
+}
+
+
+def _introuvable() -> HTTPException:
+    return HTTPException(status.HTTP_404_NOT_FOUND, detail="aucune ordonnance sous ce numéro")
+
+
+@routes.get("/officine/ordonnances/{numero}", responses=REFUS_OFFICINE)
+async def verifier_en_officine(
+    numero: str = NUMERO,
+    officine: Officine = Depends(officine_connectee),
+    fhir: ClientFhir = Depends(client_fhir),
+) -> en_officine.OrdonnanceEnOfficine:
+    """L'ordonnance vue d'une officine : prescripteur, date et établissement pour la vérifier, et
+    chaque médicament avec ce qui en reste et s'il peut s'y vendre. Jamais le patient. L'accès est tracé."""
+    try:
+        return await en_officine.consulter(fhir, numero, officine)
+    except ordonnance.Introuvable:
+        raise _introuvable() from None
+
+
+class DemandeDeVente(BaseModel):
+    lignes: list[LigneDemandee] = Field(max_length=50)
+
+
+@routes.post(
+    "/officine/ordonnances/{numero}/ventes",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        **REFUS_OFFICINE,
+        409: {"description": "Ligne payée à la caisse d'un établissement, ou quantité au-delà du reste."},
+        422: {"description": "Aucune ligne, ligne déclarée deux fois, ou quantité nulle."},
+    },
+)
+async def declarer_une_vente(
+    demande: DemandeDeVente,
+    numero: str = NUMERO,
+    officine: Officine = Depends(officine_connectee),
+    fhir: ClientFhir = Depends(client_fhir),
+) -> ordonnance.Delivrances:
+    """Déclare les lignes que l'officine a vendues, en partie si besoin : une délivrance par ligne."""
+    try:
+        return await en_officine.vendre(fhir, numero, officine, [(l.id, l.quantite) for l in demande.lignes])
+    except ordonnance.Introuvable:
+        raise _introuvable() from None
     except DelivranceRefusee as refus:
         raise HTTPException(refus.statut, detail=refus.detail) from None
 
