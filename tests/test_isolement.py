@@ -77,6 +77,15 @@ def test_hors_du_reseau_noyau_le_noyau_est_injoignable(docker, conteneur):
         assert sonder(docker, conteneur, f"http://{adresse}:8080/fhir/metadata") == SANS_REPONSE
 
 
+def test_le_chargement_n_est_que_sur_le_reseau_noyau(docker):
+    # Il s'est arrêté après avoir chargé le jeu : `--all` le trouve quand même.
+    identifiant = docker("compose", "ps", "--all", "--quiet", "chargement").stdout.strip()
+    assert identifiant, "chargement n'a pas tourné"
+    inspection = docker("inspect", "--format", "{{json .NetworkSettings.Networks}}", identifiant)
+
+    assert set(json.loads(inspection.stdout)) == {"lafia_noyau"}
+
+
 def test_seule_la_passerelle_publie_des_ports_sur_l_hote(docker):
     publies = ports_publies(docker)
 

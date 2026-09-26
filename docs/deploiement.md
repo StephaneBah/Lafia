@@ -44,6 +44,7 @@ It pulls `main`, builds the images one at a time and starts the stack. The first
 ## 4. Check
 
 - Open `https://soin.lafia.<domaine>`, `https://caisse.…`, `https://pharmacie.…`, `https://citoyen.…`: each page shows its service and the noyau `disponible`.
+- On the VM, `docker compose logs chargement` reports the demo dataset loaded: how many resources, how many created by this deploy.
 - Run the test suite against the deployment, from your machine. The token key is read from the VM into your shell only:
 
   ```sh
@@ -72,4 +73,5 @@ On the VM, run `docker compose` commands from `~/lafia`.
 | Certificate error in the browser | DNS does not point at the VM yet, or port 80 is closed: Caddy could not prove it owns the name | Check `nslookup soin.lafia.<domaine>` and the firewall, then `docker compose restart passerelle`. `docker compose logs passerelle` shows each attempt. |
 | `/api/<acteur>/sante` answers 503 | HAPI is still starting; the first start takes minutes | Wait until `docker compose ps` shows `noyau` healthy. |
 | `deployer.sh` stops during `pip install` or `npm ci` | A download failed | Run it again. |
+| `deployer.sh` ends on `service "chargement" didn't complete successfully`, and the services do not start | The noyau refused the demo dataset, or did not answer in time | `docker compose logs chargement` names the error. Fix the dataset, or wait for `noyau` to be healthy, then deploy again. |
 | `git pull` refuses: "untracked working tree files would be overwritten" | A file was copied onto the VM by hand | Delete that file on the VM, then deploy again. |

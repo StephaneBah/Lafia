@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from commun.fhir import ClientFhir, NoyauInjoignable
+from commun.fhir.client import ClientFhir, NoyauInjoignable
 
 
 class EtatNoyau(BaseModel):

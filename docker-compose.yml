@@ -9,19 +9,28 @@
 #
 # Deux réseaux rendent les invariants physiques :
 # - passerelle : Caddy, les services et les applications. Caddy est le seul conteneur qui publie des ports.
-# - noyau : HAPI, sa base, et les services qui parlent FHIR (pas identite). Réseau interne, sans sortie.
-#   Les applications n'y sont jamais : elles ne peuvent pas joindre le noyau, même par erreur.
+# - noyau : HAPI, sa base, le chargement du jeu de démonstration, et les services qui parlent FHIR
+#   (pas identite). Réseau interne, sans sortie. Les applications n'y sont jamais : elles ne peuvent
+#   pas joindre le noyau, même par erreur.
+#
+# Remise à zéro complète, noyau vidé puis rechargé du seul jeu de démonstration :
+#   docker compose down -v && docker compose up -d --build --wait
 
 name: lafia
 
-# Un service qui parle FHIR : sur les deux réseaux, démarré quand le noyau répond. Il vérifie seul
-# les jetons signés par identite, par la clé publique JETON_CLE_PUBLIQUE ; vide, sur localhost
-# seulement, il prend la clé de développement ; sur tout autre domaine, il refuse de démarrer.
+# Un service qui parle FHIR : sur les deux réseaux, démarré quand le noyau répond et que le jeu de
+# démonstration y est chargé. Il vérifie seul les jetons signés par identite, par la clé publique
+# JETON_CLE_PUBLIQUE ; vide, sur localhost seulement, il prend la clé de développement ; sur tout
+# autre domaine, il refuse de démarrer.
 x-service-fhir: &service-fhir
   restart: unless-stopped
   depends_on:
     noyau:
       condition: service_healthy
+    # Attendre la fin du chargement lui donne aussi sa place dans `up --wait`, qui sinon prendrait
+    # son arrêt pour une panne.
+    chargement:
+      condition: service_completed_successfully
   environment:
     NOYAU_URL: http://noyau:8080/fhir
     JETON_CLE_PUBLIQUE: ${JETON_CLE_PUBLIQUE:-}
@@ -108,6 +117,23 @@ services:
       start_period: 5m
       start_interval: 5s
     mem_limit: 2g
+
+  # Écrit le jeu de démonstration (donnees/) dans le noyau à chaque `up`, puis s'arrête. Il ne
+  # supprime rien : un redéploiement garde ce que les utilisateurs ont écrit.
+  chargement:
+    build:
+      context: donnees
+      additional_contexts:
+        commun: commun
+    image: lafia/chargement
+    depends_on:
+      noyau:
+        condition: service_healthy
+    environment:
+      NOYAU_URL: http://noyau:8080/fhir
+    networks:
+      - noyau
+    mem_limit: 128m
 
   # Chaque service est construit par services/Dockerfile, commun compris.
   soin:

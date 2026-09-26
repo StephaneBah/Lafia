@@ -10,8 +10,9 @@ La même suite vise la pile locale ou l'adresse publique selon l'environnement :
 Les certificats sont vérifiés : en local contre l'autorité interne de Caddy, lue dans le
 conteneur de la passerelle ; ailleurs contre les autorités publiques.
 
-Tout passe par la passerelle, sauf l'isolement réseau, qui ne s'y observe pas : ces vérifications
-passent par `docker`, sur la machine de la pile visée, et sont sautées quand elle tourne ailleurs.
+Tout passe par la passerelle, sauf l'isolement réseau et le contenu du noyau, qui ne s'y observent
+pas : ces vérifications passent par `docker`, sur la machine de la pile visée, et sont sautées quand
+elle tourne ailleurs.
 
 Les jetons de test sont signés de la clé privée donnée par `JETON_CLE_PRIVEE`, celle dont la pile
 visée connaît la clé publique. En local, sans elle, la clé de développement, que seule une pile
@@ -19,14 +20,16 @@ servie sur localhost accepte ; ailleurs, sans elle, les tests qui en ont besoin 
 """
 
 import base64
+import json
 import os
 import ssl
 import subprocess
+import tomllib
 from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import httpx
 import jwt
@@ -36,6 +39,8 @@ from cryptography.hazmat.primitives.serialization import load_der_private_key
 
 RACINE_DU_DEPOT = Path(__file__).resolve().parent.parent
 RACINE_CA_CADDY = "/data/caddy/pki/authorities/local/root.crt"
+# Les fichiers du jeu de démonstration, que la pile charge dans le noyau à chaque démarrage.
+JEU_DE_DEMONSTRATION = RACINE_DU_DEPOT / "donnees" / "src" / "donnees"
 
 DOMAINE = os.environ.get("LAFIA_DOMAINE", "localhost")
 LOCAL = DOMAINE == "localhost"
@@ -64,10 +69,18 @@ class _VersAdresse(httpx.HTTPTransport):
         return super().handle_request(request)
 
 
-def _docker(*arguments: str) -> subprocess.CompletedProcess[str]:
-    """La commande `docker`, lancée depuis la racine du dépôt, où `docker compose` trouve la pile."""
+def _docker(*arguments: str, entree: str | None = None) -> subprocess.CompletedProcess[str]:
+    """La commande `docker`, lancée depuis la racine du dépôt, où `docker compose` trouve la pile.
+
+    `entree` est écrite sur son entrée standard.
+    """
     return subprocess.run(
-        ["docker", *arguments], cwd=RACINE_DU_DEPOT, capture_output=True, text=True
+        ["docker", *arguments],
+        cwd=RACINE_DU_DEPOT,
+        input=entree,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
     )
 
 
@@ -110,6 +123,70 @@ def docker() -> Callable[..., subprocess.CompletedProcess[str]]:
             _pile_locale_absente(f"domaine servi par cette machine : {domaine_servi_ici}")
         pytest.skip(f"la pile qui sert {DOMAINE} ne tourne pas sur cette machine")
     return _docker
+
+
+class Reponse(NamedTuple):
+    """Ce que le noyau répond à une lecture : son statut HTTP, et la ressource quand il en rend une."""
+
+    statut: int
+    ressource: dict[str, Any] | None
+
+
+# Lit le noyau depuis un service qui parle FHIR : chemins FHIR en JSON sur l'entrée standard, une
+# réponse par chemin sur la sortie. Une recherche est lue en entier, ses pages suivantes ajoutées à la
+# première. Rien d'autre que des GET : la lecture ne change pas ce qu'elle observe.
+LECTEUR_DU_NOYAU = """
+import json, os, sys, urllib.error, urllib.request
+
+def lire(adresse):
+    requete = urllib.request.Request(adresse, headers={"Accept": "application/fhir+json"})
+    try:
+        with urllib.request.urlopen(requete, timeout=30) as reponse:
+            return reponse.status, json.load(reponse)
+    except urllib.error.HTTPError as erreur:
+        return erreur.code, None
+
+def suivante(page):
+    return next((lien["url"] for lien in page.get("link", []) if lien["relation"] == "next"), None)
+
+reponses = []
+for chemin in json.load(sys.stdin):
+    statut, ressource = lire(f"{os.environ['NOYAU_URL']}/{chemin}")
+    page = ressource
+    while page and page.get("resourceType") == "Bundle" and suivante(page):
+        _, page = lire(suivante(page))
+        ressource.setdefault("entry", []).extend(page.get("entry", []))
+    reponses.append([statut, ressource])
+json.dump(reponses, sys.stdout)
+"""
+
+
+@pytest.fixture(scope="session")
+def noyau(docker: Callable[..., subprocess.CompletedProcess[str]]) -> Callable[[list[str]], list[Reponse]]:
+    """Lit le noyau de l'intérieur de la pile : `noyau(["Organization/cnhu-hkm", "Patient?identifier=…"])`.
+
+    Le noyau ne s'observe pas par la passerelle : la lecture part du conteneur soin, qui le joint.
+    Une réponse par chemin, dans l'ordre des chemins. Sautée comme `docker` quand la pile tourne ailleurs.
+    """
+
+    def lire(chemins: list[str]) -> list[Reponse]:
+        lecture = docker(
+            "compose", "exec", "-T", "soin", "python", "-c", LECTEUR_DU_NOYAU, entree=json.dumps(chemins)
+        )
+        assert lecture.returncode == 0, lecture.stderr
+        return [Reponse(statut, ressource) for statut, ressource in json.loads(lecture.stdout)]
+
+    return lire
+
+
+@pytest.fixture(scope="session")
+def jeu() -> Callable[[str], dict[str, Any]]:
+    """Un fichier du jeu de démonstration, tel qu'il est écrit : `jeu("patients")["patient"]`."""
+
+    def lire(fichier: str) -> dict[str, Any]:
+        return tomllib.loads((JEU_DE_DEMONSTRATION / f"{fichier}.toml").read_text(encoding="utf-8"))
+
+    return lire
 
 
 @pytest.fixture(scope="session")

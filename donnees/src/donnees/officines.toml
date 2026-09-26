@@ -1,0 +1,22 @@
+# Officines du jeu de démonstration : pharmacies de ville indépendantes, rattachées à aucun
+# établissement. Noms inventés.
+#
+# id      identifiant fixe de l'Organization dans le noyau ; c'est aussi le `sub` du jeton de l'officine.
+# compte  le compte unique de l'officine : ses pharmaciens n'ont pas de compte dans Lafia. Mot de passe
+#         public, comme tout le jeu.
+#
+# Une officine n'a pas de tarif : ses prix vivent dans son propre logiciel.
+
+[[officine]]
+id = "officine-zogbo"
+nom = "Pharmacie Baobab de Zogbo"
+departement = "Littoral"
+commune = "Cotonou"
+compte = { identifiant = "officine.zogbo", mot_de_passe = "lafia-demo" }
+
+[[officine]]
+id = "officine-tankpe"
+nom = "Pharmacie Arc-en-ciel de Tankpè"
+departement = "Atlantique"
+commune = "Abomey-Calavi"
+compte = { identifiant = "officine.tankpe", mot_de_passe = "lafia-demo" }

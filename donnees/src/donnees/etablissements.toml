@@ -1,0 +1,49 @@
+# Établissements du jeu de démonstration : où les visites ont lieu.
+#
+# Ce sont des structures publiques réelles, nommées pour que la démonstration soit reconnaissable et
+# couvre la pyramide sanitaire, du centre national au centre de santé rural. Aucune personne, aucun
+# compte ni aucun fait clinique réel ne s'y rattache : tout le reste du jeu est synthétique.
+#
+# id      identifiant fixe de l'Organization dans le noyau ; les comptes des agents le citent.
+# niveau  chu-national, chu-departemental, chu-de-zone ou centre-de-sante : le prix de chaque produit
+#         et acte en dépend (catalogue.toml).
+
+[[etablissement]]
+id = "cnhu-hkm"
+nom = "Centre national hospitalier universitaire Hubert Koutoukou Maga"
+sigle = "CNHU-HKM"
+niveau = "chu-national"
+departement = "Littoral"
+commune = "Cotonou"
+
+[[etablissement]]
+id = "chu-mel"
+nom = "Centre hospitalier universitaire de la Mère et de l'Enfant Lagune"
+sigle = "CHU-MEL"
+niveau = "chu-national"
+departement = "Littoral"
+commune = "Cotonou"
+
+[[etablissement]]
+id = "chud-borgou-alibori"
+nom = "Centre hospitalier universitaire départemental Borgou-Alibori"
+sigle = "CHUD-BA"
+niveau = "chu-departemental"
+departement = "Borgou"
+commune = "Parakou"
+
+[[etablissement]]
+id = "chuz-abomey-calavi"
+nom = "Centre hospitalier universitaire de zone Abomey-Calavi/Sô-Ava"
+sigle = "CHUZ-AC"
+niveau = "chu-de-zone"
+departement = "Atlantique"
+commune = "Abomey-Calavi"
+
+[[etablissement]]
+id = "cs-kpanroun"
+nom = "Centre de santé de Kpanroun"
+sigle = "CS Kpanroun"
+niveau = "centre-de-sante"
+departement = "Atlantique"
+commune = "Abomey-Calavi"

@@ -14,7 +14,11 @@ The first start takes a few minutes while HAPI creates its schema. Then each act
 
 Locally, the gateway signs `*.localhost` certificates with Caddy's internal authority, so a browser warns until you trust its root, found in the `passerelle` container at `/data/caddy/pki/authorities/local/root.crt`.
 
-The noyau's data lives in the `noyau-donnees` volume: `docker compose down` keeps it, `docker compose down -v` erases it.
+At every start, the `chargement` container writes the synthetic demo dataset from `donnees/` into the noyau (établissements, officines, agents, patients, tarifs), then exits. It never deletes anything, so a restart or a redeploy keeps what users wrote. The noyau's data lives in the `noyau-donnees` volume: `docker compose down` keeps it. To start over from the demo dataset alone:
+
+```sh
+docker compose down -v && docker compose up -d --build --wait
+```
 
 ## Deploy
 
@@ -51,7 +55,7 @@ A black-box suite runs against the running stack through the gateway, addressing
 uv run --project tests pytest tests
 ```
 
-The network isolation checks (`tests/test_isolement.py`) use `docker` on the machine that runs the targeted stack, and are skipped when that stack runs elsewhere.
+The network isolation checks (`tests/test_isolement.py`) and the dataset checks (`tests/test_donnees.py`) use `docker` on the machine that runs the targeted stack, and are skipped when that stack runs elsewhere.
 
 The same suite checks another deployment by changing the base domain: `LAFIA_DOMAINE=<domaine> uv run --project tests pytest tests`. Locally it connects to `127.0.0.1` and trusts Caddy's internal authority; `LAFIA_ADRESSE` forces the gateway's IP address elsewhere, for instance before DNS is in place.
 
@@ -61,14 +65,15 @@ The suite signs its own session tokens with `JETON_CLE_PRIVEE`, the private half
 
 ```
 Caddyfile            gateway: one subdomain per actor, one `import acteur <name>` line each
-docker-compose.yml   the stack: gateway, noyau, services, applications
+docker-compose.yml   the stack: gateway, noyau, dataset loader, services, applications
 deploiement/         preparing the VM once, deploying main to it
-commun/              shared library, built into each service image: service skeleton, FHIR client, token verification
+commun/              shared library, built into each service image: service skeleton, token verification, FHIR client and translation
 services/<name>/     one FastAPI service per domain: soin, caisse, pharmacie, citoyen, identite
 services/Dockerfile  one image per service, commun included
+donnees/             the synthetic demo dataset, in Lafia's vocabulary, and the loader that writes it into the noyau
 web/commun/          shared application code, built into each application: service through the gateway, status page
 web/design/          design system, built into each application
 web/<acteur>/        one Next.js application per actor: soin, caisse, pharmacie, citoyen
-tests/               black-box suite through the gateway, one table of actors, network isolation checks
+tests/               black-box suite through the gateway, one table of actors, network isolation and dataset checks
 docs/                how it works (architecture.md), deploying (deploiement.md), specs, ADRs
 ```

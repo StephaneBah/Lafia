@@ -4,7 +4,7 @@ This page describes the running system as it exists in the repository: what each
 
 ## The pieces
 
-Today the stack runs twelve containers, defined in `docker-compose.yml`. Four actors, soin, caisse, pharmacie and citoyen, each have one application and one service:
+Today the stack runs twelve containers, defined in `docker-compose.yml`, and a thirteenth that loads the demo dataset at each start, then stops. Four actors, soin, caisse, pharmacie and citoyen, each have one application and one service:
 
 | Container | Software | Role | Published port |
 |---|---|---|---|
@@ -14,8 +14,11 @@ Today the stack runs twelve containers, defined in `docker-compose.yml`. Four ac
 | `identite` | Python, FastAPI | The **service** for identity. Exposes its own API under `/api/identite`, reachable from every application's subdomain. It never speaks FHIR and is not on the noyau's network. Today it only reports its health; agent accounts, sign-in and token issuance arrive with F2. | none |
 | `noyau` | HAPI FHIR R4 | The **noyau**. Stores all medical data as standard FHIR resources and exposes the standard FHIR REST API. Runs in HAPI's default configuration. | none |
 | `base-noyau` | PostgreSQL | Where HAPI keeps its data on disk, in the `noyau-donnees` volume. | none |
+| `chargement` | Python | Writes the demo dataset from `donnees/` into the noyau at every `docker compose up`, then exits. See [The demo dataset](#the-demo-dataset). | none |
 
-`commun/` is not a container. It is a Python library, copied into each service's image when the image is built. Today it holds what every service shares: the service skeleton (the FastAPI application, its `/sante` route and its OpenAPI contract under the service's prefix), the FHIR client every service uses to talk to the noyau, and the token verification every service uses to know who is asking. A service's own code holds only its own routes and rules.
+`commun/` is not a container. It is a Python library, copied into each service's image when the image is built. Today it holds what every service shares: the service skeleton (the FastAPI application, its `/sante` route and its OpenAPI contract under the service's prefix), the token verification every service uses to know who is asking, and, under `commun/src/commun/fhir/`, everything FHIR: the client every service uses to talk to the noyau, the code and identifier systems Lafia uses, and the translation of the things Lafia names (`commun/src/commun/modele.py`: établissement, officine, agent, patient, tarif) into FHIR resources. A service's own code holds only its own routes and rules.
+
+`donnees/` is not a service either. It holds the demo dataset, hand-written in Lafia's vocabulary, and the loader that writes it into the noyau; both are built into the `chargement` image.
 
 `web/` is not a container either. It is an npm workspace holding the applications (`web/soin/`, `web/caisse/`, `web/pharmacie/`, `web/citoyen/`) and two packages they share. `web/commun/` is to the applications what `commun/` is to the services: how an application reaches its service through the gateway, and the page every application shows today. `web/design/` is the design system. Both are compiled into each application when its image is built, the way `commun/` is copied into each service: nothing of them is loaded at runtime. The design system is empty until F0 fills it; today it only gives the page a legible base stylesheet.
 
@@ -125,6 +128,38 @@ Here is what happens when a browser opens `https://soin.localhost/`:
 
 The page shows "Soin" ("Caisse", "Pharmacie", "Mon carnet" on the other subdomains), the service's status and the noyau's: `disponible, FHIR 4.0.1` when the whole chain answers. With a session the service accepts, it shows the connected role and, for an agent, the établissement; a citoyen sees `Connecté comme citoyen`, never their NPI, which the page does not receive. Otherwise it shows `Session : aucune`. When the service answers 503, the page shows the noyau as `injoignable`. When the service does not answer at all, the page shows the service as `injoignable` and the noyau as `inconnu`. The page itself always renders, as long as the application runs.
 
+## The demo dataset
+
+The noyau is never empty: at every `docker compose up`, locally and on the VM, the `chargement` container writes the demo dataset into it. Everything in it is synthetic except the names of the five établissements, real public facilities chosen to cover the health pyramid.
+
+**What it holds.** The files live in `donnees/src/donnees/`, written by hand in Lafia's vocabulary, each thing with a fixed id:
+
+| File | What it lists |
+|---|---|
+| `etablissements.toml` | The five établissements, from the CNHU in Cotonou to the centre de santé of Kpanroun, each with its level |
+| `officines.toml` | Two officines with invented names, and the single account of each |
+| `agents.toml` | Soignants, caissiers and pharmaciens, each with one account per établissement where they work, plus accounts reserved for the test suite |
+| `patients.toml` | About thirty patients from several regions, ages and languages, plus a few reserved for the test suite. No clinical data. |
+| `catalogue.toml` | The products and acts an ordonnance can carry, each with its price at every level of établissement |
+| `citoyens.toml` | Demo citoyens: the NPI of a dataset patient and the code carnet of their latest reçu |
+
+Accounts, mots de passe and codes carnet are public, since everything is synthetic. Every NPI starts with six zeros and every phone number with `+229 01 00`, series no real person holds. Resource ids say nothing about the person: `patient-007`, `praticien-15`.
+
+**What it becomes in the noyau.** `donnees/src/donnees/__init__.py` reads the files into the records of `commun/src/commun/modele.py`; `commun/src/commun/fhir/ressources.py` turns each into a FHIR resource:
+
+| In the dataset | FHIR resource | Shape |
+|---|---|---|
+| Établissement, officine | `Organization` | Name; `type` from Lafia's `type-de-structure` code system (`chu-national`, `chu-departemental`, `chu-de-zone`, `centre-de-sante`, `officine`); `address` with département (`state`) and commune (`city`). |
+| Agent | `Practitioner` | Name; role (`médecin`, `infirmier`, `caissier`, `pharmacien`) as `qualification`. One per person, however many accounts: the établissement comes with the account and travels in the token. Its id is the `sub` of the agent's tokens. |
+| Patient | `Patient` | NPI as the only `identifier` (system `https://npi.gouv.bj`); name, gender, birth date; place of birth and nationality through the standard HL7 extensions; address from département (`state`) to quartier (`line`); phone in `telecom`; personne à prévenir in `contact`; spoken languages in `communication`, as BCP 47 codes. |
+| Tarif | `ChargeItemDefinition` | One per product or act per établissement. The product in `code`, in Lafia's `catalogue` code system, with its ATC code for a medicine; the établissement in `useContext` (`venue`); the price in FCFA (`XOF`) as the base price component; an `identifier` `<établissement>:<code>`, so that the caisse finds a tarif in one search. Officines have none: their prices live in their own software. |
+
+Lafia's own code and identifier systems are named under `https://lafia.bj/fhir` (`commun/src/commun/fhir/systemes.py`). They are names, not addresses: nothing answers there.
+
+**How it is loaded.** `chargement` waits until the noyau is healthy, sends the whole dataset as one FHIR transaction of `PUT`s, each resource under its fixed id, logs how many resources it created and how many were already there, and exits. The transaction is all or nothing. The loader never deletes anything: a resource whose content has not changed keeps its version, since HAPI ignores an update that changes nothing; a resource changed in the files gets a new version; and whatever users wrote since stays. A redeploy therefore never wipes the demo or what the jury wrote. Starting over is one command, which erases the noyau's volume: `docker compose down -v`, then `docker compose up -d --build --wait`.
+
+The same files will give identite its accounts (F2.2), so that every token names a `Practitioner` and an `Organization` the noyau holds. Later features add their own resources (cas, mesures, allergies, ordonnances) to the same files and loader.
+
 ## Who can reach whom
 
 The network layout enforces the architecture rules. Code does not have to remember them.
@@ -145,7 +180,7 @@ The network layout enforces the architecture rules. Code does not have to rememb
  ┌────────────┼────────┼──────────┼───────────┼────────────┐
  │ network    └────────┴────┬─────┴───────────┘  internal: │
  │ noyau                    ▼                  no internet │
- │                        noyau  ──  base-noyau            │
+ │          chargement ──▶ noyau  ──  base-noyau           │
  └─────────────────────────────────────────────────────────┘
 ```
 
@@ -156,9 +191,10 @@ The network layout enforces the architecture rules. Code does not have to rememb
 | `application-soin`, `application-caisse`, `application-pharmacie`, `application-citoyen` | Its own service and `identite`, through the gateway | `noyau`, by name or by address: the application is only on the `passerelle` network. Another actor's service: the gateway answers 404 to `/api/soin/*` on `caisse.<domaine>`, and so on. |
 | `soin`, `caisse`, `pharmacie`, `citoyen` | `noyau`, over FHIR | `base-noyau`'s data: only HAPI holds the database password. |
 | `identite` | What any container on the `passerelle` network reaches: the gateway, the services, the applications, the internet. It calls none of them. | `noyau`, by name or by address: identite is only on the `passerelle` network. |
+| `chargement` | `noyau`, over FHIR | The gateway, the services, the applications, the internet: it is only on the `noyau` network. |
 | `noyau` | `base-noyau` | The internet: the `noyau` network is internal. |
 
-The test suite checks the first, third and fifth rows from the machine that runs the stack: only `passerelle` publishes ports, and from inside each application container and `identite` the noyau gives no answer, whether called by its name or by its IP address. Through the gateway, it checks that no subdomain reaches another actor's service.
+The test suite checks the first, third and fifth rows from the machine that runs the stack: only `passerelle` publishes ports, and from inside each application container and `identite` the noyau gives no answer, whether called by its name or by its IP address. It also checks that `chargement` is attached to the `noyau` network and to no other. Through the gateway, it checks that no subdomain reaches another actor's service.
 
 Two rules are conventions rather than network properties. **Services never call each other**: they share the `passerelle` network with identite, so nothing physically stops one from calling another. **An application calls only the gateway**: it could open a connection to `soin:8000` directly. Both rules are kept in code and review. Going through the gateway keeps a single place, the `Caddyfile`, that decides what each subdomain can reach, for the browser and for the application's server alike.
 
@@ -168,12 +204,13 @@ Two rules are conventions rather than network properties. **Services never call 
 
 1. `base-noyau` is healthy once PostgreSQL accepts connections (`pg_isready`).
 2. `noyau` starts next. It is healthy once HAPI's own probe, shipped in the official image, reports Spring and its database up. On the very first start HAPI creates its schema, which takes a few minutes.
-3. `soin`, `caisse`, `pharmacie` and `citoyen` start once the noyau is healthy. Each is healthy when it answers its own OpenAPI contract, and refuses to start without a readable `JETON_CLE_PUBLIQUE`, except on `localhost` (see [Configuration](#configuration)). `identite` needs nothing to start; it is healthy when it answers its OpenAPI contract too.
-4. Each application needs only the gateway to start: it asks its service for its state on each page, not at startup. It is healthy once its server listens.
+3. `chargement` starts once the noyau is healthy, writes the demo dataset, and exits with code 0. A failed load exits with another code, and nothing that waits for it starts.
+4. `soin`, `caisse`, `pharmacie` and `citoyen` start once the noyau is healthy and `chargement` has completed: they serve a noyau that holds its établissements and tarifs. Each is healthy when it answers its own OpenAPI contract, and refuses to start without a readable `JETON_CLE_PUBLIQUE`, except on `localhost` (see [Configuration](#configuration)). `identite` needs nothing to start; it is healthy when it answers its OpenAPI contract too.
+5. Each application needs only the gateway to start: it asks its service for its state on each page, not at startup. It is healthy once its server listens.
 
-`--wait` returns when every container is healthy. Each container has `restart: unless-stopped`, so it comes back after a crash or a reboot. Each also has a memory limit, so the whole stack fits on one virtual machine: HAPI gets 2 GB with a 1 GB Java heap, PostgreSQL 512 MB, the gateway 128 MB, each service and each application 256 MB, about 4.9 GB in all.
+`--wait` returns when every container is healthy. It would take `chargement`'s exit for a failure, were the services not waiting for it: Compose accepts a container that stops only when another waits for it to complete. `chargement` runs again at each `up`, but not after a reboot, when Docker restarts the containers without Compose; the dataset is already in the noyau's volume then. Each other container has `restart: unless-stopped`, so it comes back after a crash or a reboot. Each also has a memory limit, so the whole stack fits on one virtual machine: HAPI gets 2 GB with a 1 GB Java heap, PostgreSQL 512 MB, the gateway and `chargement` 128 MB each, each service and each application 256 MB, about 5 GB in all.
 
-`docker-compose.yml` writes what services and applications share once. `x-service-fhir` holds what every service that speaks FHIR needs: both networks, a healthy noyau before starting, `NOYAU_URL`, `JETON_CLE_PUBLIQUE` and `LAFIA_DOMAINE`. `x-application` holds what every application needs: the `passerelle` network only, and the gateway before starting. Each service is built by `services/Dockerfile` with its name as `SERVICE`, `commun` included; each application by `web/Dockerfile` with its name as `APPLICATION`.
+`docker-compose.yml` writes what services and applications share once. `x-service-fhir` holds what every service that speaks FHIR needs: both networks, a healthy noyau and a completed `chargement` before starting, `NOYAU_URL`, `JETON_CLE_PUBLIQUE` and `LAFIA_DOMAINE`. `x-application` holds what every application needs: the `passerelle` network only, and the gateway before starting. Each service is built by `services/Dockerfile` with its name as `SERVICE`, `commun` included; each application by `web/Dockerfile` with its name as `APPLICATION`; `chargement` by `donnees/Dockerfile`, `commun` included.
 
 Docker's health checks and `/sante` answer different questions. Docker checks each container on its own, which tells you which one is broken. `/sante` checks the chain from the outside, which tells you whether a request can get through.
 
@@ -188,7 +225,7 @@ Variables come from a `.env` file at the root, which git ignores. `.env.example`
 | `JETON_CLE_PUBLIQUE` | soin, caisse, pharmacie, citoyen, to verify tokens: the base64 line of an Ed25519 public key PEM | Empty: the development key, on `localhost` only |
 | `JETON_CLE_PRIVEE` | No container yet: identite will sign tokens with it from F2. Kept in the VM's `.env` next to its public half; the test suite signs its tokens with it | Empty: the development key, on `localhost` only |
 
-Without a `.env`, the local defaults apply. In production every variable is set in `.env`. The token key is guarded in code: the development key's private half is public in `tests/conftest.py`, so `commun` uses that key only when `LAFIA_DOMAINE` is `localhost` and `JETON_CLE_PUBLIQUE` is empty. On any other domain a service refuses to start without a key, and refuses the development key: a deployed stack never accepts a token anyone can sign. Two addresses are set in `docker-compose.yml` instead, because they are internal: `NOYAU_URL`, where a service finds the noyau, and `PASSERELLE_URL`, where an application's server finds the gateway's internal entry for its subdomain (`http://soin.<domaine>:8080`).
+Without a `.env`, the local defaults apply. In production every variable is set in `.env`. The token key is guarded in code: the development key's private half is public in `tests/conftest.py`, so `commun` uses that key only when `LAFIA_DOMAINE` is `localhost` and `JETON_CLE_PUBLIQUE` is empty. On any other domain a service refuses to start without a key, and refuses the development key: a deployed stack never accepts a token anyone can sign. Two addresses are set in `docker-compose.yml` instead, because they are internal: `NOYAU_URL`, where a service or `chargement` finds the noyau, and `PASSERELLE_URL`, where an application's server finds the gateway's internal entry for its subdomain (`http://soin.<domaine>:8080`).
 
 ## Deployment
 
@@ -199,7 +236,7 @@ The public stack runs on one Azure virtual machine (Ubuntu 24.04, 2 vCPU, 8 GB),
                                                                      │ 443
  VM (Azure)  ┌───────────────────────────────────────────────────────┼──────┐
              │ firewall: 80, 443 for everyone; 22 for the operator   ▼      │
-             │ Docker, started at boot  →  the twelve containers, as above  │
+             │ Docker, started at boot  →  the containers, as above         │
              │ ~/lafia: the repository, and .env, which exists nowhere else │
              └──────────────────────────────────────────────────────────────┘
 ```
@@ -208,7 +245,7 @@ The public stack runs on one Azure virtual machine (Ubuntu 24.04, 2 vCPU, 8 GB),
 - **Certificates.** On a real domain, Caddy obtains a certificate for each subdomain from a public authority (Let's Encrypt) the first time it starts, through ports 80 and 443, and renews them on its own. They are kept in the `passerelle-donnees` volume, so a redeploy does not ask again.
 - **Firewall.** The VM's Azure network security group admits 80 and 443 from anywhere and SSH from the operator's address only. The gateway's internal entry, 8080, is not published by Docker and not open in Azure either.
 - **Preparing the VM, once.** `deploiement/preparer-vm.sh <domaine>` installs Docker, enables it at boot, clones the repository into `~/lafia` and writes `.env`: the domain, a random database password, and a fresh Ed25519 key pair for tokens. `.env` is readable by the VM's user only. Run again, the script keeps an existing `.env`: new secrets would lock HAPI out of its own database.
-- **Deploying `main`.** `ssh -i <vm-key.pem> azureuser@lafia.stephanebah.page lafia/deploiement/deployer.sh` pulls `main`, builds the images one at a time (two processors do not build four Next.js applications in parallel comfortably), brings the stack up with `--wait`, recreates the gateway when the `Caddyfile` it serves differs from the repository's (it is mounted as a single file, which `git pull` replaces), and removes the images it replaced.
+- **Deploying `main`.** `ssh -i <vm-key.pem> azureuser@lafia.stephanebah.page lafia/deploiement/deployer.sh` pulls `main`, builds the images one at a time (two processors do not build four Next.js applications in parallel comfortably), brings the stack up with `--wait`, which loads the demo dataset again, recreates the gateway when the `Caddyfile` it serves differs from the repository's (it is mounted as a single file, which `git pull` replaces), and removes the images it replaced.
 - **Reboots.** Docker starts with the VM, and every container has `restart: unless-stopped`: the stack comes back without anyone logging in.
 
 ## Try it yourself
@@ -224,6 +261,8 @@ curl -k --resolve caisse.localhost:443:127.0.0.1 https://caisse.localhost/    # 
 curl -k --resolve caisse.localhost:443:127.0.0.1 https://caisse.localhost/api/soin/sante    # 404: not caisse's service
 curl -k --resolve citoyen.localhost:443:127.0.0.1 https://citoyen.localhost/    # the citoyen page, Mon carnet
 docker compose logs -f soin            # follow a container's log
+docker compose logs chargement         # how many resources the last load created
+docker compose run --rm --no-deps chargement    # load the dataset again: nothing changes
 docker compose stop noyau              # watch /sante turn into a 503 …
 docker compose start noyau             # … and back
 uv run --project tests pytest tests    # the black-box suite
@@ -243,7 +282,8 @@ In a browser, open `https://soin.localhost` for the soin application, and `https
 - `LAFIA_DOMAINE=<domaine>` points the same suite at another deployment.
 - The suite signs its own tokens with the private key in `JETON_CLE_PRIVEE`, whose public half the targeted stack holds. Locally, without it, the suite uses the development key, which a stack served on `localhost` accepts when it has no key of its own. Against another deployment, without it, the tests that need a token are skipped.
 - `tests/test_acteurs.py` runs the same checks for every actor, from one table: each actor's title and the roles its service serves. Session tests take every admitted agent role, every refused role and every invalid token, each by cookie and by `Authorization` header; the cross-actor test asks each subdomain for every other actor's `/sante` and expects 404. Each subdomain also answers 404 to the noyau's paths and to unknown API paths, and every response, page or API, carries the security headers and none that names the software. `tests/test_citoyen.py` holds what only the citoyen has: a session without the NPI, and a page that never contains it, anywhere in its HTML.
-- Network isolation cannot be seen through the gateway, so `tests/test_isolement.py` checks it with `docker`, on the machine that runs the stack: it reads which ports each container publishes, and sends HTTP probes from inside each application container. Each probe first reaches the gateway, so a probe that cannot run is never mistaken for an unreachable noyau. These checks run only when the stack on this machine is the one the suite targets, that is when its gateway serves `LAFIA_DOMAINE`; otherwise they are skipped, since this machine's containers would say nothing about the stack under test.
+- Network isolation cannot be seen through the gateway, so `tests/test_isolement.py` checks it with `docker`, on the machine that runs the stack: it reads which ports each container publishes and which networks `chargement` is on, and sends HTTP probes from inside each application container. Each probe first reaches the gateway, so a probe that cannot run is never mistaken for an unreachable noyau. These checks run only when the stack on this machine is the one the suite targets, that is when its gateway serves `LAFIA_DOMAINE`; otherwise they are skipped, since this machine's containers would say nothing about the stack under test.
+- The noyau's content cannot be seen through the gateway either. `tests/test_donnees.py` reads it from inside the `soin` container, with `docker` and under the same condition, and compares it with the dataset files: every établissement and officine as an `Organization` with its type, every agent as a `Practitioner`, every patient found by NPI with each field, every tarif found by its identifier at every établissement and none at an officine, every demo citoyen a patient. It also loads the dataset a second time and checks that no version changed, and that no NPI or phone number in the files could be a real person's.
 
 ## Where the code is
 
@@ -252,19 +292,25 @@ In a browser, open `https://soin.localhost` for the soin application, and `https
 | `docker-compose.yml` | Containers, networks, volumes, health checks, memory limits |
 | `Caddyfile` | Routing: the `acteur` site block, imported once per actor, publicly and on the internal entry |
 | `commun/src/commun/service.py` | `creer_service()`: a service's FastAPI app, its `/sante` and its OpenAPI contract under `/api/<service>`; `client_fhir`, the dependency that hands a route the noyau's client |
-| `commun/src/commun/fhir.py` | `ClientFhir`: the only way a service talks to the noyau |
+| `commun/src/commun/fhir/client.py` | `ClientFhir`: the only way a service talks to the noyau, reading or sending a transaction |
+| `commun/src/commun/fhir/systemes.py` | The code and identifier systems Lafia uses in the noyau, its own and the standard ones |
+| `commun/src/commun/fhir/ressources.py` | The translation of Lafia's records into FHIR resources: `Organization`, `Practitioner`, `Patient`, `ChargeItemDefinition` |
+| `commun/src/commun/modele.py` | The things Lafia names, as records, without FHIR: établissement, officine, agent, patient, product, tarif |
 | `commun/src/commun/jeton.py` | `VerificateurDeJetons`: token verification, the `porteur` dependency returning the verified `Agent` or `Citoyen`, the `agent` role guard, and the `citoyen` guard |
 | `services/<service>/src/<service>/service.py` | A service's own routes, `/session` today, handed to `creer_service()` |
 | `services/<service>/src/<service>/regles/acces.py` | Who a service serves: the roles soin, caisse and pharmacie admit; for citoyen, what the service gives back of the citoyen, never the NPI |
 | `services/identite/` | The `identite` service: only `/sante` until F2 |
 | `services/Dockerfile` | One image per service, `commun` included, with its health probe: `docker build --build-arg SERVICE=soin --build-context commun=commun services` |
+| `donnees/src/donnees/*.toml` | The demo dataset, in Lafia's vocabulary |
+| `donnees/src/donnees/__init__.py`, `chargement.py` | Reading the dataset into records; the loader, `python -m donnees.chargement` |
+| `donnees/Dockerfile` | The `chargement` image: `docker build --build-context commun=commun donnees` |
 | `web/package.json` | The npm workspace: the applications and the two shared packages |
 | `web/commun/src/service.ts` | How an application asks its service, through the gateway: its state, and the session of the cookie |
 | `web/commun/src/etat.tsx` | `EtatDeLActeur`: the page every application shows today, rendered on the server at each request |
 | `web/design/` | The design system package, compiled into each application |
 | `web/<acteur>/src/app/` | An application's pages and layout: its title, and `EtatDeLActeur` with its own service |
 | `web/Dockerfile` | One image per application: `docker build --build-arg APPLICATION=soin web` |
-| `tests/` | The black-box suite, how it reaches the gateway, the actor table, and the network isolation checks |
+| `tests/` | The black-box suite, how it reaches the gateway, the actor table, the network isolation checks, and the dataset checks |
 
 ## How the picture grows
 
@@ -274,3 +320,4 @@ Every later feature repeats the same pattern:
 - **The service of an actor** is `services/<acteur>/`: its routes, handed to `creer_service()` from `commun`, and its `regles/`, which say whom it serves, enforced with the guards of `VerificateurDeJetons`: `agent` with the roles it admits, or `citoyen`. `services/Dockerfile` builds it with `commun`; if it speaks FHIR, its Compose entry merges `x-service-fhir`, which puts it on both networks and gives it `NOYAU_URL`, `JETON_CLE_PUBLIQUE` and `LAFIA_DOMAINE`.
 - **A new actor** (a laboratoire, later) means one service, one application, and one line in the `Caddyfile`, `import acteur <nom>`, which routes `/api/<nom>/*` to its service, `/api/identite/*` to identite, and nothing else under `/api/`. Compose gains its service, its application and the gateway alias of its subdomain; `web/package.json` gains its workspace. The test suite gains one row in the actor table of `tests/test_acteurs.py`, its subdomain in `tests/test_identite.py`, and its application in the isolation probes of `tests/test_isolement.py`. Each of these is a line added to a list: no existing code changes.
 - **Deployment** needs nothing new for an actor: the wildcard record already covers its subdomain, and `deploiement/deployer.sh` builds its images like the others.
+- **The demo dataset** grows with the services: the feature that fixes a resource's shape (a cas de visite, an ordonnance) adds its records to `donnees/`, its translation to `commun/src/commun/fhir/ressources.py`, and its resources to the one transaction of `donnees/src/donnees/chargement.py`.

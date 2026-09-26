@@ -1,0 +1,35 @@
+# Citoyens de démonstration : le NPI d'un patient du jeu et le code carnet de son dernier reçu.
+#
+# identite les charge au démarrage pour un NPI qui n'a pas encore de code, jamais par-dessus un code
+# émis depuis. Codes publics, listés sur la page de connexion de l'application citoyen.
+#
+# code_carnet        6 caractères de l'alphabet du numéro d'ordonnance (ni 0, O, 1, I ni L), en deux groupes.
+# reserve_aux_tests  NPI que la suite verrouille exprès : jamais listé.
+
+[[citoyen]]
+npi = "0000001204815"
+code_carnet = "H3T-9QR"
+
+[[citoyen]]
+npi = "0000001763547"
+code_carnet = "W6N-2JD"
+
+[[citoyen]]
+npi = "0000002316294"
+code_carnet = "B8F-5ZE"
+
+[[citoyen]]
+npi = "0000003205743"
+code_carnet = "R4Y-7CK"
+
+# Réservés à la suite de tests.
+
+[[citoyen]]
+npi = "0000009000001"
+code_carnet = "T9B-3HN"
+reserve_aux_tests = true
+
+[[citoyen]]
+npi = "0000009000002"
+code_carnet = "Q5G-6AW"
+reserve_aux_tests = true

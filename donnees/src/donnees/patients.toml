@@ -1,0 +1,449 @@
+# Patients du jeu de démonstration. Personnes synthétiques, de plusieurs régions, âges et langues ;
+# aucune donnée clinique : les cas, mesures, allergies et ordonnances arrivent avec les services qui
+# en fixent la forme (F3 à F5).
+#
+# id                   identifiant fixe du Patient dans le noyau. Il ne dit rien de la personne.
+# npi                  13 chiffres, commençant par six zéros : aucun NPI réel n'en commence ainsi.
+# sexe                 féminin ou masculin.
+# lieu_de_naissance    commune et pays (code ISO 3166 à deux lettres) ; nationalite, même code.
+# adresse              département, commune, arrondissement, quartier ou village.
+# langues              langues parlées, codes BCP 47, la plus usuelle d'abord : fr, fon, yo (yoruba, nago),
+#                      guw (goun), bba (baatonum), ddn (dendi), ff (fulfulde), pil (yom), tbz (ditammari),
+#                      gej (mina), ajg (adja), mxl (mahi), tfi (toffin), ee (ewe), ha (haoussa), en.
+# telephone            facultatif. Tous commencent par +229 01 00, série qu'aucun opérateur n'attribue.
+# personne_a_prevenir  facultative : nom, prénoms, relation au patient, téléphone.
+# reserve_aux_tests    NPI que la suite verrouille, ou dont elle renouvelle le code carnet, exprès.
+
+[[patient]]
+id = "patient-001"
+npi = "0000001204815"
+nom = "HOUNSOU"
+prenoms = ["Rodrigue", "Sènan"]
+sexe = "masculin"
+naissance = 1984-03-14
+lieu_de_naissance = { commune = "Abomey", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Littoral", commune = "Cotonou", arrondissement = "12e arrondissement", quartier = "Fidjrossè" }
+langues = ["fon", "fr"]
+telephone = "+229 01 00 21 47 36"
+personne_a_prevenir = { nom = "HOUNSOU", prenoms = ["Gisèle"], relation = "épouse", telephone = "+229 01 00 58 12 09" }
+
+[[patient]]
+id = "patient-002"
+npi = "0000001317462"
+nom = "DOSSOU"
+prenoms = ["Fifamè", "Aurelle"]
+sexe = "féminin"
+naissance = 1991-11-02
+lieu_de_naissance = { commune = "Cotonou", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Littoral", commune = "Cotonou", arrondissement = "10e arrondissement", quartier = "Gbégamey" }
+langues = ["fr", "fon"]
+telephone = "+229 01 00 34 90 15"
+
+[[patient]]
+id = "patient-003"
+npi = "0000001425093"
+nom = "ADJAHO"
+prenoms = ["Céline", "Dossi"]
+sexe = "féminin"
+naissance = 1959-07-23
+lieu_de_naissance = { commune = "Porto-Novo", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Littoral", commune = "Cotonou", arrondissement = "1er arrondissement", quartier = "Tokplégbé" }
+langues = ["guw", "fr"]
+personne_a_prevenir = { nom = "ADJAHO", prenoms = ["Serge"], relation = "fils", telephone = "+229 01 00 47 26 81" }
+
+[[patient]]
+id = "patient-004"
+npi = "0000001538170"
+nom = "AGBOSSOU"
+prenoms = ["Mahougnon", "Éric"]
+sexe = "masculin"
+naissance = 1997-05-09
+lieu_de_naissance = { commune = "Bohicon", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Atlantique", commune = "Abomey-Calavi", arrondissement = "Godomey", quartier = "Cocotomey" }
+langues = ["fon", "fr"]
+telephone = "+229 01 00 62 08 57"
+
+[[patient]]
+id = "patient-005"
+npi = "0000001642388"
+nom = "TOGBÉ"
+prenoms = ["Houéfa"]
+sexe = "féminin"
+naissance = 1975-02-17
+lieu_de_naissance = { commune = "Abomey-Calavi", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Atlantique", commune = "Abomey-Calavi", arrondissement = "Kpanroun", quartier = "Kpanroun centre" }
+langues = ["fon"]
+personne_a_prevenir = { nom = "TOGBÉ", prenoms = ["Rosine"], relation = "fille", telephone = "+229 01 00 73 55 40" }
+
+[[patient]]
+id = "patient-006"
+npi = "0000001659021"
+nom = "TOGBÉ"
+prenoms = ["Sèdjro"]
+sexe = "masculin"
+naissance = 2022-06-30
+lieu_de_naissance = { commune = "Abomey-Calavi", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Atlantique", commune = "Abomey-Calavi", arrondissement = "Kpanroun", quartier = "Kpanroun centre" }
+langues = ["fon"]
+personne_a_prevenir = { nom = "TOGBÉ", prenoms = ["Rosine"], relation = "mère", telephone = "+229 01 00 73 55 40" }
+
+[[patient]]
+id = "patient-007"
+npi = "0000001763547"
+nom = "GUÉRA"
+prenoms = ["Orou", "Sabi"]
+sexe = "masculin"
+naissance = 1968-09-05
+lieu_de_naissance = { commune = "Nikki", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Borgou", commune = "Parakou", arrondissement = "1er arrondissement", quartier = "Banikanni" }
+langues = ["bba", "fr"]
+telephone = "+229 01 00 18 63 92"
+personne_a_prevenir = { nom = "GUÉRA", prenoms = ["Chabi"], relation = "frère", telephone = "+229 01 00 81 04 37" }
+
+[[patient]]
+id = "patient-008"
+npi = "0000001874206"
+nom = "MOUSSA"
+prenoms = ["Aïssatou"]
+sexe = "féminin"
+naissance = 1993-01-21
+lieu_de_naissance = { commune = "Malanville", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Borgou", commune = "Parakou", arrondissement = "2e arrondissement", quartier = "Zongo" }
+langues = ["ddn", "fr"]
+telephone = "+229 01 00 29 71 64"
+
+[[patient]]
+id = "patient-009"
+npi = "0000001981634"
+nom = "ALIDOU"
+prenoms = ["Garba"]
+sexe = "masculin"
+naissance = 1955-04-12
+lieu_de_naissance = { commune = "Kandi", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Alibori", commune = "Kandi", arrondissement = "Kandi I", quartier = "Gansosso" }
+langues = ["ddn"]
+personne_a_prevenir = { nom = "ALIDOU", prenoms = ["Issifou"], relation = "fils", telephone = "+229 01 00 95 32 18" }
+
+[[patient]]
+id = "patient-010"
+npi = "0000002085719"
+nom = "OUMAROU"
+prenoms = ["Aminatou"]
+sexe = "féminin"
+naissance = 2002-08-18
+lieu_de_naissance = { commune = "Kalalé", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Borgou", commune = "Parakou", arrondissement = "3e arrondissement", quartier = "Titirou" }
+langues = ["ff", "bba"]
+
+[[patient]]
+id = "patient-011"
+npi = "0000002193460"
+nom = "SOUMAÏLA"
+prenoms = ["Djibril"]
+sexe = "masculin"
+naissance = 1981-12-03
+lieu_de_naissance = { commune = "Djougou", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Donga", commune = "Djougou", arrondissement = "Djougou I", quartier = "Zountori" }
+langues = ["pil", "fr"]
+telephone = "+229 01 00 56 83 20"
+
+[[patient]]
+id = "patient-012"
+npi = "0000002207851"
+nom = "TAMA"
+prenoms = ["Colette"]
+sexe = "féminin"
+naissance = 1987-10-27
+lieu_de_naissance = { commune = "Natitingou", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Atacora", commune = "Natitingou", arrondissement = "Natitingou I", quartier = "Yimporima" }
+langues = ["tbz", "fr"]
+telephone = "+229 01 00 40 17 69"
+
+[[patient]]
+id = "patient-013"
+npi = "0000002316294"
+nom = "GBÉNOU"
+prenoms = ["Augustin", "Hounkpè"]
+sexe = "masculin"
+naissance = 1963-03-29
+lieu_de_naissance = { commune = "Porto-Novo", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Ouémé", commune = "Porto-Novo", arrondissement = "3e arrondissement", quartier = "Ouando" }
+langues = ["guw", "fr"]
+telephone = "+229 01 00 67 24 03"
+personne_a_prevenir = { nom = "GBÉNOU", prenoms = ["Pauline"], relation = "épouse", telephone = "+229 01 00 67 24 88" }
+
+[[patient]]
+id = "patient-014"
+npi = "0000002428537"
+nom = "OGOUNDÉLÉ"
+prenoms = ["Folachadé"]
+sexe = "féminin"
+naissance = 1979-06-08
+lieu_de_naissance = { commune = "Pobè", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Plateau", commune = "Pobè", arrondissement = "Pobè", quartier = "Mowodani" }
+langues = ["yo", "fr"]
+telephone = "+229 01 00 83 46 12"
+
+[[patient]]
+id = "patient-015"
+npi = "0000002539072"
+nom = "AKANNI"
+prenoms = ["Kolawolé"]
+sexe = "masculin"
+naissance = 1990-02-14
+lieu_de_naissance = { commune = "Kétou", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Plateau", commune = "Kétou", arrondissement = "Idigny", quartier = "Idigny centre" }
+langues = ["yo"]
+telephone = "+229 01 00 12 58 97"
+
+[[patient]]
+id = "patient-016"
+npi = "0000002641815"
+nom = "AMOUSSOU"
+prenoms = ["Akouvi", "Sabine"]
+sexe = "féminin"
+naissance = 1998-04-25
+lieu_de_naissance = { commune = "Lokossa", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Mono", commune = "Lokossa", arrondissement = "Lokossa", quartier = "Houinvi" }
+langues = ["gej", "fr"]
+telephone = "+229 01 00 38 09 74"
+
+[[patient]]
+id = "patient-017"
+npi = "0000002756340"
+nom = "AGOSSOU"
+prenoms = ["Kokou", "Marcellin"]
+sexe = "masculin"
+naissance = 1974-11-11
+lieu_de_naissance = { commune = "Aplahoué", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Couffo", commune = "Aplahoué", arrondissement = "Aplahoué", quartier = "Adjaintimey" }
+langues = ["ajg", "fr"]
+personne_a_prevenir = { nom = "AGOSSOU", prenoms = ["Rachelle"], relation = "épouse", telephone = "+229 01 00 26 95 41" }
+
+[[patient]]
+id = "patient-018"
+npi = "0000002862917"
+nom = "AHOLOU"
+prenoms = ["Ayaba", "Dossi"]
+sexe = "féminin"
+naissance = 1950-01-15
+lieu_de_naissance = { commune = "Abomey", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Zou", commune = "Abomey", arrondissement = "Djègbé", quartier = "Djègbé" }
+langues = ["fon"]
+personne_a_prevenir = { nom = "AHOLOU", prenoms = ["Sylvie"], relation = "petite-fille", telephone = "+229 01 00 71 38 06" }
+
+[[patient]]
+id = "patient-019"
+npi = "0000002970458"
+nom = "DÈGBÈ"
+prenoms = ["Mahuna", "Parfait"]
+sexe = "masculin"
+naissance = 2007-07-07
+lieu_de_naissance = { commune = "Bohicon", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Zou", commune = "Bohicon", arrondissement = "Sodohomè", quartier = "Sodohomè" }
+langues = ["fon", "fr"]
+telephone = "+229 01 00 44 60 23"
+
+[[patient]]
+id = "patient-020"
+npi = "0000003084126"
+nom = "OLOU"
+prenoms = ["Clémentine"]
+sexe = "féminin"
+naissance = 1982-05-19
+lieu_de_naissance = { commune = "Dassa-Zoumè", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Collines", commune = "Dassa-Zoumè", arrondissement = "Dassa I", quartier = "Ayédéro" }
+langues = ["yo", "fr"]
+
+[[patient]]
+id = "patient-021"
+npi = "0000003192685"
+nom = "AKOHA"
+prenoms = ["Gbèto", "Joseph"]
+sexe = "masculin"
+naissance = 1971-08-02
+lieu_de_naissance = { commune = "Savalou", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Collines", commune = "Savalou", arrondissement = "Savalou-Aga", quartier = "Aga" }
+langues = ["mxl", "fr"]
+telephone = "+229 01 00 59 14 86"
+
+[[patient]]
+id = "patient-022"
+npi = "0000003205743"
+nom = "KPOSSOU"
+prenoms = ["Sènami"]
+sexe = "féminin"
+naissance = 1995-12-12
+lieu_de_naissance = { commune = "Ouidah", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Atlantique", commune = "Ouidah", arrondissement = "Ouidah I", quartier = "Tovè" }
+langues = ["fon", "fr"]
+telephone = "+229 01 00 90 27 35"
+
+[[patient]]
+id = "patient-023"
+npi = "0000003318092"
+nom = "HOUNKPÈ"
+prenoms = ["Grâce", "Mawunou"]
+sexe = "féminin"
+naissance = 2024-03-02
+lieu_de_naissance = { commune = "Cotonou", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Littoral", commune = "Cotonou", arrondissement = "9e arrondissement", quartier = "Vèdoko" }
+langues = ["fon", "fr"]
+personne_a_prevenir = { nom = "HOUNKPÈ", prenoms = ["Carine"], relation = "mère", telephone = "+229 01 00 15 82 60" }
+
+[[patient]]
+id = "patient-024"
+npi = "0000003429561"
+nom = "KOUDÉRIN"
+prenoms = ["Emmanuel", "Sèdjro"]
+sexe = "masculin"
+naissance = 2019-09-14
+lieu_de_naissance = { commune = "Cotonou", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Littoral", commune = "Cotonou", arrondissement = "11e arrondissement", quartier = "Houéyiho" }
+langues = ["fon", "fr"]
+personne_a_prevenir = { nom = "KOUDÉRIN", prenoms = ["Albert"], relation = "père", telephone = "+229 01 00 48 71 39" }
+
+[[patient]]
+id = "patient-025"
+npi = "0000003536208"
+nom = "HOUNGBO"
+prenoms = ["Zoé", "Fifonsi"]
+sexe = "féminin"
+naissance = 2026-01-20
+lieu_de_naissance = { commune = "Cotonou", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Littoral", commune = "Cotonou", arrondissement = "6e arrondissement", quartier = "Missèbo" }
+langues = ["fon"]
+personne_a_prevenir = { nom = "HOUNGBO", prenoms = ["Laure"], relation = "mère", telephone = "+229 01 00 36 04 92" }
+
+[[patient]]
+id = "patient-026"
+npi = "0000003647813"
+nom = "TOKPANOU"
+prenoms = ["Hilaire"]
+sexe = "masculin"
+naissance = 1986-10-10
+lieu_de_naissance = { commune = "Sô-Ava", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Atlantique", commune = "Sô-Ava", arrondissement = "Ganvié I", quartier = "Ganvié" }
+langues = ["tfi", "fon"]
+personne_a_prevenir = { nom = "TOKPANOU", prenoms = ["Mireille"], relation = "épouse", telephone = "+229 01 00 87 13 54" }
+
+# Résidents de pays voisins, titulaires d'un NPI.
+
+[[patient]]
+id = "patient-027"
+npi = "0000003751390"
+nom = "AMEGAH"
+prenoms = ["Akossiwa", "Délali"]
+sexe = "féminin"
+naissance = 1988-03-05
+lieu_de_naissance = { commune = "Lomé", pays = "TG" }
+nationalite = "TG"
+adresse = { departement = "Littoral", commune = "Cotonou", arrondissement = "4e arrondissement", quartier = "Akpakpa Dodomè" }
+langues = ["ee", "fr"]
+telephone = "+229 01 00 23 69 47"
+
+[[patient]]
+id = "patient-028"
+npi = "0000003869024"
+nom = "OGUNLEYE"
+prenoms = ["Adewale"]
+sexe = "masculin"
+naissance = 1976-06-21
+lieu_de_naissance = { commune = "Abeokuta", pays = "NG" }
+nationalite = "NG"
+adresse = { departement = "Ouémé", commune = "Porto-Novo", arrondissement = "1er arrondissement", quartier = "Avassa" }
+langues = ["yo", "en"]
+telephone = "+229 01 00 64 30 81"
+
+[[patient]]
+id = "patient-029"
+npi = "0000003972657"
+nom = "MAHAMANE"
+prenoms = ["Abdou", "Salissou"]
+sexe = "masculin"
+naissance = 1992-02-28
+lieu_de_naissance = { commune = "Gaya", pays = "NE" }
+nationalite = "NE"
+adresse = { departement = "Alibori", commune = "Malanville", arrondissement = "Malanville", quartier = "Tassi" }
+langues = ["ha", "ddn", "fr"]
+telephone = "+229 01 00 77 52 16"
+
+[[patient]]
+id = "patient-030"
+npi = "0000004083145"
+nom = "GANDAHO"
+prenoms = ["Victoire"]
+sexe = "féminin"
+naissance = 1946-12-01
+lieu_de_naissance = { commune = "Allada", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Littoral", commune = "Cotonou", arrondissement = "13e arrondissement", quartier = "Agla" }
+langues = ["fon"]
+personne_a_prevenir = { nom = "GANDAHO", prenoms = ["Martin"], relation = "fils", telephone = "+229 01 00 52 96 70" }
+
+# Réservés à la suite de tests.
+
+[[patient]]
+id = "patient-091"
+npi = "0000009000001"
+nom = "ESSAI"
+prenoms = ["Verrou", "Un"]
+sexe = "féminin"
+naissance = 1990-01-01
+lieu_de_naissance = { commune = "Cotonou", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Littoral", commune = "Cotonou", arrondissement = "12e arrondissement", quartier = "Fidjrossè" }
+langues = ["fr"]
+reserve_aux_tests = true
+
+[[patient]]
+id = "patient-092"
+npi = "0000009000002"
+nom = "ESSAI"
+prenoms = ["Verrou", "Deux"]
+sexe = "masculin"
+naissance = 1990-01-01
+lieu_de_naissance = { commune = "Cotonou", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Littoral", commune = "Cotonou", arrondissement = "12e arrondissement", quartier = "Fidjrossè" }
+langues = ["fr"]
+reserve_aux_tests = true
+
+[[patient]]
+id = "patient-093"
+npi = "0000009000003"
+nom = "ESSAI"
+prenoms = ["Code", "Carnet"]
+sexe = "féminin"
+naissance = 1990-01-01
+lieu_de_naissance = { commune = "Cotonou", pays = "BJ" }
+nationalite = "BJ"
+adresse = { departement = "Littoral", commune = "Cotonou", arrondissement = "12e arrondissement", quartier = "Fidjrossè" }
+langues = ["fr"]
+reserve_aux_tests = true

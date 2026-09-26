@@ -1,0 +1,191 @@
+# Agents du jeu de démonstration : soignants, caissiers et pharmaciens. Personnes synthétiques.
+#
+# id      identifiant fixe du Practitioner dans le noyau ; c'est aussi le `sub` des jetons de l'agent.
+#         Il ne dit rien de la personne : les journaux le citent.
+# role    médecin, infirmier, caissier ou pharmacien.
+# compte  un compte par établissement où l'agent travaille : un jeton ne porte qu'un établissement.
+#         Identifiants et mots de passe publics, listés sur la page de connexion de chaque application.
+#         `reserve_aux_tests` : compte que la suite verrouille exprès ; jamais listé.
+
+# CNHU Hubert Koutoukou Maga, Cotonou
+
+[[agent]]
+id = "praticien-01"
+nom = "HOUNGBÉDJI"
+prenoms = ["Armelle", "Sèna"]
+role = "médecin"
+compte = [{ identifiant = "medecin.cnhu.1", mot_de_passe = "lafia-demo", etablissement = "cnhu-hkm" }]
+
+[[agent]]
+id = "praticien-02"
+nom = "SANNI"
+prenoms = ["Ismaël"]
+role = "médecin"
+compte = [{ identifiant = "medecin.cnhu.2", mot_de_passe = "lafia-demo", etablissement = "cnhu-hkm" }]
+
+[[agent]]
+id = "praticien-03"
+nom = "AKPLOGAN"
+prenoms = ["Justin"]
+role = "infirmier"
+compte = [{ identifiant = "infirmier.cnhu", mot_de_passe = "lafia-demo", etablissement = "cnhu-hkm" }]
+
+[[agent]]
+id = "praticien-04"
+nom = "TOSSOU"
+prenoms = ["Berthe"]
+role = "caissier"
+compte = [{ identifiant = "caissier.cnhu", mot_de_passe = "lafia-demo", etablissement = "cnhu-hkm" }]
+
+[[agent]]
+id = "praticien-05"
+nom = "ADÉGBOLA"
+prenoms = ["Rachidi"]
+role = "pharmacien"
+compte = [{ identifiant = "pharmacien.cnhu", mot_de_passe = "lafia-demo", etablissement = "cnhu-hkm" }]
+
+# CHU de la Mère et de l'Enfant Lagune, Cotonou
+
+[[agent]]
+id = "praticien-06"
+nom = "GBAGUIDI"
+prenoms = ["Clarisse", "Houéfa"]
+role = "médecin"
+compte = [{ identifiant = "medecin.mel", mot_de_passe = "lafia-demo", etablissement = "chu-mel" }]
+
+[[agent]]
+id = "praticien-07"
+nom = "AHOUANSOU"
+prenoms = ["Nadège"]
+role = "infirmier"
+compte = [{ identifiant = "infirmier.mel.1", mot_de_passe = "lafia-demo", etablissement = "chu-mel" }]
+
+[[agent]]
+id = "praticien-08"
+nom = "KPADONOU"
+prenoms = ["Gildas"]
+role = "infirmier"
+compte = [{ identifiant = "infirmier.mel.2", mot_de_passe = "lafia-demo", etablissement = "chu-mel" }]
+
+[[agent]]
+id = "praticien-09"
+nom = "DANSOU"
+prenoms = ["Pélagie"]
+role = "caissier"
+compte = [{ identifiant = "caissier.mel", mot_de_passe = "lafia-demo", etablissement = "chu-mel" }]
+
+[[agent]]
+id = "praticien-10"
+nom = "ASSOGBA"
+prenoms = ["Romaric"]
+role = "pharmacien"
+compte = [{ identifiant = "pharmacien.mel", mot_de_passe = "lafia-demo", etablissement = "chu-mel" }]
+
+# CHUD Borgou-Alibori, Parakou
+
+[[agent]]
+id = "praticien-11"
+nom = "GOUNOU"
+prenoms = ["Bio", "Aristide"]
+role = "médecin"
+compte = [{ identifiant = "medecin.parakou", mot_de_passe = "lafia-demo", etablissement = "chud-borgou-alibori" }]
+
+[[agent]]
+id = "praticien-12"
+nom = "WOROU"
+prenoms = ["Safiatou"]
+role = "infirmier"
+compte = [{ identifiant = "infirmier.parakou", mot_de_passe = "lafia-demo", etablissement = "chud-borgou-alibori" }]
+
+[[agent]]
+id = "praticien-13"
+nom = "YAROU"
+prenoms = ["Adamou"]
+role = "caissier"
+compte = [{ identifiant = "caissier.parakou", mot_de_passe = "lafia-demo", etablissement = "chud-borgou-alibori" }]
+
+[[agent]]
+id = "praticien-14"
+nom = "SOUNON"
+prenoms = ["Mariam"]
+role = "pharmacien"
+compte = [{ identifiant = "pharmacien.parakou", mot_de_passe = "lafia-demo", etablissement = "chud-borgou-alibori" }]
+
+# CHU de zone Abomey-Calavi/Sô-Ava, et centre de santé de Kpanroun
+
+# Le médecin qui consulte aussi à Kpanroun : un compte par établissement, un seul Practitioner. Il se
+# connecte à l'un ou à l'autre, et ses jetons ne portent que celui-là.
+[[agent]]
+id = "praticien-15"
+nom = "HOUÉNOU"
+prenoms = ["Fernand", "Codjo"]
+role = "médecin"
+compte = [
+    { identifiant = "medecin.calavi", mot_de_passe = "lafia-demo", etablissement = "chuz-abomey-calavi" },
+    { identifiant = "medecin.kpanroun", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" },
+]
+
+[[agent]]
+id = "praticien-16"
+nom = "GANDONOU"
+prenoms = ["Estelle"]
+role = "infirmier"
+compte = [{ identifiant = "infirmier.calavi", mot_de_passe = "lafia-demo", etablissement = "chuz-abomey-calavi" }]
+
+[[agent]]
+id = "praticien-17"
+nom = "DJOSSOU"
+prenoms = ["Rodrigue"]
+role = "caissier"
+compte = [{ identifiant = "caissier.calavi", mot_de_passe = "lafia-demo", etablissement = "chuz-abomey-calavi" }]
+
+[[agent]]
+id = "praticien-18"
+nom = "AZON"
+prenoms = ["Florentine"]
+role = "pharmacien"
+compte = [{ identifiant = "pharmacien.calavi", mot_de_passe = "lafia-demo", etablissement = "chuz-abomey-calavi" }]
+
+[[agent]]
+id = "praticien-19"
+nom = "HOUESSOU"
+prenoms = ["Mathieu"]
+role = "infirmier"
+compte = [{ identifiant = "infirmier.kpanroun.1", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" }]
+
+[[agent]]
+id = "praticien-20"
+nom = "AGOSSA"
+prenoms = ["Victorine"]
+role = "infirmier"
+compte = [{ identifiant = "infirmier.kpanroun.2", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" }]
+
+[[agent]]
+id = "praticien-21"
+nom = "SOSSOU"
+prenoms = ["Aubin"]
+role = "caissier"
+compte = [{ identifiant = "caissier.kpanroun", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" }]
+
+[[agent]]
+id = "praticien-22"
+nom = "HOUNNOU"
+prenoms = ["Prisca"]
+role = "pharmacien"
+compte = [{ identifiant = "pharmacien.kpanroun", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" }]
+
+# Réservés à la suite de tests, qui les verrouille exprès : jamais listés sur une page de connexion.
+
+[[agent]]
+id = "praticien-91"
+nom = "ESSAI"
+prenoms = ["Verrou", "Un"]
+role = "médecin"
+compte = [{ identifiant = "essai.verrou.1", mot_de_passe = "lafia-essai", etablissement = "cnhu-hkm", reserve_aux_tests = true }]
+
+[[agent]]
+id = "praticien-92"
+nom = "ESSAI"
+prenoms = ["Verrou", "Deux"]
+role = "caissier"
+compte = [{ identifiant = "essai.verrou.2", mot_de_passe = "lafia-essai", etablissement = "cs-kpanroun", reserve_aux_tests = true }]

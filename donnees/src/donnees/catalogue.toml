@@ -1,0 +1,224 @@
+# Catalogue du jeu de démonstration : les produits et actes qu'une ordonnance peut porter, et leur
+# tarif en FCFA. La caisse lit le tarif : aucun montant n'est saisi.
+#
+# code     code du produit ou de l'acte dans le catalogue de Lafia : MED- pour un médicament, ACT- pour
+#          un acte de soin, EXA- pour un examen.
+# atc      pour un médicament, son code dans la classification ATC de l'OMS.
+# prix     prix unitaire en FCFA à chaque niveau d'établissement (etablissements.toml) : chaque
+#          établissement a ainsi un tarif pour chaque produit et chaque acte. Prix plausibles pour le
+#          secteur public, sans valeur officielle.
+
+# Médicaments
+
+[[produit]]
+code = "MED-PARACETAMOL-500"
+libelle = "Paracétamol 500 mg, comprimé"
+atc = "N02BE01"
+prix = { chu-national = 25, chu-departemental = 25, chu-de-zone = 20, centre-de-sante = 15 }
+
+[[produit]]
+code = "MED-IBUPROFENE-400"
+libelle = "Ibuprofène 400 mg, comprimé"
+atc = "M01AE01"
+prix = { chu-national = 30, chu-departemental = 30, chu-de-zone = 25, centre-de-sante = 20 }
+
+[[produit]]
+code = "MED-AMOXICILLINE-500"
+libelle = "Amoxicilline 500 mg, gélule"
+atc = "J01CA04"
+prix = { chu-national = 60, chu-departemental = 60, chu-de-zone = 50, centre-de-sante = 40 }
+
+[[produit]]
+code = "MED-AMOX-CLAV-500"
+libelle = "Amoxicilline et acide clavulanique 500 mg/62,5 mg, comprimé"
+atc = "J01CR02"
+prix = { chu-national = 250, chu-departemental = 250, chu-de-zone = 225, centre-de-sante = 200 }
+
+[[produit]]
+code = "MED-COTRIMOXAZOLE-480"
+libelle = "Cotrimoxazole 400 mg/80 mg, comprimé"
+atc = "J01EE01"
+prix = { chu-national = 15, chu-departemental = 15, chu-de-zone = 15, centre-de-sante = 10 }
+
+[[produit]]
+code = "MED-METRONIDAZOLE-250"
+libelle = "Métronidazole 250 mg, comprimé"
+atc = "P01AB01"
+prix = { chu-national = 15, chu-departemental = 15, chu-de-zone = 15, centre-de-sante = 10 }
+
+[[produit]]
+code = "MED-CEFTRIAXONE-1G"
+libelle = "Ceftriaxone 1 g, poudre pour injection, flacon"
+atc = "J01DD04"
+prix = { chu-national = 1000, chu-departemental = 1000, chu-de-zone = 900, centre-de-sante = 800 }
+
+[[produit]]
+code = "MED-ARTEMETHER-LUMEF"
+libelle = "Artéméther et luméfantrine 20 mg/120 mg, plaquette de 24 comprimés"
+atc = "P01BF01"
+prix = { chu-national = 1200, chu-departemental = 1200, chu-de-zone = 1000, centre-de-sante = 800 }
+
+[[produit]]
+code = "MED-ARTESUNATE-60"
+libelle = "Artésunate 60 mg, poudre pour injection, flacon"
+atc = "P01BE03"
+prix = { chu-national = 1500, chu-departemental = 1500, chu-de-zone = 1350, centre-de-sante = 1200 }
+
+[[produit]]
+code = "MED-SULFADOX-PYRIMET"
+libelle = "Sulfadoxine et pyriméthamine 500 mg/25 mg, comprimé"
+atc = "P01BD51"
+prix = { chu-national = 50, chu-departemental = 50, chu-de-zone = 40, centre-de-sante = 35 }
+
+[[produit]]
+code = "MED-MEBENDAZOLE-500"
+libelle = "Mébendazole 500 mg, comprimé"
+atc = "P02CA01"
+prix = { chu-national = 100, chu-departemental = 100, chu-de-zone = 80, centre-de-sante = 75 }
+
+[[produit]]
+code = "MED-SRO"
+libelle = "Sels de réhydratation orale, sachet pour 1 litre"
+atc = "A07CA"
+prix = { chu-national = 150, chu-departemental = 150, chu-de-zone = 125, centre-de-sante = 100 }
+
+[[produit]]
+code = "MED-ZINC-20"
+libelle = "Zinc 20 mg, comprimé dispersible"
+atc = "A12CB01"
+prix = { chu-national = 30, chu-departemental = 30, chu-de-zone = 25, centre-de-sante = 25 }
+
+[[produit]]
+code = "MED-FER-FOLIQUE"
+libelle = "Fer 60 mg et acide folique 0,4 mg, comprimé"
+atc = "B03AD03"
+prix = { chu-national = 10, chu-departemental = 10, chu-de-zone = 10, centre-de-sante = 5 }
+
+[[produit]]
+code = "MED-AMLODIPINE-5"
+libelle = "Amlodipine 5 mg, comprimé"
+atc = "C08CA01"
+prix = { chu-national = 50, chu-departemental = 50, chu-de-zone = 45, centre-de-sante = 40 }
+
+[[produit]]
+code = "MED-HYDROCHLOROTHIAZIDE-25"
+libelle = "Hydrochlorothiazide 25 mg, comprimé"
+atc = "C03AA03"
+prix = { chu-national = 25, chu-departemental = 25, chu-de-zone = 20, centre-de-sante = 15 }
+
+[[produit]]
+code = "MED-FUROSEMIDE-40"
+libelle = "Furosémide 40 mg, comprimé"
+atc = "C03CA01"
+prix = { chu-national = 25, chu-departemental = 25, chu-de-zone = 20, centre-de-sante = 15 }
+
+[[produit]]
+code = "MED-METFORMINE-500"
+libelle = "Metformine 500 mg, comprimé"
+atc = "A10BA02"
+prix = { chu-national = 30, chu-departemental = 30, chu-de-zone = 25, centre-de-sante = 20 }
+
+[[produit]]
+code = "MED-GLIBENCLAMIDE-5"
+libelle = "Glibenclamide 5 mg, comprimé"
+atc = "A10BB01"
+prix = { chu-national = 20, chu-departemental = 20, chu-de-zone = 15, centre-de-sante = 10 }
+
+[[produit]]
+code = "MED-OMEPRAZOLE-20"
+libelle = "Oméprazole 20 mg, gélule"
+atc = "A02BC01"
+prix = { chu-national = 50, chu-departemental = 50, chu-de-zone = 40, centre-de-sante = 35 }
+
+[[produit]]
+code = "MED-SALBUTAMOL-100"
+libelle = "Salbutamol 100 µg par dose, aérosol doseur de 200 doses"
+atc = "R03AC02"
+prix = { chu-national = 2500, chu-departemental = 2500, chu-de-zone = 2300, centre-de-sante = 2000 }
+
+[[produit]]
+code = "MED-RINGER-LACTATE-500"
+libelle = "Ringer lactate, solution pour perfusion, poche de 500 ml"
+atc = "B05BB01"
+prix = { chu-national = 800, chu-departemental = 800, chu-de-zone = 700, centre-de-sante = 600 }
+
+[[produit]]
+code = "MED-GLUCOSE-5-500"
+libelle = "Glucose 5 %, solution pour perfusion, poche de 500 ml"
+atc = "B05BA03"
+prix = { chu-national = 700, chu-departemental = 700, chu-de-zone = 600, centre-de-sante = 500 }
+
+[[produit]]
+code = "MED-CHLORPHENAMINE-4"
+libelle = "Chlorphénamine 4 mg, comprimé"
+atc = "R06AB04"
+prix = { chu-national = 10, chu-departemental = 10, chu-de-zone = 10, centre-de-sante = 5 }
+
+# Actes de soin
+
+[[produit]]
+code = "ACT-CONSULTATION"
+libelle = "Consultation de médecine générale"
+prix = { chu-national = 3000, chu-departemental = 2500, chu-de-zone = 2000, centre-de-sante = 1000 }
+
+[[produit]]
+code = "ACT-CONSULTATION-PRENATALE"
+libelle = "Consultation prénatale"
+prix = { chu-national = 1500, chu-departemental = 1500, chu-de-zone = 1000, centre-de-sante = 500 }
+
+[[produit]]
+code = "ACT-PANSEMENT"
+libelle = "Pansement simple"
+prix = { chu-national = 1000, chu-departemental = 1000, chu-de-zone = 750, centre-de-sante = 500 }
+
+[[produit]]
+code = "ACT-INJECTION"
+libelle = "Injection intramusculaire ou intraveineuse"
+prix = { chu-national = 300, chu-departemental = 300, chu-de-zone = 250, centre-de-sante = 200 }
+
+[[produit]]
+code = "ACT-PERFUSION"
+libelle = "Pose de perfusion"
+prix = { chu-national = 1000, chu-departemental = 1000, chu-de-zone = 800, centre-de-sante = 500 }
+
+[[produit]]
+code = "ACT-MISE-EN-OBSERVATION"
+libelle = "Mise en observation, par journée"
+prix = { chu-national = 5000, chu-departemental = 4000, chu-de-zone = 3000, centre-de-sante = 2000 }
+
+# Examens
+
+[[produit]]
+code = "EXA-TDR-PALUDISME"
+libelle = "Test de diagnostic rapide du paludisme"
+prix = { chu-national = 1000, chu-departemental = 1000, chu-de-zone = 800, centre-de-sante = 500 }
+
+[[produit]]
+code = "EXA-GOUTTE-EPAISSE"
+libelle = "Goutte épaisse"
+prix = { chu-national = 1500, chu-departemental = 1500, chu-de-zone = 1200, centre-de-sante = 1000 }
+
+[[produit]]
+code = "EXA-GLYCEMIE"
+libelle = "Glycémie"
+prix = { chu-national = 1500, chu-departemental = 1500, chu-de-zone = 1200, centre-de-sante = 1000 }
+
+[[produit]]
+code = "EXA-NFS"
+libelle = "Numération formule sanguine"
+prix = { chu-national = 3500, chu-departemental = 3000, chu-de-zone = 2500, centre-de-sante = 2000 }
+
+[[produit]]
+code = "EXA-CREATININEMIE"
+libelle = "Créatininémie"
+prix = { chu-national = 2500, chu-departemental = 2500, chu-de-zone = 2000, centre-de-sante = 1500 }
+
+[[produit]]
+code = "EXA-BANDELETTE-URINAIRE"
+libelle = "Examen des urines par bandelette"
+prix = { chu-national = 1000, chu-departemental = 1000, chu-de-zone = 800, centre-de-sante = 500 }
+
+[[produit]]
+code = "EXA-TEST-GROSSESSE"
+libelle = "Test de grossesse urinaire"
+prix = { chu-national = 1000, chu-departemental = 1000, chu-de-zone = 800, centre-de-sante = 500 }
