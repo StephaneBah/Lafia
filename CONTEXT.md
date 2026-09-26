@@ -40,6 +40,17 @@ _Avoid_: constante (covers only part of the meaning)
 **Diagnostic**:
 What a soignant retains about the cas, provisional or confirmed.
 
+**Antécédent**:
+A lasting fact about the patient's health, true beyond any single cas: a past or chronic illness, a surgery, an illness in the family. Told by the patient or known from the dossier; never "confirmed" like a diagnostic.
+_Avoid_: historique, passé médical
+
+**Traitement au long cours**:
+A medicine the patient takes continuously, whoever prescribed it, recorded so that every soignant and the pharmacien see it.
+_Avoid_: traitement chronique, traitement de fond
+
+**Groupe sanguin**:
+The patient's ABO and Rhesus group, recorded once.
+
 **Ordonnance**:
 A prescription issued at the end of a visite, identified by a unique numéro d'ordonnance, made of lignes.
 _Avoid_: prescription (for the whole document)
@@ -120,6 +131,7 @@ _Avoid_: front, portail
 ## Relationships
 
 - A **Patient** has one **Dossier** and many **Cas de visite**
+- A **Dossier** holds **Antécédents**, **Allergies**, **Traitements au long cours** and a **Groupe sanguin**, which outlive any **Cas de visite**; a **Diagnostic** belongs to one **Cas de visite**
 - A **Cas de visite** holds one or more **Visites** and may span several **Établissements**
 - A **Visite** produces **Mesures**, **Diagnostics** and at most one **Ordonnance** per issue
 - An **Ordonnance** has many **Lignes d'ordonnance**

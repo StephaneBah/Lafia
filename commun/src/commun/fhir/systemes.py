@@ -76,3 +76,16 @@ ACTION_REST = "http://hl7.org/fhir/restful-interaction"
 
 MOMENT_DE_PRISE = "http://hl7.org/fhir/event-timing"
 """Les moments de prise d'une posologie : MORN, NOON, EVE, NIGHT."""
+
+# F4 : le dossier approfondi (docs/specs/F4-dossier-approfondi.md).
+TYPE_D_ANTECEDENT = f"{LAFIA}/CodeSystem/type-d-antecedent"
+"""Ce qu'est un antécédent du patient : `medical` ou `chirurgical` (le familial est un FamilyMemberHistory)."""
+
+CATEGORIE_DE_CONDITION = "http://terminology.hl7.org/CodeSystem/condition-category"
+"""`problem-list-item` pour un antécédent, `encounter-diagnosis` pour le diagnostic d'une visite."""
+
+VERIFICATION = "http://terminology.hl7.org/CodeSystem/condition-ver-status"
+"""Un diagnostic `provisional` ou `confirmed`."""
+
+LIEN_DE_PARENTE = "http://terminology.hl7.org/CodeSystem/v3-RoleCode"
+"""Le lien d'un parent au patient : MTH, FTH, SIB, CHILD, GRMTH, GRFTH."""

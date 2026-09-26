@@ -31,4 +31,5 @@ EXPOSE 8000
 # Sain quand le service répond. Le noyau a sa propre sonde ; /api/<service>/sante rapporte la chaîne entière.
 HEALTHCHECK --interval=15s --timeout=10s --retries=3 --start-period=10s \
     CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://localhost:8000/api/{os.environ[\"SERVICE\"]}/openapi.json', timeout=5)"
-CMD exec uvicorn "${SERVICE}.service:app" --host 0.0.0.0 --port 8000
+# Pas de journal des accès : une adresse de requête peut porter un identifiant de patient.
+CMD exec uvicorn "${SERVICE}.service:app" --host 0.0.0.0 --port 8000 --no-access-log
