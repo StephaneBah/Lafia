@@ -1,14 +1,15 @@
 """Traduction des choses que Lafia nomme (`commun.modele`) en ressources FHIR du noyau.
 
 Chaque ressource garde l'identifiant fixe de la chose qu'elle traduit : l'écrire deux fois la met à
-jour, sans doublon.
+jour, sans doublon. Systèmes de codes et d'identifiants : `commun.fhir.systemes` (ADR 0006).
 """
 
 import re
+from typing import Any
 
 from commun.fhir import systemes
 from commun.fhir.client import Ressource
-from commun.modele import Etablissement, Niveau, Officine, Patient, Professionnel, Sexe, Tarif
+from commun.modele import Agent, Etablissement, Niveau, Officine, Patient, Sexe, Tarif
 
 PAYS_DU_NOYAU = "BJ"
 DEVISE = "XOF"
@@ -34,10 +35,25 @@ LIBELLES_DES_TYPES_DE_STRUCTURE = {
 }
 
 
+def _nom(nom: str, prenoms: tuple[str, ...]) -> dict[str, Any]:
+    """Un nom de personne (HumanName) : le nom de famille, puis les prénoms."""
+    return {"family": nom, "given": list(prenoms)}
+
+
+def _telephone(numero: str) -> dict[str, str]:
+    """Un numéro de téléphone (ContactPoint)."""
+    return {"system": "phone", "value": numero}
+
+
 def organization(structure: Etablissement | Officine) -> Ressource:
-    """Un établissement ou une officine, en `Organization` : son nom, son type, sa commune."""
-    type_ = structure.niveau if isinstance(structure, Etablissement) else TYPE_OFFICINE
-    ressource: Ressource = {
+    """Un établissement ou une officine, en `Organization` : son nom, son type, sa commune.
+    L'établissement porte aussi son sigle."""
+    type_: str
+    if isinstance(structure, Etablissement):
+        type_, noms = structure.niveau, {"name": structure.nom, "alias": [structure.sigle]}
+    else:
+        type_, noms = TYPE_OFFICINE, {"name": structure.nom}
+    return {
         "resourceType": "Organization",
         "id": structure.id,
         "active": True,
@@ -52,37 +68,30 @@ def organization(structure: Etablissement | Officine) -> Ressource:
                 ]
             }
         ],
-        "name": structure.nom,
+        **noms,
         "address": [
             {"city": structure.commune, "state": structure.departement, "country": PAYS_DU_NOYAU}
         ],
     }
-    if isinstance(structure, Etablissement):
-        ressource["alias"] = [structure.sigle]
-    return ressource
 
 
-def practitioner(professionnel: Professionnel) -> Ressource:
+def practitioner(agent: Agent) -> Ressource:
     """Un agent, en `Practitioner` : son nom, et son rôle comme qualification. Son établissement n'y
     est pas : c'est celui du compte avec lequel il se connecte, que porte son jeton."""
     return {
         "resourceType": "Practitioner",
-        "id": professionnel.id,
+        "id": agent.id,
         "active": True,
-        "name": [{"family": professionnel.nom, "given": list(professionnel.prenoms)}],
+        "name": [_nom(agent.nom, agent.prenoms)],
         "qualification": [
             {
                 "code": {
-                    "coding": [{"system": systemes.ROLE, "code": professionnel.role}],
-                    "text": professionnel.role,
+                    "coding": [{"system": systemes.ROLE, "code": agent.role}],
+                    "text": agent.role,
                 }
             }
         ],
     }
-
-
-def _telephone(numero: str) -> Ressource:
-    return {"system": "phone", "value": numero}
 
 
 def patient(personne: Patient) -> Ressource:
@@ -114,7 +123,7 @@ def patient(personne: Patient) -> Ressource:
         ],
         "identifier": [{"system": systemes.NPI, "value": personne.npi}],
         "active": True,
-        "name": [{"use": "official", "family": personne.nom, "given": list(personne.prenoms)}],
+        "name": [{"use": "official", **_nom(personne.nom, personne.prenoms)}],
         "gender": GENRES[personne.sexe],
         "birthDate": personne.naissance.isoformat(),
         "address": [
@@ -143,22 +152,17 @@ def patient(personne: Patient) -> Ressource:
                         "text": contact.relation,
                     }
                 ],
-                "name": {"family": contact.nom, "given": list(contact.prenoms)},
+                "name": _nom(contact.nom, contact.prenoms),
                 "telecom": [_telephone(contact.telephone)],
             }
         ]
     return ressource
 
 
-def identifiant_du_tarif(etablissement: str, code: str) -> str:
-    """La valeur de l'identifiant d'un tarif (système `systemes.TARIF`) : la caisse trouve le tarif
-    d'un produit dans son établissement par une seule recherche sur elle."""
-    return f"{etablissement}:{code}"
-
-
 def charge_item_definition(tarif: Tarif) -> Ressource:
     """Un tarif, en `ChargeItemDefinition` : le produit ou l'acte en `code` (catalogue de Lafia, et ATC
-    pour un médicament), son établissement en contexte d'usage `venue`, son prix en composante de base."""
+    pour un médicament), son établissement en contexte d'usage `venue`, son prix en composante de base.
+    Son identifiant `<établissement>:<code>` le fait trouver par une seule recherche."""
     id_ = f"tarif-{tarif.etablissement}-{tarif.produit.code}".lower()
     if not IDENTIFIANT_FHIR.fullmatch(id_):
         raise ValueError(f"identifiant de tarif hors du format FHIR : {id_}")
@@ -170,9 +174,7 @@ def charge_item_definition(tarif: Tarif) -> Ressource:
         "resourceType": "ChargeItemDefinition",
         "id": id_,
         "url": f"{systemes.LAFIA}/ChargeItemDefinition/{id_}",
-        "identifier": [
-            {"system": systemes.TARIF, "value": identifiant_du_tarif(tarif.etablissement, produit.code)}
-        ],
+        "identifier": [{"system": systemes.TARIF, "value": f"{tarif.etablissement}:{produit.code}"}],
         "title": produit.libelle,
         "status": "active",
         "code": {"coding": codes, "text": produit.libelle},

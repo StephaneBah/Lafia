@@ -14,6 +14,8 @@ DELAI_TRANSACTION_SECONDES = 120.0
 
 # Une ressource FHIR, telle qu'elle circule en JSON.
 Ressource: TypeAlias = dict[str, Any]
+# Une entrée de transaction : une ressource, et la requête qui l'écrit.
+Entree: TypeAlias = dict[str, Any]
 
 
 class NoyauInjoignable(Exception):
@@ -24,7 +26,7 @@ class TransactionRefusee(Exception):
     """Le noyau a répondu, et refusé la transaction : rien n'en a été écrit."""
 
 
-def mise_a_jour(ressource: Ressource) -> Ressource:
+def ecriture(ressource: Ressource) -> Entree:
     """L'entrée de transaction qui écrit `ressource` sous son identifiant : créée, ou mise à jour.
 
     Le noyau ne donne pas de nouvelle version à une ressource dont le contenu n'a pas changé.
@@ -68,12 +70,12 @@ class ClientFhir:
         version: str = capacites["fhirVersion"]
         return version
 
-    async def transaction(self, entrees: Sequence[Ressource]) -> list[Ressource]:
+    async def transaction(self, entrees: Sequence[Entree]) -> list[int]:
         """Envoie `entrees` au noyau en une transaction FHIR : toutes écrites, ou aucune.
 
-        Rend la réponse du noyau à chaque entrée, dans l'ordre des entrées (`response.status`,
-        `response.etag`, …). `TransactionRefusee` quand le noyau la refuse, `NoyauInjoignable` quand
-        il ne répond pas.
+        Rend le statut HTTP de chaque entrée, dans leur ordre : 201 pour une ressource créée, 200 pour
+        une ressource mise à jour ou laissée telle quelle. `TransactionRefusee` quand le noyau la
+        refuse, `NoyauInjoignable` quand il ne répond pas.
         """
         lot = {"resourceType": "Bundle", "type": "transaction", "entry": list(entrees)}
         try:
@@ -90,8 +92,8 @@ class ClientFhir:
             raise NoyauInjoignable("transaction : réponse illisible") from erreur
         if resultat.get("resourceType") != "Bundle" or len(resultat.get("entry", [])) != len(lot["entry"]):
             raise NoyauInjoignable("transaction : pas de Bundle de réponse, entrée par entrée")
-        reponses: list[Ressource] = resultat["entry"]
-        return reponses
+        # Le statut d'une entrée commence par son code : "201 Created".
+        return [int(reponse["response"]["status"].split()[0]) for reponse in resultat["entry"]]
 
     async def fermer(self) -> None:
         await self._http.aclose()

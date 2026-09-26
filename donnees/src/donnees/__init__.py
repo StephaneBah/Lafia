@@ -14,6 +14,7 @@ from typing import Any
 from commun.jeton import Role
 from commun.modele import (
     Adresse,
+    Agent,
     Etablissement,
     LieuDeNaissance,
     Niveau,
@@ -21,7 +22,6 @@ from commun.modele import (
     Patient,
     PersonneAPrevenir,
     Produit,
-    Professionnel,
     Sexe,
     Tarif,
 )
@@ -52,10 +52,10 @@ def officines() -> list[Officine]:
     ]
 
 
-def professionnels() -> list[Professionnel]:
+def agents() -> list[Agent]:
     """Les agents, chacun une fois, quel que soit le nombre de ses comptes."""
     return [
-        Professionnel(id=a["id"], nom=a["nom"], prenoms=tuple(a["prenoms"]), role=Role(a["role"]))
+        Agent(id=a["id"], nom=a["nom"], prenoms=tuple(a["prenoms"]), role=Role(a["role"]))
         for a in _lire("agents")["agent"]
     ]
 

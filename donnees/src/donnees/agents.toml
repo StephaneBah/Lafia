@@ -10,35 +10,35 @@
 # CNHU Hubert Koutoukou Maga, Cotonou
 
 [[agent]]
-id = "praticien-01"
+id = "agent-01"
 nom = "HOUNGBÉDJI"
 prenoms = ["Armelle", "Sèna"]
 role = "médecin"
 compte = [{ identifiant = "medecin.cnhu.1", mot_de_passe = "lafia-demo", etablissement = "cnhu-hkm" }]
 
 [[agent]]
-id = "praticien-02"
+id = "agent-02"
 nom = "SANNI"
 prenoms = ["Ismaël"]
 role = "médecin"
 compte = [{ identifiant = "medecin.cnhu.2", mot_de_passe = "lafia-demo", etablissement = "cnhu-hkm" }]
 
 [[agent]]
-id = "praticien-03"
+id = "agent-03"
 nom = "AKPLOGAN"
 prenoms = ["Justin"]
 role = "infirmier"
 compte = [{ identifiant = "infirmier.cnhu", mot_de_passe = "lafia-demo", etablissement = "cnhu-hkm" }]
 
 [[agent]]
-id = "praticien-04"
+id = "agent-04"
 nom = "TOSSOU"
 prenoms = ["Berthe"]
 role = "caissier"
 compte = [{ identifiant = "caissier.cnhu", mot_de_passe = "lafia-demo", etablissement = "cnhu-hkm" }]
 
 [[agent]]
-id = "praticien-05"
+id = "agent-05"
 nom = "ADÉGBOLA"
 prenoms = ["Rachidi"]
 role = "pharmacien"
@@ -47,35 +47,35 @@ compte = [{ identifiant = "pharmacien.cnhu", mot_de_passe = "lafia-demo", etabli
 # CHU de la Mère et de l'Enfant Lagune, Cotonou
 
 [[agent]]
-id = "praticien-06"
+id = "agent-06"
 nom = "GBAGUIDI"
 prenoms = ["Clarisse", "Houéfa"]
 role = "médecin"
 compte = [{ identifiant = "medecin.mel", mot_de_passe = "lafia-demo", etablissement = "chu-mel" }]
 
 [[agent]]
-id = "praticien-07"
+id = "agent-07"
 nom = "AHOUANSOU"
 prenoms = ["Nadège"]
 role = "infirmier"
 compte = [{ identifiant = "infirmier.mel.1", mot_de_passe = "lafia-demo", etablissement = "chu-mel" }]
 
 [[agent]]
-id = "praticien-08"
+id = "agent-08"
 nom = "KPADONOU"
 prenoms = ["Gildas"]
 role = "infirmier"
 compte = [{ identifiant = "infirmier.mel.2", mot_de_passe = "lafia-demo", etablissement = "chu-mel" }]
 
 [[agent]]
-id = "praticien-09"
+id = "agent-09"
 nom = "DANSOU"
 prenoms = ["Pélagie"]
 role = "caissier"
 compte = [{ identifiant = "caissier.mel", mot_de_passe = "lafia-demo", etablissement = "chu-mel" }]
 
 [[agent]]
-id = "praticien-10"
+id = "agent-10"
 nom = "ASSOGBA"
 prenoms = ["Romaric"]
 role = "pharmacien"
@@ -84,28 +84,28 @@ compte = [{ identifiant = "pharmacien.mel", mot_de_passe = "lafia-demo", etablis
 # CHUD Borgou-Alibori, Parakou
 
 [[agent]]
-id = "praticien-11"
+id = "agent-11"
 nom = "GOUNOU"
 prenoms = ["Bio", "Aristide"]
 role = "médecin"
 compte = [{ identifiant = "medecin.parakou", mot_de_passe = "lafia-demo", etablissement = "chud-borgou-alibori" }]
 
 [[agent]]
-id = "praticien-12"
+id = "agent-12"
 nom = "WOROU"
 prenoms = ["Safiatou"]
 role = "infirmier"
 compte = [{ identifiant = "infirmier.parakou", mot_de_passe = "lafia-demo", etablissement = "chud-borgou-alibori" }]
 
 [[agent]]
-id = "praticien-13"
+id = "agent-13"
 nom = "YAROU"
 prenoms = ["Adamou"]
 role = "caissier"
 compte = [{ identifiant = "caissier.parakou", mot_de_passe = "lafia-demo", etablissement = "chud-borgou-alibori" }]
 
 [[agent]]
-id = "praticien-14"
+id = "agent-14"
 nom = "SOUNON"
 prenoms = ["Mariam"]
 role = "pharmacien"
@@ -116,7 +116,7 @@ compte = [{ identifiant = "pharmacien.parakou", mot_de_passe = "lafia-demo", eta
 # Le médecin qui consulte aussi à Kpanroun : un compte par établissement, un seul Practitioner. Il se
 # connecte à l'un ou à l'autre, et ses jetons ne portent que celui-là.
 [[agent]]
-id = "praticien-15"
+id = "agent-15"
 nom = "HOUÉNOU"
 prenoms = ["Fernand", "Codjo"]
 role = "médecin"
@@ -126,49 +126,49 @@ compte = [
 ]
 
 [[agent]]
-id = "praticien-16"
+id = "agent-16"
 nom = "GANDONOU"
 prenoms = ["Estelle"]
 role = "infirmier"
 compte = [{ identifiant = "infirmier.calavi", mot_de_passe = "lafia-demo", etablissement = "chuz-abomey-calavi" }]
 
 [[agent]]
-id = "praticien-17"
+id = "agent-17"
 nom = "DJOSSOU"
 prenoms = ["Rodrigue"]
 role = "caissier"
 compte = [{ identifiant = "caissier.calavi", mot_de_passe = "lafia-demo", etablissement = "chuz-abomey-calavi" }]
 
 [[agent]]
-id = "praticien-18"
+id = "agent-18"
 nom = "AZON"
 prenoms = ["Florentine"]
 role = "pharmacien"
 compte = [{ identifiant = "pharmacien.calavi", mot_de_passe = "lafia-demo", etablissement = "chuz-abomey-calavi" }]
 
 [[agent]]
-id = "praticien-19"
+id = "agent-19"
 nom = "HOUESSOU"
 prenoms = ["Mathieu"]
 role = "infirmier"
 compte = [{ identifiant = "infirmier.kpanroun.1", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" }]
 
 [[agent]]
-id = "praticien-20"
+id = "agent-20"
 nom = "AGOSSA"
 prenoms = ["Victorine"]
 role = "infirmier"
 compte = [{ identifiant = "infirmier.kpanroun.2", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" }]
 
 [[agent]]
-id = "praticien-21"
+id = "agent-21"
 nom = "SOSSOU"
 prenoms = ["Aubin"]
 role = "caissier"
 compte = [{ identifiant = "caissier.kpanroun", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" }]
 
 [[agent]]
-id = "praticien-22"
+id = "agent-22"
 nom = "HOUNNOU"
 prenoms = ["Prisca"]
 role = "pharmacien"
@@ -177,14 +177,14 @@ compte = [{ identifiant = "pharmacien.kpanroun", mot_de_passe = "lafia-demo", et
 # Réservés à la suite de tests, qui les verrouille exprès : jamais listés sur une page de connexion.
 
 [[agent]]
-id = "praticien-91"
+id = "agent-91"
 nom = "ESSAI"
 prenoms = ["Verrou", "Un"]
 role = "médecin"
 compte = [{ identifiant = "essai.verrou.1", mot_de_passe = "lafia-essai", etablissement = "cnhu-hkm", reserve_aux_tests = true }]
 
 [[agent]]
-id = "praticien-92"
+id = "agent-92"
 nom = "ESSAI"
 prenoms = ["Verrou", "Deux"]
 role = "caissier"

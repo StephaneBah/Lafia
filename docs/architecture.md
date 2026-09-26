@@ -143,7 +143,7 @@ The noyau is never empty: at every `docker compose up`, locally and on the VM, t
 | `catalogue.toml` | The products and acts an ordonnance can carry, each with its price at every level of établissement |
 | `citoyens.toml` | Demo citoyens: the NPI of a dataset patient and the code carnet of their latest reçu |
 
-Accounts, mots de passe and codes carnet are public, since everything is synthetic. Every NPI starts with six zeros and every phone number with `+229 01 00`, series no real person holds. Resource ids say nothing about the person: `patient-007`, `praticien-15`.
+Accounts, mots de passe and codes carnet are public, since everything is synthetic. Every NPI starts with six zeros and every phone number with `+229 01 00`, series no real person holds. Resource ids say nothing about the person: `patient-007`, `agent-15`.
 
 **What it becomes in the noyau.** `donnees/src/donnees/__init__.py` reads the files into the records of `commun/src/commun/modele.py`; `commun/src/commun/fhir/ressources.py` turns each into a FHIR resource:
 
@@ -154,9 +154,9 @@ Accounts, mots de passe and codes carnet are public, since everything is synthet
 | Patient | `Patient` | NPI as the only `identifier` (system `https://npi.gouv.bj`); name, gender, birth date; place of birth and nationality through the standard HL7 extensions; address from département (`state`) to quartier (`line`); phone in `telecom`; personne à prévenir in `contact`; spoken languages in `communication`, as BCP 47 codes. |
 | Tarif | `ChargeItemDefinition` | One per product or act per établissement. The product in `code`, in Lafia's `catalogue` code system, with its ATC code for a medicine; the établissement in `useContext` (`venue`); the price in FCFA (`XOF`) as the base price component; an `identifier` `<établissement>:<code>`, so that the caisse finds a tarif in one search. Officines have none: their prices live in their own software. |
 
-Lafia's own code and identifier systems are named under `https://lafia.bj/fhir` (`commun/src/commun/fhir/systemes.py`). They are names, not addresses: nothing answers there.
+Lafia's own code and identifier systems are named under `https://lafia.bj/fhir` (`commun/src/commun/fhir/systemes.py`, `docs/adr/0006-systemes-de-codes-et-d-identifiants.md`). They are names, not addresses: nothing answers there.
 
-**How it is loaded.** `chargement` waits until the noyau is healthy, sends the whole dataset as one FHIR transaction of `PUT`s, each resource under its fixed id, logs how many resources it created and how many were already there, and exits. The transaction is all or nothing. The loader never deletes anything: a resource whose content has not changed keeps its version, since HAPI ignores an update that changes nothing; a resource changed in the files gets a new version; and whatever users wrote since stays. A redeploy therefore never wipes the demo or what the jury wrote. Starting over is one command, which erases the noyau's volume: `docker compose down -v`, then `docker compose up -d --build --wait`.
+**How it is loaded.** `chargement` waits until the noyau is healthy, sends the whole dataset as one FHIR transaction of `PUT`s, each resource under its fixed id, logs how many resources it created and how many were already there, and exits. The transaction is all or nothing. The loader never deletes anything: a resource whose content has not changed keeps its version, since HAPI ignores an update that changes nothing; a dataset resource that changed, in the files or by a user's hand, gets the dataset's content back as a new version, and its history keeps the version before; whatever users created stays. A redeploy therefore never wipes the demo or what the jury created. Starting over is one command, which erases the noyau's volume: `docker compose down -v`, then `docker compose up -d --build --wait`.
 
 The same files will give identite its accounts (F2.2), so that every token names a `Practitioner` and an `Organization` the noyau holds. Later features add their own resources (cas, mesures, allergies, ordonnances) to the same files and loader.
 

@@ -30,6 +30,16 @@ TELEPHONE_SYNTHETIQUE = re.compile(r"\+229 01 00 \d\d \d\d \d\d")
 CODE_CARNET = re.compile(r"[2-9A-HJKMNP-Z]{3}-[2-9A-HJKMNP-Z]{3}")
 
 
+def _patient_par_npi(npi: str) -> str:
+    """La recherche d'un patient par son NPI."""
+    return f"Patient?identifier={NPI}|{npi}"
+
+
+def _tarif_par_identifiant(etablissement: str, code: str) -> str:
+    """La recherche du tarif d'un produit dans un établissement, en une fois, comme la caisse la fera."""
+    return f"ChargeItemDefinition?identifier={TARIF}|{etablissement}:{code}"
+
+
 def _code(concept: dict[str, Any], systeme: str) -> str | None:
     """Le code d'un CodeableConcept dans `systeme`, s'il en porte un."""
     return next((c["code"] for c in concept.get("coding", []) if c["system"] == systeme), None)
@@ -137,10 +147,10 @@ def _patient(patient: dict[str, Any]) -> dict[str, Any]:
     return lu
 
 
-def test_chaque_patient_se_trouve_par_son_npi_avec_sa_fiche(jeu, noyau):
+def test_chaque_patient_se_trouve_par_son_npi_tel_que_le_jeu_le_decrit(jeu, noyau):
     patients = jeu("patients")["patient"]
 
-    reponses = noyau([f"Patient?identifier={NPI}|{p['npi']}" for p in patients])
+    reponses = noyau([_patient_par_npi(p["npi"]) for p in patients])
 
     trouves = [[e["resource"] for e in r.ressource.get("entry", [])] for r in reponses]
     assert [len(t) for t in trouves] == [1] * len(patients)
@@ -165,7 +175,7 @@ def _tarif(charge_item_definition: dict[str, Any]) -> dict[str, Any]:
 def test_chaque_produit_a_un_tarif_dans_chaque_etablissement_trouve_en_une_recherche(jeu, noyau):
     paires = [(e, p) for e in jeu("etablissements")["etablissement"] for p in jeu("catalogue")["produit"]]
 
-    reponses = noyau([f"ChargeItemDefinition?identifier={TARIF}|{e['id']}:{p['code']}" for e, p in paires])
+    reponses = noyau([_tarif_par_identifiant(e["id"], p["code"]) for e, p in paires])
 
     trouves = [[e["resource"] for e in r.ressource.get("entry", [])] for r in reponses]
     assert [len(t) for t in trouves] == [1] * len(paires)
@@ -186,7 +196,12 @@ def test_aucune_officine_n_a_de_tarif(jeu, noyau):
 
     (reponse,) = noyau(["ChargeItemDefinition?_count=200"])
 
-    lieux = {_tarif(e["resource"])["etablissement"] for e in reponse.ressource.get("entry", [])}
+    lieux = {
+        contexte["valueReference"]["reference"]
+        for entree in reponse.ressource.get("entry", [])
+        for contexte in entree["resource"].get("useContext", [])
+        if "valueReference" in contexte
+    }
     # Témoin : les tarifs des établissements sont bien lus. Sans eux, l'absence ne prouverait rien.
     assert "Organization/cnhu-hkm" in lieux
     assert lieux & officines == set()
@@ -194,19 +209,26 @@ def test_aucune_officine_n_a_de_tarif(jeu, noyau):
 
 def test_aucun_npi_ni_telephone_du_jeu_ne_peut_etre_celui_d_une_personne_reelle(jeu):
     patients = jeu("patients")["patient"]
-    npis = [p["npi"] for p in patients] + [c["npi"] for c in jeu("citoyens")["citoyen"]]
-    telephones = [p["telephone"] for p in patients if "telephone" in p] + [
-        p["personne_a_prevenir"]["telephone"] for p in patients if "personne_a_prevenir" in p
-    ]
+    citoyens = jeu("citoyens")["citoyen"]
 
-    assert [npi for npi in npis if not NPI_SYNTHETIQUE.fullmatch(npi)] == []
-    assert [t for t in telephones if not TELEPHONE_SYNTHETIQUE.fullmatch(t)] == []
+    # Un échec cite l'identifiant du patient ou le rang du citoyen, jamais le NPI ni le numéro fautif.
+    assert [p["id"] for p in patients if not NPI_SYNTHETIQUE.fullmatch(p["npi"])] == []
+    assert [rang for rang, c in enumerate(citoyens) if not NPI_SYNTHETIQUE.fullmatch(c["npi"])] == []
+    assert [
+        p["id"] for p in patients if "telephone" in p and not TELEPHONE_SYNTHETIQUE.fullmatch(p["telephone"])
+    ] == []
+    assert [
+        p["id"]
+        for p in patients
+        if "personne_a_prevenir" in p
+        and not TELEPHONE_SYNTHETIQUE.fullmatch(p["personne_a_prevenir"]["telephone"])
+    ] == []
 
 
 def test_chaque_citoyen_de_demonstration_est_un_patient_du_noyau_avec_un_code_carnet(jeu, noyau):
     citoyens = jeu("citoyens")["citoyen"]
 
-    reponses = noyau([f"Patient?identifier={NPI}|{c['npi']}" for c in citoyens])
+    reponses = noyau([_patient_par_npi(c["npi"]) for c in citoyens])
 
     assert [len(r.ressource.get("entry", [])) for r in reponses] == [1] * len(citoyens)
     assert [c["code_carnet"] for c in citoyens if not CODE_CARNET.fullmatch(c["code_carnet"])] == []
@@ -219,12 +241,8 @@ def _versions(jeu, noyau) -> dict[str, str]:
         *(f"Organization/{e['id']}" for e in etablissements),
         *(f"Organization/{o['id']}" for o in jeu("officines")["officine"]),
         *(f"Practitioner/{a['id']}" for a in jeu("agents")["agent"]),
-        *(f"Patient?identifier={NPI}|{p['npi']}" for p in jeu("patients")["patient"]),
-        *(
-            f"ChargeItemDefinition?identifier={TARIF}|{e['id']}:{p['code']}"
-            for e in etablissements
-            for p in jeu("catalogue")["produit"]
-        ),
+        *(_patient_par_npi(p["npi"]) for p in jeu("patients")["patient"]),
+        *(_tarif_par_identifiant(e["id"], p["code"]) for e in etablissements for p in jeu("catalogue")["produit"]),
     ]
     versions = {}
     for reponse in noyau(chemins):

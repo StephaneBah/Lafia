@@ -119,7 +119,7 @@ services:
     mem_limit: 2g
 
   # Écrit le jeu de démonstration (donnees/) dans le noyau à chaque `up`, puis s'arrête. Il ne
-  # supprime rien : un redéploiement garde ce que les utilisateurs ont écrit.
+  # supprime rien : un redéploiement garde ce que les utilisateurs ont créé.
   chargement:
     build:
       context: donnees

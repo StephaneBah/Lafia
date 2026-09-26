@@ -42,9 +42,12 @@ class Officine:
 
 
 @dataclass(frozen=True)
-class Professionnel:
+class Agent:
     """Un agent en tant que personne : soignant, caissier ou pharmacien, quel que soit l'établissement
-    où il se connecte. `id` est celui de son Practitioner, et le `sub` de ses jetons."""
+    où il se connecte. `id` est celui de son Practitioner, et le `sub` de ses jetons.
+
+    `commun.jeton.Agent` est l'autre face du même agent : le porteur vérifié d'un de ses jetons.
+    """
 
     id: str
     nom: str

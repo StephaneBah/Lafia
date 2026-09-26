@@ -14,7 +14,7 @@ The first start takes a few minutes while HAPI creates its schema. Then each act
 
 Locally, the gateway signs `*.localhost` certificates with Caddy's internal authority, so a browser warns until you trust its root, found in the `passerelle` container at `/data/caddy/pki/authorities/local/root.crt`.
 
-At every start, the `chargement` container writes the synthetic demo dataset from `donnees/` into the noyau (établissements, officines, agents, patients, tarifs), then exits. It never deletes anything, so a restart or a redeploy keeps what users wrote. The noyau's data lives in the `noyau-donnees` volume: `docker compose down` keeps it. To start over from the demo dataset alone:
+At every start, the `chargement` container writes the synthetic demo dataset from `donnees/` into the noyau (établissements, officines, agents, patients, tarifs), then exits. It never deletes anything, so a restart or a redeploy keeps what users created. The noyau's data lives in the `noyau-donnees` volume: `docker compose down` keeps it. To start over from the demo dataset alone:
 
 ```sh
 docker compose down -v && docker compose up -d --build --wait

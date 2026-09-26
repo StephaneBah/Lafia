@@ -2,7 +2,7 @@
 
 Un système nomme l'ensemble dont un code ou un identifiant fait partie. Ceux de Lafia vivent sous
 `https://lafia.bj/fhir` : ce sont des noms, pas des adresses à joindre. Les services cherchent dans le
-noyau par eux ; en changer demanderait de réécrire ce qu'il tient.
+noyau par eux ; en changer demanderait de réécrire ce qu'il tient (ADR 0006).
 """
 
 LAFIA = "https://lafia.bj/fhir"
