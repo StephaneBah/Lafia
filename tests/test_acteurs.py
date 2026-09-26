@@ -122,3 +122,37 @@ def test_sous_domaine_sans_route_vers_le_service_d_un_autre_acteur(application, 
     reponse = application(acteur).get(f"/api/{autre}/sante")
 
     assert reponse.status_code == 404
+
+
+# Chemins qu'aucun sous-domaine ne sert : ni le noyau, ni une API inconnue, ni la racine des API.
+CHEMINS_FERMES = ["/fhir/metadata", "/api/fhir/metadata", "/api/", "/api/inconnu/sante"]
+
+
+@pytest.mark.parametrize("chemin", CHEMINS_FERMES)
+@pytest.mark.parametrize("acteur", ACTEURS)
+def test_sous_domaine_sans_route_hors_de_son_service_et_d_identite(application, acteur, chemin):
+    reponse = application(acteur).get(chemin)
+
+    assert reponse.status_code == 404
+
+
+# Posés par la passerelle sur toute réponse : pages de l'application, API de son service, refus.
+EN_TETES_DE_SECURITE = {
+    "strict-transport-security": "max-age=31536000",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "content-security-policy": "frame-ancestors 'none'",
+    "referrer-policy": "no-referrer",
+    "permissions-policy": "geolocation=(), microphone=()",
+}
+# Ce qui nommerait le logiciel derrière la passerelle.
+EN_TETES_BAVARDS = ["server", "x-powered-by", "via"]
+
+
+@pytest.mark.parametrize("chemin", ["/", "/api/{acteur}/sante", "/api/inconnu/sante"])
+@pytest.mark.parametrize("acteur", ACTEURS)
+def test_reponse_porte_les_en_tetes_de_securite_sans_nommer_le_logiciel(application, acteur, chemin):
+    reponse = application(acteur).get(chemin.format(acteur=acteur))
+
+    assert {nom: reponse.headers.get(nom) for nom in EN_TETES_DE_SECURITE} == EN_TETES_DE_SECURITE
+    assert [nom for nom in EN_TETES_BAVARDS if nom in reponse.headers] == []

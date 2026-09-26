@@ -12,12 +12,32 @@
 {
 	# L'autorité interne reste dans le conteneur : pas d'installation dans un magasin système.
 	skip_install_trust
+	# Pas de HTTP/3 : il passe par UDP 443, que la pile ne publie pas. L'annoncer ferait tenter
+	# aux navigateurs une connexion vouée à l'échec.
+	servers {
+		protocols h1 h2
+	}
 }
 
 # La règle de tout acteur : `import acteur <nom>` sert <nom>.<domaine>, où son service est le
 # conteneur <nom> et son application le conteneur application-<nom>.
 (acteur) {
 	{args[0]}.{$LAFIA_DOMAINE}, http://{args[0]}.{$LAFIA_DOMAINE}:8080 {
+		# Sur toute réponse, page, API ou refus : HTTPS seul, pas d'interprétation du type, jamais dans
+		# le cadre d'un autre site, aucune adresse transmise en référent (elle peut porter un
+		# identifiant). La caméra reste permise : la caisse et la pharmacie liront le QR code de
+		# l'ordonnance. Rien ne nomme le logiciel derrière la passerelle.
+		header {
+			Strict-Transport-Security "max-age=31536000"
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "DENY"
+			Content-Security-Policy "frame-ancestors 'none'"
+			Referrer-Policy "no-referrer"
+			Permissions-Policy "geolocation=(), microphone=()"
+			-Server
+			-X-Powered-By
+			-Via
+		}
 		handle /api/{args[0]}/* {
 			reverse_proxy {args[0]}:8000
 		}
