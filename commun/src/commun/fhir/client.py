@@ -95,5 +95,62 @@ class ClientFhir:
         # Le statut d'une entrée commence par son code : "201 Created".
         return [int(reponse["response"]["status"].split()[0]) for reponse in resultat["entry"]]
 
+    async def lire(self, type_: str, id_: str) -> Ressource | None:
+        """La ressource `type_/id_`, ou None quand le noyau ne la connaît pas."""
+        try:
+            reponse = await self._http.get(f"{type_}/{id_}")
+        except httpx.HTTPError as erreur:
+            raise NoyauInjoignable(f"lecture {type_} : {erreur!r}") from erreur
+        if reponse.status_code in (404, 410):
+            return None
+        if reponse.is_error:
+            raise NoyauInjoignable(f"lecture {type_} : {reponse.status_code}, {_codes_d_erreur(reponse)}")
+        ressource: Ressource = reponse.json()
+        return ressource
+
+    async def chercher(self, type_: str, parametres: dict[str, str] | Sequence[tuple[str, str]]) -> list[Ressource]:
+        """Les ressources `type_` qui répondent à `parametres` (recherche FHIR), toutes pages suivies.
+
+        Les ressources incluses (`_include`, `_revinclude`) viennent avec, à la suite.
+        """
+        params = list(parametres.items()) if isinstance(parametres, dict) else list(parametres)
+        if not any(nom == "_count" for nom, _ in params):
+            params.append(("_count", "200"))
+        ressources: list[Ressource] = []
+        url: str | None = type_
+        requete_params: list[tuple[str, str]] | None = params
+        while url:
+            try:
+                reponse = await self._http.get(url, params=requete_params)
+            except httpx.HTTPError as erreur:
+                raise NoyauInjoignable(f"recherche {type_} : {erreur!r}") from erreur
+            if reponse.is_error:
+                raise NoyauInjoignable(f"recherche {type_} : {reponse.status_code}, {_codes_d_erreur(reponse)}")
+            lot = reponse.json()
+            ressources.extend(entree["resource"] for entree in lot.get("entry", []))
+            url = next((lien["url"] for lien in lot.get("link", []) if lien.get("relation") == "next"), None)
+            requete_params = None
+        return ressources
+
+    async def creer(self, ressource: Ressource) -> Ressource:
+        """Crée `ressource` (POST) et la rend telle que le noyau l'a écrite, avec son identifiant."""
+        return await self._ecrire("POST", ressource["resourceType"], ressource)
+
+    async def mettre_a_jour(self, ressource: Ressource) -> Ressource:
+        """Écrit une nouvelle version de `ressource` (PUT) : l'ancienne reste dans son historique."""
+        return await self._ecrire("PUT", f"{ressource['resourceType']}/{ressource['id']}", ressource)
+
+    async def _ecrire(self, methode: str, url: str, ressource: Ressource) -> Ressource:
+        try:
+            reponse = await self._http.request(
+                methode, url, json=ressource, headers={"Content-Type": TYPE_FHIR, "Prefer": "return=representation"}
+            )
+        except httpx.HTTPError as erreur:
+            raise NoyauInjoignable(f"écriture {url} : {erreur!r}") from erreur
+        if reponse.is_error:
+            raise TransactionRefusee(f"écriture {ressource['resourceType']} : {reponse.status_code}, {_codes_d_erreur(reponse)}")
+        ecrite: Ressource = reponse.json()
+        return ecrite
+
     async def fermer(self) -> None:
         await self._http.aclose()

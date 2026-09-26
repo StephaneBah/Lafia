@@ -93,9 +93,9 @@ The population served is not a connected one. Citizen screens are understandable
 
 ## Scope
 
-**v1 builds:** noyau and dataset (with tarifs); design system; `soin` (cas, visite, mesures including lab results entered by the soignant, diagnostic, ordonnance); `caisse` (encaissement without re-typing); `pharmacie` (traced délivrance, partial allowed; an officine, signed in under its own name, checks an ordonnance and declares the lines it sold); `citoyen` (illustrated carnet, code carnet sign-in); roles, relation de soin and audit; accès d'urgence. Each with its application.
+**v1 builds:** noyau and dataset (with tarifs); design system; `soin` (cas, visite, mesures including lab results entered by the soignant, diagnostic, ordonnance); `caisse` (encaissement without re-typing); `pharmacie` (traced délivrance, partial allowed; an officine's check of an ordonnance is a stretch goal); `citoyen` (illustrated carnet, code carnet sign-in); roles, relation de soin and audit; accès d'urgence. Each with its application.
 
-**Designed, not built:** laboratoire service and application, an API for officines' own software, télémédecine as a visite type, analytics warehouse, registries of professionals and établissements.
+**Designed, not built:** paiement différé, laboratoire service and application, an API for officines' own software, télémédecine as a visite type, analytics warehouse, registries of professionals and établissements.
 
 **Out of v1:** offline mode, voice, USSD and SMS, AI clinical scribe, AI diagnosis support, stock management, full insurance billing.
 
@@ -108,8 +108,4 @@ Each row is a feature, not a ticket, worked in dependency order. One session gri
 | F0 | Design system: tokens, pictograms, components in `web/design/`; product site `web/site/` | none | 1 |
 | F1 | Socle: Compose, noyau, gateway and subdomains, `commun/`, web workspace, Azure deploy | none | 1 |
 | F2 | Identité (agents, officines, code carnet) and synthetic dataset with tarifs | F1 | 1 |
-| F3 | Service and application soin, relation de soin | F0, F2 | 2 |
-| F4 | Ordonnance to caisse: service and application | F3 | 2 |
-| F5 | Pharmacie and officines: service and application | F4 | 3 |
-| F6 | Citoyen: service and carnet application | F3 | 3 |
-| F7 | Accès d'urgence and access log | F3 | 3 |
+| F3 | v1 complète: soin with relation de soin and accès d'urgence, caisse, pharmacie, citoyen carnet, audit (`docs/specs/F3-v1-complete.md`) | F0, F2 | 2 |

@@ -39,3 +39,40 @@ LANGUE = "urn:ietf:bcp:47"
 
 ROLE_DE_CONTACT = "http://terminology.hl7.org/CodeSystem/v2-0131"
 """Ce qu'est un contact pour le patient (HL7 v2, table 0131) : `C`, la personne à prévenir."""
+
+# F3 : le dossier clinique. Les formes des ressources : docs/specs/F3-v1-complete.md, contrat FHIR.
+ORDONNANCE = f"{LAFIA}/identifiant/ordonnance"
+"""Le numéro d'ordonnance, `ORD-7K4-M2P` : `groupIdentifier` de chaque ligne, et identifiant de l'encaissement."""
+
+RECEPISSE = f"{LAFIA}/identifiant/recepisse"
+"""Le numéro du récépissé d'un encaissement : `REC-7K4-M2P`."""
+
+LIGNE = f"{LAFIA}/identifiant/ligne"
+"""Une ligne d'ordonnance payée, dans un encaissement : l'identifiant de son MedicationRequest."""
+
+TYPE_DE_VISITE = f"{LAFIA}/CodeSystem/type-de-visite"
+"""consultation, soins-infirmiers, continuite, urgence."""
+
+DIAGNOSTIC = f"{LAFIA}/CodeSystem/diagnostic"
+"""La courte liste des diagnostics que Lafia propose : `paludisme`, `ira`, `hta`, …"""
+
+MOTIF_D_ACCES = f"{LAFIA}/CodeSystem/motif-d-acces"
+"""Pourquoi un dossier est ouvert : `relation-de-soin`, `acces-urgence`, `citoyen`."""
+
+LOINC = "http://loinc.org"
+"""Les mesures, par leur code LOINC : `8310-5`, la température."""
+
+UCUM = "http://unitsofmeasure.org"
+"""Les unités des mesures : `Cel`, `mm[Hg]`, `kg`."""
+
+CIM_10 = "http://hl7.org/fhir/sid/icd-10"
+"""CIM-10 de l'OMS, en regard du diagnostic de Lafia : `B54`."""
+
+DICOM = "http://dicom.nema.org/resources/ontology/DCM"
+"""Le type d'un AuditEvent : `110110`, dossier patient."""
+
+ACTION_REST = "http://hl7.org/fhir/restful-interaction"
+"""Le sous-type d'un AuditEvent : `read`, `create`, `update`."""
+
+MOMENT_DE_PRISE = "http://hl7.org/fhir/event-timing"
+"""Les moments de prise d'une posologie : MORN, NOON, EVE, NIGHT."""
