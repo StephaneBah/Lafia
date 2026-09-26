@@ -16,6 +16,18 @@ Locally, the gateway signs `*.localhost` certificates with Caddy's internal auth
 
 The noyau's data lives in the `noyau-donnees` volume: `docker compose down` keeps it, `docker compose down -v` erases it.
 
+## Deploy
+
+The live stack runs on an Azure VM and serves `https://soin.lafia.stephanebah.page`, `https://caisse.lafia.stephanebah.page`, `https://pharmacie.lafia.stephanebah.page` and `https://citoyen.lafia.stephanebah.page`. A wildcard DNS record points `*.lafia.stephanebah.page` at the VM; its firewall opens 80 and 443, and SSH to the operator only.
+
+Each deploy of the current `main`, from your machine:
+
+```sh
+ssh -i <vm-key.pem> azureuser@lafia.stephanebah.page lafia/deploiement/deployer.sh
+```
+
+Setting up a server from scratch, checking a deployment and fixing common failures: `docs/deploiement.md`.
+
 ## Configuration
 
 `.env.example` lists every variable. Without a `.env`, the stack runs on local development values; in production, copy the example to `.env` (git-ignored) and set every value. `JETON_CLE_PUBLIQUE` may stay empty on `localhost` only, where services fall back to the development key; on any other domain they refuse to start without a key of their own.
@@ -43,13 +55,14 @@ The network isolation checks (`tests/test_isolement.py`) use `docker` on the mac
 
 The same suite checks another deployment by changing the base domain: `LAFIA_DOMAINE=<domaine> uv run --project tests pytest tests`. Locally it connects to `127.0.0.1` and trusts Caddy's internal authority; `LAFIA_ADRESSE` forces the gateway's IP address elsewhere, for instance before DNS is in place.
 
-The suite signs its own session tokens with `JETON_CLE_PRIVEE`, the private half of the targeted stack's `JETON_CLE_PUBLIQUE`, as the base64 line of its PEM. Locally it defaults to the development key, whose private half is public in `tests/conftest.py`; elsewhere, without it, the tests that need a token are skipped.
+The suite signs its own session tokens with `JETON_CLE_PRIVEE`, the private half of the targeted stack's `JETON_CLE_PUBLIQUE`, as the base64 line of its PEM. Locally it defaults to the development key, whose private half is public in `tests/conftest.py`; elsewhere, without it, the tests that need a token are skipped. Against the live stack, it is read from the VM's `.env` (`docs/deploiement.md`, Check).
 
 ## Layout
 
 ```
 Caddyfile            gateway: one subdomain per actor, one `import acteur <name>` line each
 docker-compose.yml   the stack: gateway, noyau, services, applications
+deploiement/         preparing the VM once, deploying main to it
 commun/              shared library, built into each service image: service skeleton, FHIR client, token verification
 services/<name>/     one FastAPI service per domain: soin, caisse, pharmacie, citoyen, identite
 services/Dockerfile  one image per service, commun included
@@ -57,5 +70,5 @@ web/commun/          shared application code, built into each application: servi
 web/design/          design system, built into each application
 web/<acteur>/        one Next.js application per actor: soin, caisse, pharmacie, citoyen
 tests/               black-box suite through the gateway, one table of actors, network isolation checks
-docs/                how it works (architecture.md), specs, ADRs
+docs/                how it works (architecture.md), deploying (deploiement.md), specs, ADRs
 ```

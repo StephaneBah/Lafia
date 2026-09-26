@@ -186,8 +186,30 @@ Variables come from a `.env` file at the root, which git ignores. `.env.example`
 | `LAFIA_DOMAINE` | Caddy: every application is served on `<application>.<domaine>`. soin, caisse, pharmacie, citoyen: the development key is allowed on `localhost` only | `localhost` |
 | `NOYAU_BASE_MOT_DE_PASSE` | PostgreSQL and HAPI | `noyau-local` |
 | `JETON_CLE_PUBLIQUE` | soin, caisse, pharmacie, citoyen, to verify tokens: the base64 line of an Ed25519 public key PEM | Empty: the development key, on `localhost` only |
+| `JETON_CLE_PRIVEE` | No container yet: identite will sign tokens with it from F2. Kept in the VM's `.env` next to its public half; the test suite signs its tokens with it | Empty: the development key, on `localhost` only |
 
 Without a `.env`, the local defaults apply. In production every variable is set in `.env`. The token key is guarded in code: the development key's private half is public in `tests/conftest.py`, so `commun` uses that key only when `LAFIA_DOMAINE` is `localhost` and `JETON_CLE_PUBLIQUE` is empty. On any other domain a service refuses to start without a key, and refuses the development key: a deployed stack never accepts a token anyone can sign. Two addresses are set in `docker-compose.yml` instead, because they are internal: `NOYAU_URL`, where a service finds the noyau, and `PASSERELLE_URL`, where an application's server finds the gateway's internal entry for its subdomain (`http://soin.<domaine>:8080`).
+
+## Deployment
+
+The public stack runs on one Azure virtual machine (Ubuntu 24.04, 2 vCPU, 8 GB), from the same `docker-compose.yml` as on a laptop. Only its `.env` differs. The steps to set up a server and deploy are in `deploiement.md`; this section explains what they put in place.
+
+```
+ browser  ──  soin.lafia.stephanebah.page  ──  DNS: *.lafia.stephanebah.page  →  172.189.57.57
+                                                                     │ 443
+ VM (Azure)  ┌───────────────────────────────────────────────────────┼──────┐
+             │ firewall: 80, 443 for everyone; 22 for the operator   ▼      │
+             │ Docker, started at boot  →  the twelve containers, as above  │
+             │ ~/lafia: the repository, and .env, which exists nowhere else │
+             └──────────────────────────────────────────────────────────────┘
+```
+
+- **Names.** One wildcard DNS record, `*.lafia.stephanebah.page`, points every subdomain at the VM's public address, and `.env` sets `LAFIA_DOMAINE=lafia.stephanebah.page`. The applications are then `https://soin.lafia.stephanebah.page`, `https://caisse.…`, `https://pharmacie.…` and `https://citoyen.…`. Adding an actor needs no DNS change.
+- **Certificates.** On a real domain, Caddy obtains a certificate for each subdomain from a public authority (Let's Encrypt) the first time it starts, through ports 80 and 443, and renews them on its own. They are kept in the `passerelle-donnees` volume, so a redeploy does not ask again.
+- **Firewall.** The VM's Azure network security group admits 80 and 443 from anywhere and SSH from the operator's address only. The gateway's internal entry, 8080, is not published by Docker and not open in Azure either.
+- **Preparing the VM, once.** `deploiement/preparer-vm.sh <domaine>` installs Docker, enables it at boot, clones the repository into `~/lafia` and writes `.env`: the domain, a random database password, and a fresh Ed25519 key pair for tokens. `.env` is readable by the VM's user only. Run again, the script keeps an existing `.env`: new secrets would lock HAPI out of its own database.
+- **Deploying `main`.** `ssh -i <vm-key.pem> azureuser@lafia.stephanebah.page lafia/deploiement/deployer.sh` pulls `main`, builds the images one at a time (two processors do not build four Next.js applications in parallel comfortably), brings the stack up with `--wait`, and removes the images it replaced.
+- **Reboots.** Docker starts with the VM, and every container has `restart: unless-stopped`: the stack comes back without anyone logging in.
 
 ## Try it yourself
 
@@ -251,4 +273,4 @@ Every later feature repeats the same pattern:
 - **The application of an actor** is a Next.js workspace in `web/<acteur>/`, built by `web/Dockerfile` into a container that merges `x-application`: the `passerelle` network only. It gets `@lafia/commun` and `@lafia/design` compiled in. The gateway carries its subdomain as a network alias so the application's server reaches the internal entry. It calls its own service and `identite` through the gateway, and never FHIR.
 - **The service of an actor** is `services/<acteur>/`: its routes, handed to `creer_service()` from `commun`, and its `regles/`, which say whom it serves, enforced with the guards of `VerificateurDeJetons`: `agent` with the roles it admits, or `citoyen`. `services/Dockerfile` builds it with `commun`; if it speaks FHIR, its Compose entry merges `x-service-fhir`, which puts it on both networks and gives it `NOYAU_URL`, `JETON_CLE_PUBLIQUE` and `LAFIA_DOMAINE`.
 - **A new actor** (a laboratoire, later) means one service, one application, and one line in the `Caddyfile`, `import acteur <nom>`, which routes `/api/<nom>/*` to its service, `/api/identite/*` to identite, and nothing else under `/api/`. The test suite gains one row in the actor table of `tests/test_acteurs.py`, its subdomain in `tests/test_identite.py`, and its application in the isolation probes of `tests/test_isolement.py`. Nothing existing changes.
-- **Deployment** runs the same stack on a virtual machine, with `LAFIA_DOMAINE` set to the real domain.
+- **Deployment** needs nothing new for an actor: the wildcard record already covers its subdomain, and `deploiement/deployer.sh` builds its images like the others.

@@ -20,7 +20,8 @@ web/commun/      shared application code: reaching its service through the gatew
 web/design/      design system: tokens, pictograms, components (workspace package)
 web/<acteur>/    one Next.js application per actor: citoyen, soin, caisse, pharmacie
 tests/           black-box suite against the running stack, through the gateway
-docs/            architecture, specs, ADRs (docs/adr/), design (docs/design/)
+deploiement/     preparing the Azure VM once, deploying main to it
+docs/            architecture, deployment runbook, specs, ADRs (docs/adr/), design (docs/design/)
 ```
 
 Commands live in `docker-compose.yml`, each service's `pyproject.toml`, the `web/` workspace's `package.json` and `tests/pyproject.toml`; `README.md` lists the ones to start the stack and run the suite.
