@@ -1,0 +1,42 @@
+/* Le comptoir de la pharmacie : ce qui lui est propre, par-dessus les composants du système de design
+   (docs/design/maquettes/ecrans-lafia.html, section pharmacie). */
+
+.cp-recherche { display: flex; gap: var(--space-3); align-items: end; flex-wrap: wrap; }
+.cp-recherche .cp-numero { flex: 0 1 360px; }
+.cp-recherche .lf-input { font-family: var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
+
+.cp-entete { display: flex; gap: var(--space-4); align-items: center; flex-wrap: wrap; }
+.cp-espace { flex: 1; }
+.cp-numero-ord { font: 700 22px/28px var(--font-mono); letter-spacing: .06em; }
+.cp-meta { color: var(--color-text-muted); font-size: 15px; line-height: 22px; }
+.cp-liste { margin: 0; padding-left: var(--space-5); }
+
+.cp-reconnaitre { display: flex; gap: var(--space-3); align-items: flex-start; font-weight: 700; cursor: pointer; }
+.cp-reconnaitre input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: var(--status-danger-solid); }
+
+.cp-grille { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--space-5); align-items: start; }
+@media (max-width: 800px) { .cp-grille { grid-template-columns: 1fr; } }
+
+.cp-colonne { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-2); font-weight: 700; font-size: 16px; line-height: 22px; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-muted); }
+
+.cp-lignes { padding: 0; overflow: hidden; }
+.cp-ligne { border-bottom: 1px solid var(--color-border); }
+.cp-ligne:last-child { border-bottom: none; }
+.cp-ligne .lf-line { border-bottom: none; }
+.cp-ligne.has-allergy { box-shadow: inset 4px 0 0 var(--status-danger-solid); }
+.cp-ligne-pied { display: flex; gap: var(--space-4); align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 0 var(--space-4) var(--space-3); }
+.cp-ligne-pied .lf-poso { margin-top: 0; }
+
+.cp-quantite { display: flex; align-items: center; gap: var(--space-2); font-weight: 700; font-size: 15px; }
+.cp-quantite .lf-input { width: 88px; min-height: var(--target-pro); font-family: var(--font-mono); text-align: end; }
+.cp-sur { color: var(--color-text-muted); font-weight: 400; }
+
+.cp-actions { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; margin-top: var(--space-4); }
+
+.cp-remise { display: flex; gap: var(--space-3); align-items: center; justify-content: space-between; flex-wrap: wrap; padding: var(--space-3) var(--space-4); background: var(--color-surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-card); animation: cp-entre var(--motion-standard) var(--ease-standard) both; }
+.cp-remise + .cp-remise { margin-top: var(--space-2); }
+.cp-remise-nom { font-weight: 700; }
+@keyframes cp-entre { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cp-remise { animation: none; } }
+
+.cp-vide { padding: var(--space-5); border: 2px dashed var(--color-border); border-radius: var(--radius-sm); text-align: center; color: var(--color-text-muted); }
