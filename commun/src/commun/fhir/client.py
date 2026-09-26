@@ -121,7 +121,9 @@ class ClientFhir:
         requete_params: list[tuple[str, str]] | None = params
         while url:
             try:
-                reponse = await self._http.get(url, params=requete_params)
+                # Sans ce cache refusé, le noyau resert pendant une minute le résultat d'une même
+                # recherche : un cas qu'on vient d'ouvrir n'y serait pas encore.
+                reponse = await self._http.get(url, params=requete_params, headers={"Cache-Control": "no-cache"})
             except httpx.HTTPError as erreur:
                 raise NoyauInjoignable(f"recherche {type_} : {erreur!r}") from erreur
             if reponse.is_error:

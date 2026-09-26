@@ -158,6 +158,7 @@ class _Histoire:
         unite = "gélule" if "gélule" in tarif.produit.libelle else "comprimé"
         self._ajouter({
             "resourceType": "MedicationRequest", "id": id_, "status": "active", "intent": "order",
+            "identifier": [{"system": systemes.ORDONNANCE, "value": numero}],
             "groupIdentifier": {"system": systemes.ORDONNANCE, "value": numero},
             "medicationCodeableConcept": {"coding": codes, "text": tarif.produit.libelle},
             "subject": _ref("Patient", patient),

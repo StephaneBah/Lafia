@@ -103,7 +103,7 @@ def ligne(ressource: Ressource) -> Ligne:
 
 async def lignes_de_l_ordonnance(fhir: ClientFhir, numero: str) -> list[Ligne]:
     """Les lignes qui portent ce numéro d'ordonnance : `MedicationRequest.groupIdentifier`."""
-    trouves = await fhir.chercher("MedicationRequest", {"group-identifier": f"{systemes.ORDONNANCE}|{numero}"})
+    trouves = await fhir.chercher("MedicationRequest", {"identifier": f"{systemes.ORDONNANCE}|{numero}"})
     return [ligne(r) for r in trouves if r.get("resourceType") == "MedicationRequest"]
 
 

@@ -18,7 +18,7 @@ STATUTS_ECARTES = {"cancelled", "entered-in-error", "stopped"}
 
 async def lignes_de_l_ordonnance(fhir: ClientFhir, numero: str) -> list[Ressource]:
     """Les `MedicationRequest` dont le `groupIdentifier` porte ce numéro d'ordonnance, dans leur ordre d'écriture."""
-    lignes = await fhir.chercher("MedicationRequest", {"group-identifier": f"{systemes.ORDONNANCE}|{numero}"})
+    lignes = await fhir.chercher("MedicationRequest", {"identifier": f"{systemes.ORDONNANCE}|{numero}"})
     # Le noyau numérote ce qu'il crée dans l'ordre : `9` avant `10`.
     lignes.sort(key=lambda ligne: (len(ligne["id"]), ligne["id"]))
     return [ligne for ligne in lignes if ligne.get("status") not in STATUTS_ECARTES]

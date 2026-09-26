@@ -240,6 +240,7 @@ def medication_request(
         "id": nouvel_id("ligne"),
         "status": "active",
         "intent": "order",
+        "identifier": [{"system": systemes.ORDONNANCE, "value": numero}],
         "groupIdentifier": {"system": systemes.ORDONNANCE, "value": numero},
         "medicationCodeableConcept": {"coding": code["coding"], "text": code.get("text", "")},
         "subject": reference("Patient", patient),
