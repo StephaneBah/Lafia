@@ -180,7 +180,7 @@ label.lf-line:hover { background: var(--color-surface-sunken); }
 .lf-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); }
 .lf-table--dense th, .lf-table--dense td { padding: var(--space-2) var(--space-3); }
 .lf-table .is-end { text-align: right; font-variant-numeric: tabular-nums; }
-.lf-table .is-mono { font-family: var(--font-mono); letter-spacing: .03em; }
+.lf-table .is-mono { font-family: var(--font-mono); letter-spacing: .03em; white-space: nowrap; }
 .lf-table tbody tr:hover { background: var(--color-surface-sunken); }
 .lf-table tr.is-selected { background: var(--color-surface-soft); }
 .lf-table-empty { text-align: center; color: var(--color-text-muted); padding: var(--space-6) !important; }
@@ -294,10 +294,10 @@ label.lf-line:hover { background: var(--color-surface-sunken); }
 .lf-connexion-carte > * + *, .lf-connexion-demo > * + *, .lf-etat-carte > * + * { margin-top: var(--space-4); }
 .lf-appheader form { margin: 0; }
 
-/* Connexion : le formulaire, puis les comptes de démonstration ; côte à côte dès 960px. */
-.lf-connexion { grid-template-columns: 1fr; align-items: start; }
-@media (min-width: 960px) { .lf-connexion { grid-template-columns: minmax(320px, 400px) 1fr; } }
-.lf-connexion .lf-table-wrap { overflow-x: auto; }
+/* Connexion : le formulaire, puis les comptes de démonstration ; côte à côte dès 960px. Les colonnes
+   ne s'élargissent jamais au tableau : à 360px, il défile dans sa carte, la page ne déborde pas. */
+.lf-connexion { grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 960px) { .lf-connexion { grid-template-columns: minmax(320px, 400px) minmax(0, 1fr); } }
 
 /* État d'une application : chaque ligne, un libellé et sa valeur. */
 .lf-etat { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-3) var(--space-5); margin: 0; align-items: center; }
@@ -307,3 +307,6 @@ label.lf-line:hover { background: var(--color-surface-sunken); }
 .lf-etat-valeur.is-bon { background: var(--status-paye-bg); color: var(--status-paye-fg); }
 .lf-etat-valeur.is-mauvais { background: var(--status-danger-bg); color: var(--status-danger-fg); }
 @media (max-width: 480px) { .lf-etat { grid-template-columns: 1fr; gap: 2px; } .lf-etat dd + dt { margin-top: var(--space-3); } }
+/* Un compte de démonstration : son rôle, et dessous son établissement ou son officine. */
+.lf-compte { display: grid; gap: 2px; min-width: 14em; }
+.lf-compte span { color: var(--color-text-muted); font-size: 14px; line-height: 20px; }

@@ -70,20 +70,24 @@ export async function PageDeConnexion({
           <p className="lf-app-note">Publics : toutes les données sont fictives. N'y saisissez aucune donnée réelle.</p>
           <Table
             dense
+            // « Utiliser » en tête : toujours à portée, même quand le tableau défile sur un téléphone.
             columns={[
+              { key: "action", label: "Formulaire" },
               { key: "identifiant", label: "Identifiant", mono: true },
               { key: "motDePasse", label: "Mot de passe", mono: true },
-              { key: "role", label: "Rôle" },
-              { key: "structure", label: "Établissement ou officine" },
-              { key: "action", label: "Formulaire" },
+              { key: "compte", label: "Rôle et établissement" },
             ]}
             rows={comptesDAgents.map((compte) => ({
               id: compte.identifiant,
+              action: <UtiliserCeCompte formulaire={FORMULAIRE} identifiant={compte.identifiant} motDePasse={compte.mot_de_passe} />,
               identifiant: compte.identifiant,
               motDePasse: compte.mot_de_passe,
-              role: compte.role,
-              structure: compte.structure,
-              action: <UtiliserCeCompte formulaire={FORMULAIRE} identifiant={compte.identifiant} motDePasse={compte.mot_de_passe} />,
+              compte: (
+                <span className="lf-compte">
+                  <b>{compte.role}</b>
+                  <span>{compte.structure}</span>
+                </span>
+              ),
             }))}
             empty="Aucun compte de démonstration : identite ne répond pas."
           />
