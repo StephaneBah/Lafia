@@ -86,6 +86,10 @@ The pharmacy of an établissement, where paid lignes are handed over against the
 An independent pharmacie de ville, attached to no établissement, which sells through its own management and payment software.
 _Avoid_: pharmacie (for this meaning)
 
+**Structure**:
+An établissement or an officine: a place that holds agents or signs in under its own name. Each is an `Organization` in the noyau, typed by its level or as an officine.
+_Avoid_: organisation, lieu
+
 **Relation de soin**:
 What entitles a soignant to open a dossier: their établissement holds an open cas de visite for the patient, or they open or continue one now with the patient present.
 _Avoid_: consentement (the patient does not sign anything in v1)

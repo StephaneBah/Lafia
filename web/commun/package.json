@@ -2,10 +2,11 @@
   "name": "@lafia/commun",
   "version": "0.1.0",
   "private": true,
-  "description": "Code partagé par les applications Lafia : joindre son service par la passerelle, montrer l'état de l'acteur. Intégré à chaque application à la construction.",
+  "description": "Code partagé par les applications Lafia : joindre son service et identite par la passerelle, se connecter, renouveler le jeton, montrer l'état de l'acteur. Intégré à chaque application à la construction.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./renouvellement": "./src/renouvellement.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

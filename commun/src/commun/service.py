@@ -5,8 +5,8 @@ Un service ne tient que ses propres routes ; `creer_service()` les place, avec /
 """
 
 import logging
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import Literal
 
 from fastapi import APIRouter, Depends, FastAPI, Request
@@ -84,17 +84,25 @@ def _sante_sans_noyau(service: str) -> APIRouter:
     return routes
 
 
-def creer_service(service: str, *routes: APIRouter, parle_fhir: bool) -> FastAPI:
+def creer_service(
+    service: str,
+    *routes: APIRouter,
+    parle_fhir: bool,
+    cycle_de_vie: Callable[[FastAPI], AbstractAsyncContextManager[None]] | None = None,
+) -> FastAPI:
     """Le service en app FastAPI : /sante et ses `routes`, sous /api/<service>.
 
     Le contrat OpenAPI et sa documentation vivent sous le même préfixe : c'est tout ce que la
     passerelle route vers le service. Un service qui parle FHIR ouvre le client du noyau au démarrage,
-    et sa /sante joint le noyau (503 quand il ne répond pas) ; les autres ne rapportent que leur état.
+    et sa /sante joint le noyau (503 quand il ne répond pas) ; les autres ne rapportent que leur état,
+    et ouvrent au démarrage ce dont ils ont besoin par leur propre `cycle_de_vie`.
     """
+    if parle_fhir and cycle_de_vie:
+        raise ValueError("un service qui parle FHIR a le cycle de vie du client du noyau")
     prefixe = f"/api/{service}"
     app = FastAPI(
         title=f"Lafia — service {service}",
-        lifespan=_cycle_de_vie_fhir if parle_fhir else None,
+        lifespan=_cycle_de_vie_fhir if parle_fhir else cycle_de_vie,
         openapi_url=f"{prefixe}/openapi.json",
         docs_url=f"{prefixe}/docs",
         redoc_url=None,

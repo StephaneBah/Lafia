@@ -7,16 +7,23 @@
 # Le mot de passe s'écrit ${VAR-défaut} : absent, il prend la valeur locale ; laissé vide
 # dans un .env copié sans être rempli, il reste vide et la base refuse de démarrer.
 #
-# Deux réseaux rendent les invariants physiques :
+# Trois réseaux rendent les invariants physiques :
 # - passerelle : Caddy, les services et les applications. Caddy est le seul conteneur qui publie des ports.
 # - noyau : HAPI, sa base, le chargement du jeu de démonstration, et les services qui parlent FHIR
 #   (pas identite). Réseau interne, sans sortie. Les applications n'y sont jamais : elles ne peuvent
 #   pas joindre le noyau, même par erreur.
+# - identite : identite et sa base, rien d'autre. Réseau interne : aucune application, aucun service
+#   qui parle FHIR ne joint les comptes.
 #
-# Remise à zéro complète, noyau vidé puis rechargé du seul jeu de démonstration :
+# Remise à zéro complète, noyau et comptes vidés puis rechargés du seul jeu de démonstration :
 #   docker compose down -v && docker compose up -d --build --wait
 
 name: lafia
+
+# Les bibliothèques du dépôt, contextes nommés de la construction de chaque service (services/Dockerfile).
+x-bibliotheques: &bibliotheques
+  commun: commun
+  donnees: donnees
 
 # Un service qui parle FHIR : sur les deux réseaux, démarré quand le noyau répond et que le jeu de
 # démonstration y est chargé. Il vérifie seul les jetons signés par identite, par la clé publique
@@ -140,8 +147,7 @@ services:
     <<: *service-fhir
     build:
       context: services
-      additional_contexts:
-        commun: commun
+      additional_contexts: *bibliotheques
       args:
         SERVICE: soin
     image: lafia/soin
@@ -150,8 +156,7 @@ services:
     <<: *service-fhir
     build:
       context: services
-      additional_contexts:
-        commun: commun
+      additional_contexts: *bibliotheques
       args:
         SERVICE: caisse
     image: lafia/caisse
@@ -160,8 +165,7 @@ services:
     <<: *service-fhir
     build:
       context: services
-      additional_contexts:
-        commun: commun
+      additional_contexts: *bibliotheques
       args:
         SERVICE: pharmacie
     image: lafia/pharmacie
@@ -170,24 +174,53 @@ services:
     <<: *service-fhir
     build:
       context: services
-      additional_contexts:
-        commun: commun
+      additional_contexts: *bibliotheques
       args:
         SERVICE: citoyen
     image: lafia/citoyen
 
-  # Identite ne parle jamais FHIR : sur le réseau passerelle seulement, il ne peut pas joindre le noyau.
+  # Identite ne parle jamais FHIR : hors du réseau noyau, il ne peut pas le joindre. Il signe les jetons
+  # de la clé privée JETON_CLE_PRIVEE ; vide, sur localhost seulement, il prend la clé de développement ;
+  # sur tout autre domaine, il refuse de démarrer. Il lit ses comptes dans donnees/, construit dans son image.
   identite:
     build:
       context: services
-      additional_contexts:
-        commun: commun
+      additional_contexts: *bibliotheques
       args:
         SERVICE: identite
+        BIBLIOTHEQUES: commun donnees
     image: lafia/identite
     restart: unless-stopped
+    depends_on:
+      base-identite:
+        condition: service_healthy
+    environment:
+      LAFIA_DOMAINE: ${LAFIA_DOMAINE:-localhost}
+      JETON_CLE_PRIVEE: ${JETON_CLE_PRIVEE:-}
+      BASE_URL: postgresql://identite@base-identite:5432/identite
+      BASE_MOT_DE_PASSE: ${IDENTITE_BASE_MOT_DE_PASSE-identite-local}
     networks:
       - passerelle
+      - identite
+    mem_limit: 256m
+
+  # Comptes, codes carnet, sessions et compteurs d'échecs d'identite : aucune donnée médicale.
+  base-identite:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: identite
+      POSTGRES_USER: identite
+      POSTGRES_PASSWORD: ${IDENTITE_BASE_MOT_DE_PASSE-identite-local}
+    volumes:
+      - identite-donnees:/var/lib/postgresql/data
+    networks:
+      - identite
+    healthcheck:
+      test: ["CMD", "pg_isready", "--username=identite", "--dbname=identite"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     mem_limit: 256m
 
   # Chaque application est construite par web/Dockerfile, système de design et code commun compris.
@@ -235,8 +268,11 @@ networks:
   passerelle:
   noyau:
     internal: true
+  identite:
+    internal: true
 
 volumes:
   passerelle-donnees:
   passerelle-config:
   noyau-donnees:
+  identite-donnees:

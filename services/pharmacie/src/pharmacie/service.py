@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends
 
-from commun.jeton import Agent, VerificateurDeJetons
+from commun.jeton import Agent, Officine, VerificateurDeJetons
 from commun.service import creer_service
 from pharmacie.regles.acces import ROLES_ADMIS
 
@@ -10,7 +10,7 @@ SERVICE = "pharmacie"
 
 # La clé publique est lue au démarrage : sans elle, le service ne démarre pas.
 jetons = VerificateurDeJetons.depuis_environnement()
-pharmacien_connecte = jetons.agent(ROLES_ADMIS)
+pharmacien_ou_officine_connecte = jetons.agent_ou_officine(ROLES_ADMIS)
 
 routes = APIRouter()
 
@@ -22,9 +22,10 @@ routes = APIRouter()
         403: {"description": "Rôle que le service pharmacie ne sert pas."},
     },
 )
-async def session(pharmacien: Agent = Depends(pharmacien_connecte)) -> Agent:
-    """Le pharmacien connecté : son identifiant, son rôle et son établissement, lus de son jeton vérifié."""
-    return pharmacien
+async def session(porteur: Agent | Officine = Depends(pharmacien_ou_officine_connecte)) -> Agent | Officine:
+    """Le pharmacien connecté, son identifiant, son rôle et son établissement ; ou l'officine, son
+    identifiant et son rôle. Lus de son jeton vérifié."""
+    return porteur
 
 
 app = creer_service(SERVICE, routes, parle_fhir=True)

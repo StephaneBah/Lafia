@@ -1,11 +1,15 @@
 [project]
 name = "lafia-identite"
 version = "0.1.0"
-description = "Service identite : comptes des agents, rôles, établissement, codes carnet ; émission des jetons."
+description = "Service identite : comptes des agents et des officines, codes carnet, sessions ; émission des jetons."
 requires-python = ">=3.11"
 dependencies = [
     "lafia-commun",
+    "lafia-donnees",
+    "argon2-cffi>=25.1,<26",
+    "asyncpg>=0.31,<0.32",
     "fastapi>=0.141,<0.142",
+    "python-multipart>=0.0.32,<0.1",
     "uvicorn>=0.54,<0.55",
 ]
 

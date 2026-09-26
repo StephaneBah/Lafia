@@ -14,9 +14,10 @@ Tout passe par la passerelle, sauf l'isolement réseau et le contenu du noyau, q
 pas : ces vérifications passent par `docker`, sur la machine de la pile visée, et sont sautées quand
 elle tourne ailleurs.
 
-Les jetons de test sont signés de la clé privée donnée par `JETON_CLE_PRIVEE`, celle dont la pile
-visée connaît la clé publique. En local, sans elle, la clé de développement, que seule une pile
-servie sur localhost accepte ; ailleurs, sans elle, les tests qui en ont besoin sont sautés.
+Les jetons valides viennent de connexions par identite, avec les comptes de démonstration lus dans
+`donnees/` : la suite ne tient jamais la clé privée d'une pile déployée. Les jetons mal formés ne se
+forgent qu'avec la clé de développement, que seule une pile servie sur localhost accepte : ces tests
+sont sautés ailleurs.
 """
 
 import base64
@@ -28,7 +29,10 @@ import tomllib
 from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
+from http.cookiejar import CookieJar, DefaultCookiePolicy
+from http.cookies import Morsel, SimpleCookie
 from pathlib import Path
+from types import EllipsisType
 from typing import Any, NamedTuple
 
 import httpx
@@ -51,9 +55,24 @@ ADRESSE = os.environ.get("LAFIA_ADRESSE") or ("127.0.0.1" if LOCAL else None)
 # (commun/src/commun/jeton.py).
 CLE_PRIVEE_DE_DEVELOPPEMENT = "MC4CAQAwBQYDK2VwBCIEINp8yVHhQe5B/gcbA5wNMNwe0d+oaAY7090L95AC8EvZ"
 
-# Revendications d'un jeton de test, par rôle : identifiants synthétiques seulement.
+# Revendications d'un jeton forgé, par rôle : identifiants synthétiques seulement.
 REVENDICATIONS_AGENT = {"sub": "agent-test-1", "etablissement": "etablissement-test-1"}
+REVENDICATIONS_OFFICINE: dict[str, str] = {"sub": "officine-test-1"}
 REVENDICATIONS_CITOYEN = {"sub": "citoyen-test-1", "npi": "0000000001"}
+
+# Les cookies que identite pose à la connexion, sur le sous-domaine de l'application (ADR 0004).
+COOKIE_DE_SESSION = "__Host-session"
+COOKIE_DE_RENOUVELLEMENT = "__Host-renouvellement"
+
+# Un rôle, une application : où chaque rôle se connecte (ADR 0004).
+APPLICATION_DU_ROLE = {
+    "médecin": "soin",
+    "infirmier": "soin",
+    "caissier": "caisse",
+    "pharmacien": "pharmacie",
+    "officine": "pharmacie",
+    "citoyen": "citoyen",
+}
 
 
 class _VersAdresse(httpx.HTTPTransport):
@@ -193,7 +212,8 @@ def jeu() -> Callable[[str], dict[str, Any]]:
 def application() -> Iterator[Callable[[str], httpx.Client]]:
     """Client HTTP d'une application, adressée par son sous-domaine sur la passerelle.
 
-    Un client par application : chaque sous-domaine garde ses propres connexions TLS.
+    Un client par application : chaque sous-domaine garde ses propres connexions TLS. Il ne garde
+    aucun cookie : chaque test porte les siens, et une connexion ne se glisse pas dans un autre test.
     """
     contexte = _contexte_tls()
     clients: dict[str, httpx.Client] = {}
@@ -206,7 +226,10 @@ def application() -> Iterator[Callable[[str], httpx.Client]]:
                 else httpx.HTTPTransport(verify=contexte)
             )
             clients[nom] = httpx.Client(
-                base_url=f"https://{nom}.{DOMAINE}", transport=transport, timeout=10
+                base_url=origine_de(nom),
+                transport=transport,
+                timeout=10,
+                cookies=CookieJar(policy=DefaultCookiePolicy(allowed_domains=[])),
             )
         return clients[nom]
 
@@ -215,18 +238,205 @@ def application() -> Iterator[Callable[[str], httpx.Client]]:
         client.close()
 
 
+def origine_de(application: str) -> str:
+    """L'origine des pages d'une application, celle que le navigateur envoie avec ses formulaires."""
+    return f"https://{application}.{DOMAINE}"
+
+
+class Compte(NamedTuple):
+    """Un compte d'agent ou d'officine, tel que le jeu de démonstration l'écrit."""
+
+    identifiant: str
+    mot_de_passe: str
+    role: str
+    sub: str
+    """Le Practitioner de l'agent, ou l'Organization de l'officine."""
+    etablissement: str | None
+    """L'Organization de l'établissement de l'agent ; aucune pour une officine."""
+    reserve_aux_tests: bool
+
+    @property
+    def application(self) -> str:
+        return APPLICATION_DU_ROLE[self.role]
+
+
+class CitoyenDeDemonstration(NamedTuple):
+    npi: str
+    code: str
+    reserve_aux_tests: bool
+
+
+@pytest.fixture(scope="session")
+def comptes(jeu: Callable[[str], dict[str, Any]]) -> list[Compte]:
+    """Tous les comptes du jeu de démonstration, réservés aux tests compris."""
+    return [
+        *(
+            Compte(c["identifiant"], c["mot_de_passe"], a["role"], a["id"], c["etablissement"], c.get("reserve_aux_tests", False))
+            for a in jeu("agents")["agent"]
+            for c in a["compte"]
+        ),
+        *(
+            Compte(o["compte"]["identifiant"], o["compte"]["mot_de_passe"], "officine", o["id"], None, False)
+            for o in jeu("officines")["officine"]
+        ),
+    ]
+
+
+@pytest.fixture(scope="session")
+def compte_de(comptes: list[Compte]) -> Callable[[str], Compte]:
+    """Le premier compte de démonstration d'un rôle, jamais un compte réservé aux tests : `compte_de("médecin")`."""
+
+    def premier(role: str) -> Compte:
+        return next(c for c in comptes if c.role == role and not c.reserve_aux_tests)
+
+    return premier
+
+
+@pytest.fixture(scope="session")
+def citoyens(jeu: Callable[[str], dict[str, Any]]) -> list[CitoyenDeDemonstration]:
+    """Les citoyens de démonstration, réservés aux tests compris."""
+    return [
+        CitoyenDeDemonstration(c["npi"], c["code_carnet"], c.get("reserve_aux_tests", False))
+        for c in jeu("citoyens")["citoyen"]
+    ]
+
+
+@pytest.fixture(scope="session")
+def citoyen_de_demonstration(citoyens: list[CitoyenDeDemonstration]) -> CitoyenDeDemonstration:
+    """Le citoyen avec lequel la suite se connecte : le dernier réservé aux tests, qu'elle ne verrouille
+    jamais, et dont nul autre ne remplace le code."""
+    return [c for c in citoyens if c.reserve_aux_tests][-1]
+
+
+def cookies_poses(reponse: httpx.Response) -> dict[str, Morsel[str]]:
+    """Les cookies que pose une réponse, par nom, avec leurs attributs."""
+    poses: dict[str, Morsel[str]] = {}
+    for entete in reponse.headers.get_list("set-cookie"):
+        cookie: SimpleCookie = SimpleCookie()
+        cookie.load(entete)
+        poses.update(cookie)
+    return poses
+
+
+def par_cookie(**cookies: str) -> dict[str, str]:
+    """L'en-tête Cookie qui porte `cookies` : `par_cookie(**{COOKIE_DE_SESSION: jeton})`."""
+    return {"Cookie": "; ".join(f"{nom}={valeur}" for nom, valeur in cookies.items())}
+
+
+def origine_envoyee_par_le_navigateur(politique_de_referent: str, application: str) -> str:
+    """L'en-tête Origin qu'un navigateur joint au formulaire POST d'une page HTTPS de `application`
+    vers la même origine, selon la politique de référent de la page (Fetch, « append a request Origin
+    header ») : `null` sous `no-referrer`, l'origine de la page sous toute autre politique. De
+    plusieurs politiques, le navigateur applique la dernière."""
+    politique = politique_de_referent.split(",")[-1].strip().lower()
+    return "null" if politique == "no-referrer" else origine_de(application)
+
+
+@pytest.fixture(scope="session")
+def formulaire(application: Callable[[str], httpx.Client]) -> Callable[..., httpx.Response]:
+    """Envoie un formulaire à identite depuis une page d'une application, comme le navigateur :
+    `formulaire("soin", "connexion", identifiant=…, mot_de_passe=…)`.
+
+    L'en-tête Origin est celui qu'un navigateur enverrait depuis la page, selon la politique de
+    référent que la passerelle lui pose : un navigateur ne laisse pas une page choisir son origine.
+    `origine` le remplace, pour imiter une autre page ; `None` n'en envoie aucun. `cookies` sont ceux
+    que le navigateur porte sur ce sous-domaine.
+    """
+    politiques: dict[str, str] = {}
+
+    def origine_de_la_page(acteur: str) -> str:
+        if acteur not in politiques:
+            politiques[acteur] = application(acteur).get("/").headers.get("referrer-policy", "")
+        return origine_envoyee_par_le_navigateur(politiques[acteur], acteur)
+
+    def envoyer(
+        acteur: str,
+        chemin: str,
+        *,
+        origine: str | None | EllipsisType = ...,
+        cookies: dict[str, str] | None = None,
+        **champs: str,
+    ) -> httpx.Response:
+        entetes = par_cookie(**cookies) if cookies else {}
+        if origine is ...:
+            origine = origine_de_la_page(acteur)
+        if origine is not None:
+            entetes["Origin"] = origine
+        return application(acteur).post(f"/api/identite/{chemin}", data=champs, headers=entetes)
+
+    return envoyer
+
+
+@pytest.fixture(scope="session")
+def connecter(formulaire: Callable[..., httpx.Response]) -> Callable[..., httpx.Response]:
+    """Connecte un compte depuis la page de connexion de son application, ou de `acteur` :
+    `connecter(compte)`. Rend la réponse de identite."""
+
+    def envoyer(compte: Compte, *, acteur: str | None = None, mot_de_passe: str | None = None) -> httpx.Response:
+        return formulaire(
+            acteur or compte.application,
+            "connexion",
+            identifiant=compte.identifiant,
+            mot_de_passe=compte.mot_de_passe if mot_de_passe is None else mot_de_passe,
+        )
+
+    return envoyer
+
+
+@pytest.fixture(scope="session")
+def connecter_citoyen(formulaire: Callable[..., httpx.Response]) -> Callable[..., httpx.Response]:
+    """Connecte un citoyen depuis l'application citoyen : `connecter_citoyen(npi, code)`."""
+
+    def envoyer(npi: str, code: str, *, acteur: str = "citoyen") -> httpx.Response:
+        return formulaire(acteur, "citoyen/connexion", npi=npi, code=code)
+
+    return envoyer
+
+
+def jeton_pose(reponse: httpx.Response) -> str:
+    """Le jeton que pose une connexion réussie ou un renouvellement."""
+    assert reponse.status_code in (204, 303), reponse.text
+    return cookies_poses(reponse)[COOKIE_DE_SESSION].value
+
+
+@pytest.fixture(scope="session")
+def jeton_de(
+    compte_de: Callable[[str], Compte],
+    citoyen_de_demonstration: CitoyenDeDemonstration,
+    connecter: Callable[..., httpx.Response],
+    connecter_citoyen: Callable[..., httpx.Response],
+) -> Callable[[str], str]:
+    """Un jeton valide d'un rôle, obtenu en se connectant une fois pour toute la suite : `jeton_de("médecin")`.
+
+    Un agent ou une officine par son premier compte de démonstration ; le citoyen par
+    `citoyen_de_demonstration`.
+    """
+    jetons: dict[str, str] = {}
+
+    def jeton(role: str) -> str:
+        if role not in jetons:
+            if role == "citoyen":
+                reponse = connecter_citoyen(citoyen_de_demonstration.npi, citoyen_de_demonstration.code)
+            else:
+                reponse = connecter(compte_de(role))
+            jetons[role] = jeton_pose(reponse)
+        return jetons[role]
+
+    return jeton
+
+
 @pytest.fixture(scope="session")
 def signer_jeton() -> Callable[..., str]:
-    """Signe un jeton que la pile visée accepte : `signer_jeton("médecin")`.
+    """Forge un jeton avec la clé de développement, que seule une pile servie sur localhost accepte :
+    `signer_jeton("médecin")`. Ailleurs, le test est sauté : la suite ne tient pas la clé d'une pile déployée.
 
     Les revendications par défaut du rôle se remplacent par mot-clé ; `None` en retire une.
     `expire_dans` règle l'expiration ; `cle` signe d'une autre clé que celle de la pile visée.
     """
-    cle_en_base64 = os.environ.get("JETON_CLE_PRIVEE") or (CLE_PRIVEE_DE_DEVELOPPEMENT if LOCAL else None)
-    if cle_en_base64 is None:
-        pytest.skip(f"JETON_CLE_PRIVEE absente : pas de jeton accepté par la pile qui sert {DOMAINE}")
-    cle_de_la_pile = load_der_private_key(base64.b64decode(cle_en_base64), password=None)
-    assert isinstance(cle_de_la_pile, Ed25519PrivateKey), "JETON_CLE_PRIVEE : une clé privée Ed25519"
+    if not LOCAL:
+        pytest.skip(f"jetons forgés avec la clé de développement : la pile qui sert {DOMAINE} les refuse")
+    cle_de_la_pile = load_der_private_key(base64.b64decode(CLE_PRIVEE_DE_DEVELOPPEMENT), password=None)
+    assert isinstance(cle_de_la_pile, Ed25519PrivateKey)
 
     def signer(
         role: str,
@@ -235,7 +445,9 @@ def signer_jeton() -> Callable[..., str]:
         expire_dans: timedelta = timedelta(minutes=5),
         **remplacements: str | None,
     ) -> str:
-        defaut = REVENDICATIONS_CITOYEN if role == "citoyen" else REVENDICATIONS_AGENT
+        defaut = {"citoyen": REVENDICATIONS_CITOYEN, "officine": REVENDICATIONS_OFFICINE}.get(
+            role, REVENDICATIONS_AGENT
+        )
         revendications: dict[str, Any] = {
             "role": role,
             "exp": datetime.now(timezone.utc) + expire_dans,
@@ -250,7 +462,7 @@ def signer_jeton() -> Callable[..., str]:
 
 # Le jeton arrive au service par le cookie de session de l'application, ou par l'en-tête Authorization.
 def _par_cookie(jeton: str) -> dict[str, str]:
-    return {"Cookie": f"__Host-session={jeton}"}
+    return par_cookie(**{COOKIE_DE_SESSION: jeton})
 
 
 def _par_porteur(jeton: str) -> dict[str, str]:
@@ -295,9 +507,9 @@ def _texte_visible(html: str) -> str:
     return " ".join(" ".join(lecteur.morceaux).split())
 
 
-def _accueil(client: httpx.Client, jeton: str | None) -> str:
-    """Le HTML de l'accueil d'une application. `jeton` voyage dans le cookie de session, comme depuis un navigateur."""
-    reponse = client.get("/", headers=_par_cookie(jeton) if jeton else None)
+def _html(client: httpx.Client, chemin: str, jeton: str | None) -> str:
+    """Le HTML d'une page d'une application. `jeton` voyage dans le cookie de session, comme depuis un navigateur."""
+    reponse = client.get(chemin, headers=_par_cookie(jeton) if jeton else None)
     assert reponse.status_code == 200
     assert reponse.headers["content-type"].startswith("text/html")
     return reponse.text
@@ -305,20 +517,21 @@ def _accueil(client: httpx.Client, jeton: str | None) -> str:
 
 @pytest.fixture(scope="session")
 def page(application: Callable[[str], httpx.Client]) -> Callable[..., str]:
-    """Le texte qu'un lecteur voit sur l'accueil d'une application : `page("soin", jeton=…)`."""
+    """Le texte qu'un lecteur voit sur une page d'une application, l'accueil par défaut :
+    `page("soin", jeton=…)`, `page("soin", "/connexion")`."""
 
-    def lire(acteur: str, *, jeton: str | None = None) -> str:
-        return _texte_visible(_accueil(application(acteur), jeton))
+    def lire(acteur: str, chemin: str = "/", *, jeton: str | None = None) -> str:
+        return _texte_visible(_html(application(acteur), chemin, jeton))
 
     return lire
 
 
 @pytest.fixture(scope="session")
 def html_de_page(application: Callable[[str], httpx.Client]) -> Callable[..., str]:
-    """Tout le HTML de l'accueil d'une application, balises et scripts compris : `html_de_page("citoyen", jeton=…)`."""
+    """Tout le HTML d'une page d'une application, balises et scripts compris : `html_de_page("citoyen", jeton=…)`."""
 
-    def lire(acteur: str, *, jeton: str | None = None) -> str:
-        return _accueil(application(acteur), jeton)
+    def lire(acteur: str, chemin: str = "/", *, jeton: str | None = None) -> str:
+        return _html(application(acteur), chemin, jeton)
 
     return lire
 
@@ -353,6 +566,11 @@ JETONS_INVALIDES = [
         lambda signer: signer("citoyen", etablissement="etablissement-test-1"),
         id="citoyen rattaché à un établissement",
     ),
+    pytest.param(
+        lambda signer: signer("officine", etablissement="etablissement-test-1"),
+        id="officine rattachée à un établissement",
+    ),
+    pytest.param(lambda signer: signer("officine", npi="0000000001"), id="officine portant un NPI"),
     pytest.param(lambda signer: signer("administrateur"), id="rôle inconnu"),
 ]
 

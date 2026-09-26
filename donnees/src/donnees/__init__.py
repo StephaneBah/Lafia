@@ -8,6 +8,7 @@ de sorte que chaque jeton désigne des personnes et des lieux que le noyau conna
 """
 
 import tomllib
+from dataclasses import dataclass
 from importlib.resources import files
 from typing import Any
 
@@ -52,11 +53,59 @@ def officines() -> list[Officine]:
     ]
 
 
+def _agent(a: dict[str, Any]) -> Agent:
+    return Agent(id=a["id"], nom=a["nom"], prenoms=tuple(a["prenoms"]), role=Role(a["role"]))
+
+
 def agents() -> list[Agent]:
     """Les agents, chacun une fois, quel que soit le nombre de ses comptes."""
+    return [_agent(a) for a in _lire("agents")["agent"]]
+
+
+@dataclass(frozen=True)
+class CompteDAgent:
+    """Un compte d'agent : de quoi se connecter, l'agent qu'il désigne, l'établissement où il ouvre."""
+
+    identifiant: str
+    mot_de_passe: str
+    agent: Agent
+    etablissement: Etablissement
+    reserve_aux_tests: bool
+    """Compte que la suite de tests verrouille exprès : jamais listé sur une page de connexion."""
+
+
+@dataclass(frozen=True)
+class CompteDOfficine:
+    """Le compte unique d'une officine : ses pharmaciens n'ont pas de compte dans Lafia."""
+
+    identifiant: str
+    mot_de_passe: str
+    officine: Officine
+
+
+def comptes() -> list[CompteDAgent | CompteDOfficine]:
+    """Les comptes des agents, un par établissement où chacun travaille, puis ceux des officines."""
+    etablissements_par_id = {e.id: e for e in etablissements()}
     return [
-        Agent(id=a["id"], nom=a["nom"], prenoms=tuple(a["prenoms"]), role=Role(a["role"]))
-        for a in _lire("agents")["agent"]
+        *(
+            CompteDAgent(
+                identifiant=c["identifiant"],
+                mot_de_passe=c["mot_de_passe"],
+                agent=_agent(a),
+                etablissement=etablissements_par_id[c["etablissement"]],
+                reserve_aux_tests=c.get("reserve_aux_tests", False),
+            )
+            for a in _lire("agents")["agent"]
+            for c in a["compte"]
+        ),
+        *(
+            CompteDOfficine(
+                identifiant=o["compte"]["identifiant"],
+                mot_de_passe=o["compte"]["mot_de_passe"],
+                officine=officine,
+            )
+            for o, officine in zip(_lire("officines")["officine"], officines(), strict=True)
+        ),
     ]
 
 
@@ -88,6 +137,25 @@ def patients() -> list[Patient]:
             personne_a_prevenir=_personne_a_prevenir(p.get("personne_a_prevenir")),
         )
         for p in _lire("patients")["patient"]
+    ]
+
+
+@dataclass(frozen=True)
+class CitoyenDeDemonstration:
+    """Le NPI d'un patient du jeu, et le code carnet de son dernier reçu."""
+
+    npi: str
+    code_carnet: str
+    reserve_aux_tests: bool
+    """NPI que la suite de tests verrouille exprès : jamais listé sur une page de connexion."""
+
+
+def citoyens() -> list[CitoyenDeDemonstration]:
+    return [
+        CitoyenDeDemonstration(
+            npi=c["npi"], code_carnet=c["code_carnet"], reserve_aux_tests=c.get("reserve_aux_tests", False)
+        )
+        for c in _lire("citoyens")["citoyen"]
     ]
 
 

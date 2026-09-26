@@ -1,8 +1,9 @@
 """Isolement réseau : ce que seul le réseau garantit, observé depuis les conteneurs et l'hôte.
 
-Les applications et identite ne sont que sur le réseau passerelle : ils ne joignent pas le noyau,
-ni par son nom ni par son adresse. Seule la passerelle publie des ports : HAPI n'est joignable que
-par un service qui parle FHIR.
+Les applications et identite ne sont pas sur le réseau noyau : ils ne joignent pas le noyau, ni par
+son nom ni par son adresse. La base d'identite n'est que sur le réseau identite : aucune application,
+aucun service qui parle FHIR ne la joint. Seule la passerelle publie des ports : HAPI n'est joignable
+que par un service qui parle FHIR.
 """
 
 import json
@@ -12,7 +13,6 @@ import pytest
 # Depuis un conteneur : une requête HTTP obtient-elle une réponse, quelle qu'elle soit ?
 # Code 0 : une réponse. Code 3 : aucune (nom inconnu, pas de route, délai écoulé).
 # Tout autre code dit que la sonde n'a pas tourné, et ne prouve rien.
-# Chaque conteneur a la sonde de l'interpréteur qu'il embarque.
 SONDE_NODE = [
     "node",
     "-e",
@@ -27,20 +27,46 @@ SONDE_PYTHON = [
     "except urllib.error.HTTPError: pass\n"
     "except OSError: sys.exit(3)",
 ]
+# Une base ne parle pas HTTP : une connexion TCP ouverte suffit à dire qu'elle est joignable.
+SONDE_TCP_NODE = [
+    "node",
+    "-e",
+    "require('node:net').connect(Number(process.argv[2]), process.argv[1])"
+    ".setTimeout(3000, () => process.exit(3))"
+    ".on('connect', () => process.exit(0)).on('error', () => process.exit(3))",
+]
+SONDE_TCP_PYTHON = [
+    "python",
+    "-c",
+    "import socket, sys\n"
+    "try: socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=3)\n"
+    "except OSError: sys.exit(3)",
+]
 REPONSE, SANS_REPONSE = 0, 3
 
-# Les conteneurs hors du réseau noyau, et leur sonde.
-HORS_DU_NOYAU = {
-    "application-soin": SONDE_NODE,
-    "application-caisse": SONDE_NODE,
-    "application-pharmacie": SONDE_NODE,
-    "application-citoyen": SONDE_NODE,
-    "identite": SONDE_PYTHON,
+APPLICATIONS = ["application-soin", "application-caisse", "application-pharmacie", "application-citoyen"]
+SERVICES_FHIR = ["soin", "caisse", "pharmacie", "citoyen"]
+
+# Chaque conteneur a les sondes de l'interpréteur qu'il embarque : HTTP, puis TCP.
+SONDES = {
+    **{application: (SONDE_NODE, SONDE_TCP_NODE) for application in APPLICATIONS},
+    **{service: (SONDE_PYTHON, SONDE_TCP_PYTHON) for service in [*SERVICES_FHIR, "identite"]},
 }
+
+# Les conteneurs hors du réseau noyau.
+HORS_DU_NOYAU = [*APPLICATIONS, "identite"]
+# Les conteneurs hors du réseau identite : tout ce qui pourrait vouloir lire les comptes.
+HORS_D_IDENTITE = [*APPLICATIONS, *SERVICES_FHIR]
 
 
 def sonder(docker, conteneur: str, url: str) -> int:
-    return docker("compose", "exec", "-T", conteneur, *HORS_DU_NOYAU[conteneur], url).returncode
+    sonde_http, _ = SONDES[conteneur]
+    return docker("compose", "exec", "-T", conteneur, *sonde_http, url).returncode
+
+
+def sonder_tcp(docker, conteneur: str, hote: str, port: int) -> int:
+    _, sonde_tcp = SONDES[conteneur]
+    return docker("compose", "exec", "-T", conteneur, *sonde_tcp, hote, str(port)).returncode
 
 
 def adresses_ip(docker, service: str) -> list[str]:
@@ -75,6 +101,16 @@ def test_hors_du_reseau_noyau_le_noyau_est_injoignable(docker, conteneur):
     assert sonder(docker, conteneur, "http://noyau:8080/fhir/metadata") == SANS_REPONSE
     for adresse in adresses_ip(docker, "noyau"):
         assert sonder(docker, conteneur, f"http://{adresse}:8080/fhir/metadata") == SANS_REPONSE
+
+
+@pytest.mark.parametrize("conteneur", HORS_D_IDENTITE)
+def test_hors_du_reseau_identite_la_base_d_identite_est_injoignable(docker, conteneur):
+    # Témoin : identite, lui, la joint. Sans lui, une sonde qui ne tourne pas passerait pour une base injoignable.
+    assert sonder_tcp(docker, "identite", "base-identite", 5432) == REPONSE
+
+    assert sonder_tcp(docker, conteneur, "base-identite", 5432) == SANS_REPONSE
+    for adresse in adresses_ip(docker, "base-identite"):
+        assert sonder_tcp(docker, conteneur, adresse, 5432) == SANS_REPONSE
 
 
 def test_le_chargement_n_est_que_sur_le_reseau_noyau(docker):
