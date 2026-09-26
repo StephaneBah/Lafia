@@ -1,6 +1,60 @@
-# Lafia
+<p align="center"><img src="web/design/assets/Logo/lafia-logo.svg" alt="Lafia" width="180"></p>
 
-Interoperable foundation for Benin's national digital health record: one FHIR core, the **noyau**, holds all medical data; independent domain services read and write it; each actor has its own application on its own subdomain. The brief and the architecture invariants are in `SYSTEM_PROMPT.md`, the vocabulary in `CONTEXT.md`. How the running system works, piece by piece and request by request, is in `docs/architecture.md`.
+<p align="center"><strong>The foundation of Benin's national digital health record.</strong><br>
+One record per citizen, found by their NPI alone, that follows the person from the health centre to the cashier, the pharmacy and their own phone.</p>
+
+<p align="center"><a href="https://lafia.stephanebah.page">lafia.stephanebah.page</a></p>
+
+---
+
+Today a Beninese citizen's medical memory is scattered: the paper booklet gets lost, each facility keeps its own register, a lab result exists as one physical copy, and the patient is the only link between their carers. Lafia is not one more application on top of that problem. It is the ground applications stand on: one core that holds medical data in an international standard, one contract that decides who reaches what, and services that plug into both.
+
+## The foundation
+
+![The FHIR noyau at the centre; around it, the contract that decides who reaches what; today's and tomorrow's services plug into it; one door to the outside.](docs/fondation.svg)
+
+**The noyau.** Every medical fact lives in one place: each visite, mesure, diagnostic, ordonnance, délivrance, and each access to the record, as a standard **HL7 FHIR R4** resource in an unmodified HAPI FHIR server. The patient is identified by their NPI; Lafia invents no identifier of its own. Records are append-only: a correction is a new version, and history stays readable. The noyau publishes no port and has no route to the internet; no application can reach it.
+
+**The contract.** Between the noyau and anyone who wants its data stand the same four rules, enforced by every service:
+
+- **Signed tokens.** identite alone holds the signing key. Each service verifies a token by itself, with the public key: a compromised service cannot forge one.
+- **Least privilege.** Each role reaches what its work needs. The caissier sees an ordonnance and its amounts, never the diagnostic; the pharmacien sees the paid lines and the allergies.
+- **Relation de soin.** A soignant opens a dossier only when their établissement is treating that patient. A vital emergency opens it anyway, with a stated reason.
+- **Every access traced.** Each read or write of a dossier writes an `AuditEvent` into the noyau, and the citoyen sees in their own carnet who opened it, and when.
+
+**The services.** Each actor has its own service and its own application, on its own subdomain. A service translates its actor's work into FHIR; services never call each other. The only door from outside is the gateway, which sends each subdomain to its own service and nothing else. The network enforces this, and the test suite checks it.
+
+## Built to grow
+
+Four actors run on the foundation today:
+
+| Service | For | What it does |
+|---|---|---|
+| **soin** | médecins, infirmiers | Find a patient by NPI, follow the cas de visite, write the visite, issue the ordonnance |
+| **caisse** | caissiers | Open an ordonnance by its numéro, collect payment without re-typing a line |
+| **pharmacie** | pharmaciens, officines | Hand over the paid lines, stop on an allergy, record a partial délivrance |
+| **citoyen** | citoyens | A carnet that reads in pictures, and the journal of who opened the dossier |
+| **identite** | everyone | Sign-in, signed session tokens, the code carnet printed on each reçu |
+
+Tomorrow's services join the same way: one service that speaks FHIR to the noyau, one application, one line in the gateway. No data is copied, no database is added, no existing code changes.
+
+- **Laboratoire**: results filed straight into the cas de visite, without paper.
+- **Télémédecine**: a remote visite, kept in the same cas.
+- **Assistant IA de compte rendu**: the soignant dictates, the assistant drafts the visite; nothing is saved without the soignant's approval.
+- **Paiement différé**: care first for vital emergencies, payment settled later.
+- **Lafia Insights**: dashboards for the ministry and the ARS, computed on anonymised extracts, never on the live record.
+
+Nothing in the critical path depends on a cloud provider: the whole stack is Docker Compose on one virtual machine, ready to be hosted on the State's own infrastructure.
+
+## Read further
+
+- [`docs/architecture.md`](docs/architecture.md): how the running system works, piece by piece and request by request.
+- [`docs/adr/`](docs/adr/): the decisions that are hard to reverse, and why.
+- [`SYSTEM_PROMPT.md`](SYSTEM_PROMPT.md): the brief, the architecture invariants and the health-data security statement.
+- [`CONTEXT.md`](CONTEXT.md): the vocabulary, from cas de visite to relation de soin.
+- [`docs/design/charte-graphique.md`](docs/design/charte-graphique.md): the design system, made to be understood without reading.
+
+All data in the repository and on the live platform is synthetic.
 
 ## Run the stack
 
@@ -10,11 +64,11 @@ Requires Docker with Compose v2. From a clean clone:
 docker compose up -d --build --wait
 ```
 
-The first start takes a few minutes while HAPI creates its schema. Then the product site is served on the domain itself, `https://localhost`, with a door to each application and its demo accounts, and each actor's application is served on its own subdomain: `https://soin.localhost`, `https://caisse.localhost`, `https://pharmacie.localhost` and `https://citoyen.localhost`. Each page shows its service's status and the noyau's FHIR version. On soin, caisse and pharmacie, `/connexion` signs an agent or an officine in and lists the demo accounts with their mots de passe; once signed in, the home page names the agent and their établissement. A citoyen's page never shows their NPI. On each subdomain, `/api/<actor>/sante` reports the same as JSON (for instance `https://caisse.localhost/api/caisse/sante`), the service's OpenAPI documentation is at `/api/<actor>/docs`, and `/api/identite/sante` reaches the identite service. Any other `/api/*` path answers 404: `caisse.localhost` has no route to soin's service.
+The first start takes a few minutes while HAPI creates its schema. The product site is then served on `https://localhost`, with a door to each application and its demo accounts, and each application on its own subdomain: `https://soin.localhost`, `https://caisse.localhost`, `https://pharmacie.localhost`, `https://citoyen.localhost`. On soin, caisse and pharmacie, `/connexion` lists the demo accounts with their mots de passe. On each subdomain, `/api/<actor>/sante` reports the state of the service and the noyau, `/api/<actor>/docs` is the service's OpenAPI documentation, and `/api/identite/sante` reaches identite. Any other `/api/*` path answers 404: `caisse.localhost` has no route to soin's service.
 
 Locally, the gateway signs `*.localhost` certificates with Caddy's internal authority, so a browser warns until you trust its root, found in the `passerelle` container at `/data/caddy/pki/authorities/local/root.crt`.
 
-At every start, the `chargement` container writes the synthetic demo dataset from `donnees/` into the noyau (établissements, officines, agents, patients, tarifs), then exits, and identite loads the demo accounts and codes carnet from the same files. Neither deletes anything, so a restart or a redeploy keeps what users created. The data lives in the `noyau-donnees` and `identite-donnees` volumes: `docker compose down` keeps them. To start over from the demo dataset alone:
+At every start, the `chargement` container writes the synthetic dataset from `donnees/` into the noyau (établissements, officines, agents, patients, tarifs, a clinical history), then exits, and identite loads the demo accounts and codes carnet from the same files. Neither deletes anything, so a restart or a redeploy keeps what users created; `docker compose down` keeps the `noyau-donnees` and `identite-donnees` volumes. To start over from the dataset alone:
 
 ```sh
 docker compose down -v && docker compose up -d --build --wait
@@ -22,7 +76,7 @@ docker compose down -v && docker compose up -d --build --wait
 
 ## Deploy
 
-The live stack runs on an Azure VM and serves the product site on `https://lafia.stephanebah.page`, and the applications on `https://soin.lafia.stephanebah.page`, `https://caisse.lafia.stephanebah.page`, `https://pharmacie.lafia.stephanebah.page` and `https://citoyen.lafia.stephanebah.page`. A DNS record for `lafia.stephanebah.page` and a wildcard for `*.lafia.stephanebah.page` point at the VM; its firewall opens 80 and 443, and SSH to the operator only.
+The live stack runs on an Azure VM and serves the product site on `https://lafia.stephanebah.page` and the applications on `https://soin.lafia.stephanebah.page`, `https://caisse.…`, `https://pharmacie.…` and `https://citoyen.…`. A DNS record for the domain and a wildcard for its subdomains point at the VM; its firewall opens 80 and 443, and SSH to the operator only.
 
 Each deploy of the current `main`, from your machine:
 
@@ -49,7 +103,7 @@ npm run build        # every application, as Next.js standalone output
 
 ## Tests
 
-A black-box suite runs against the running stack through the gateway, addressing each application by its subdomain. It needs [uv](https://docs.astral.sh/uv/):
+A black-box suite runs against the running stack through the gateway, as a user or an attacker would, addressing each application by its subdomain. It needs [uv](https://docs.astral.sh/uv/):
 
 ```sh
 uv run --project tests pytest tests
@@ -76,10 +130,11 @@ deploiement/         preparing the VM once, deploying main to it
 commun/              shared library, built into each service image: service skeleton, token contract and verification, FHIR client and translation
 services/<name>/     one FastAPI service per domain: soin, caisse, pharmacie, citoyen, identite
 services/Dockerfile  one image per service, commun included
-donnees/             the synthetic demo dataset, in Lafia's vocabulary, and the loader that writes it into the noyau; identite reads its accounts from it
-web/commun/          shared application code, built into each application: service and identite through the gateway, sign-in page, token renewal, status page
+donnees/             the synthetic dataset, in Lafia's vocabulary, and the loader that writes it into the noyau; identite reads its accounts from it
+web/commun/          shared application code, built into each application: service and identite through the gateway, sign-in page, token renewal
 web/design/          design system, built into each application
 web/<acteur>/        one Next.js application per actor: soin, caisse, pharmacie, citoyen
+web/site/            the product site, on the domain itself; calls no service
 tests/               black-box suite through the gateway, one table of actors, network isolation and dataset checks
-docs/                how it works (architecture.md), deploying (deploiement.md), specs, ADRs
+docs/                how it works (architecture.md), deploying (deploiement.md), specs, ADRs, design
 ```
