@@ -1,0 +1,145 @@
+/* Lafia — tokens, générés depuis tokens.json. Thème par défaut : clair ; [data-theme="ardoise"] pour le pro sombre. */
+:root, [data-theme="clair"] {
+  --bleu-royal: #3648C0;
+  --bleu-denim: #4E72AE;
+  --pervenche: #C0C6FC;
+  --fond-pale: #EAF0FC;
+  --ardoise: #242A36;
+  --encre: #121212;
+  --blanc: #FFFFFF;
+  --terre: #C2562B;
+  --illu-soleil: #F2B544;
+  --illu-peau-1: #A8704A;
+  --illu-peau-2: #8A5A3C;
+  --illu-peau-3: #5E3A24;
+  --color-bg: var(--fond-pale);
+  --color-surface: var(--blanc);
+  --color-surface-sunken: #F4F7FD;
+  --color-surface-soft: var(--pervenche);
+  --color-band: var(--bleu-denim);
+  --color-on-band: var(--blanc);
+  --color-text: var(--encre);
+  --color-text-muted: #4A5163;
+  --color-action: var(--bleu-royal);
+  --color-action-hover: #2A3A9E;
+  --color-on-action: var(--blanc);
+  --color-link: var(--bleu-royal);
+  --color-border: #D5DCEB;
+  --color-border-control: #6B7489;
+  --color-focus: var(--bleu-royal);
+  --color-fil: var(--encre);
+  --status-paye-fg: #00524B;
+  --status-paye-bg: #DCF2EE;
+  --status-apayer-fg: #723D00;
+  --status-apayer-bg: #FFEFD6;
+  --status-aretirer-fg: #26339A;
+  --status-aretirer-bg: #E4E8FF;
+  --status-partiel-fg: #582C84;
+  --status-partiel-bg: #F1E7FA;
+  --status-retire-fg: #3F4656;
+  --status-retire-bg: #E6E9EF;
+  --status-danger-fg: #9A1C15;
+  --status-danger-bg: #FDE8E6;
+  --status-danger-solid: #9A1C15;
+  --color-on-danger: var(--blanc);
+  --shadow-card: 0 1px 2px rgba(36,42,54,0.06), 0 8px 24px rgba(54,72,192,0.08);
+  --shadow-lift: 0 2px 4px rgba(36,42,54,0.08), 0 16px 40px rgba(54,72,192,0.14);
+  --shadow-press: 0 1px 2px rgba(36,42,54,0.10);
+}
+[data-theme="ardoise"] {
+  --bleu-royal: #3648C0;
+  --bleu-denim: #4E72AE;
+  --pervenche: #C0C6FC;
+  --fond-pale: #EAF0FC;
+  --ardoise: #242A36;
+  --encre: #121212;
+  --blanc: #FFFFFF;
+  --terre: #D96A3E;
+  --illu-soleil: #F2B544;
+  --illu-peau-1: #A8704A;
+  --illu-peau-2: #8A5A3C;
+  --illu-peau-3: #5E3A24;
+  --color-bg: #1A1F29;
+  --color-surface: var(--ardoise);
+  --color-surface-sunken: #2C3342;
+  --color-surface-soft: #343C63;
+  --color-band: #1A1F29;
+  --color-on-band: #F2F4FA;
+  --color-text: #F2F4FA;
+  --color-text-muted: #B8BFD0;
+  --color-action: var(--pervenche);
+  --color-action-hover: #D6DAFE;
+  --color-on-action: var(--encre);
+  --color-link: var(--pervenche);
+  --color-border: #3A4252;
+  --color-border-control: #8A93A8;
+  --color-focus: var(--pervenche);
+  --color-fil: var(--pervenche);
+  --status-paye-fg: #7ED6C9;
+  --status-paye-bg: #123A36;
+  --status-apayer-fg: #F5B866;
+  --status-apayer-bg: #3A2A10;
+  --status-aretirer-fg: #C0C6FC;
+  --status-aretirer-bg: #262E5C;
+  --status-partiel-fg: #D3B2F2;
+  --status-partiel-bg: #33224A;
+  --status-retire-fg: #C3C9D6;
+  --status-retire-bg: #2E3442;
+  --status-danger-fg: #FF9C92;
+  --status-danger-bg: #45191A;
+  --status-danger-solid: #FF8A7E;
+  --color-on-danger: var(--encre);
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-lift: 0 4px 16px rgba(0,0,0,0.5);
+  --shadow-press: 0 1px 2px rgba(0,0,0,0.5);
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 120px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 32px;
+  --radius-pill: 999px;
+  --target-min: 48px;
+  --target-pro: 40px;
+  --stroke-illustration: 3px;
+  --content-max: 1200px;
+  --motion-press: 100ms;
+  --motion-quick: 180ms;
+  --motion-standard: 280ms;
+  --motion-expressive: 640ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+  --font-sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+}
+@font-face { font-family: 'Atkinson Hyperlegible Next'; src: url('../fonts/AtkinsonHyperlegibleNext-400-normal.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Atkinson Hyperlegible Next'; src: url('../fonts/AtkinsonHyperlegibleNext-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Atkinson Hyperlegible Next'; src: url('../fonts/AtkinsonHyperlegibleNext-700-normal.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Atkinson Hyperlegible Next'; src: url('../fonts/AtkinsonHyperlegibleNext-800-normal.woff2') format('woff2'); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Atkinson Hyperlegible Mono'; src: url('../fonts/AtkinsonHyperlegibleMono-400-normal.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Atkinson Hyperlegible Mono'; src: url('../fonts/AtkinsonHyperlegibleMono-700-normal.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+.display-xl { font-family: var(--font-sans); font-size: 64px; line-height: 68px; font-weight: 800; letter-spacing: -0.02em; }
+.display { font-family: var(--font-sans); font-size: 44px; line-height: 50px; font-weight: 800; letter-spacing: -0.015em; }
+.lead { font-family: var(--font-sans); font-size: 22px; line-height: 32px; font-weight: 400; }
+.title { font-family: var(--font-sans); font-size: 28px; line-height: 34px; font-weight: 800; }
+.heading { font-family: var(--font-sans); font-size: 22px; line-height: 28px; font-weight: 700; }
+.body-lg { font-family: var(--font-sans); font-size: 20px; line-height: 30px; font-weight: 400; }
+.body { font-family: var(--font-sans); font-size: 18px; line-height: 28px; font-weight: 400; }
+.label { font-family: var(--font-sans); font-size: 18px; line-height: 24px; font-weight: 700; }
+.pro-title { font-family: var(--font-sans); font-size: 22px; line-height: 28px; font-weight: 700; }
+.pro-body { font-family: var(--font-sans); font-size: 16px; line-height: 24px; font-weight: 400; }
+.pro-label { font-family: var(--font-sans); font-size: 16px; line-height: 20px; font-weight: 700; }
+.pro-small { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 400; }
+.id-xl { font-family: var(--font-mono); font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: 0.04em; }
+.id { font-family: var(--font-mono); font-size: 20px; line-height: 28px; font-weight: 700; letter-spacing: 0.06em; }
+.id-sm { font-family: var(--font-mono); font-size: 16px; line-height: 24px; font-weight: 400; }

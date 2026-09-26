@@ -2,16 +2,26 @@
   "name": "@lafia/design",
   "version": "0.1.0",
   "private": true,
-  "description": "Système de design Lafia : jetons, pictogrammes, composants. Intégré à chaque application à la construction.",
+  "description": "Système de design Lafia : jetons, polices, pictogrammes, illustrations, composants. Intégré à chaque application à la construction.",
   "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
   "exports": {
     ".": "./src/index.ts",
-    "./styles.css": "./src/styles.css"
+    "./illustration": "./src/illustration.tsx",
+    "./styles.css": "./src/styles.css",
+    "./tokens.json": "./tokens/tokens.json"
   },
   "scripts": {
+    "generer": "node scripts/generer.mjs",
     "typecheck": "tsc --noEmit"
   },
+  "peerDependencies": {
+    "react": "^19"
+  },
   "devDependencies": {
+    "@types/react": "^19",
     "typescript": "^5"
   }
 }

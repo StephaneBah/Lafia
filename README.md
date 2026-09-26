@@ -10,7 +10,7 @@ Requires Docker with Compose v2. From a clean clone:
 docker compose up -d --build --wait
 ```
 
-The first start takes a few minutes while HAPI creates its schema. Then each actor's application is served on its own subdomain: `https://soin.localhost`, `https://caisse.localhost`, `https://pharmacie.localhost` and `https://citoyen.localhost`. Each page shows its service's status and the noyau's FHIR version. On soin, caisse and pharmacie, `/connexion` signs an agent or an officine in and lists the demo accounts with their mots de passe; once signed in, the home page names the agent and their établissement. A citoyen's page never shows their NPI. On each subdomain, `/api/<actor>/sante` reports the same as JSON (for instance `https://caisse.localhost/api/caisse/sante`), the service's OpenAPI documentation is at `/api/<actor>/docs`, and `/api/identite/sante` reaches the identite service. Any other `/api/*` path answers 404: `caisse.localhost` has no route to soin's service.
+The first start takes a few minutes while HAPI creates its schema. Then the product site is served on the domain itself, `https://localhost`, with a door to each application and its demo accounts, and each actor's application is served on its own subdomain: `https://soin.localhost`, `https://caisse.localhost`, `https://pharmacie.localhost` and `https://citoyen.localhost`. Each page shows its service's status and the noyau's FHIR version. On soin, caisse and pharmacie, `/connexion` signs an agent or an officine in and lists the demo accounts with their mots de passe; once signed in, the home page names the agent and their établissement. A citoyen's page never shows their NPI. On each subdomain, `/api/<actor>/sante` reports the same as JSON (for instance `https://caisse.localhost/api/caisse/sante`), the service's OpenAPI documentation is at `/api/<actor>/docs`, and `/api/identite/sante` reaches the identite service. Any other `/api/*` path answers 404: `caisse.localhost` has no route to soin's service.
 
 Locally, the gateway signs `*.localhost` certificates with Caddy's internal authority, so a browser warns until you trust its root, found in the `passerelle` container at `/data/caddy/pki/authorities/local/root.crt`.
 
@@ -22,7 +22,7 @@ docker compose down -v && docker compose up -d --build --wait
 
 ## Deploy
 
-The live stack runs on an Azure VM and serves `https://soin.lafia.stephanebah.page`, `https://caisse.lafia.stephanebah.page`, `https://pharmacie.lafia.stephanebah.page` and `https://citoyen.lafia.stephanebah.page`. A wildcard DNS record points `*.lafia.stephanebah.page` at the VM; its firewall opens 80 and 443, and SSH to the operator only.
+The live stack runs on an Azure VM and serves the product site on `https://lafia.stephanebah.page`, and the applications on `https://soin.lafia.stephanebah.page`, `https://caisse.lafia.stephanebah.page`, `https://pharmacie.lafia.stephanebah.page` and `https://citoyen.lafia.stephanebah.page`. A DNS record for `lafia.stephanebah.page` and a wildcard for `*.lafia.stephanebah.page` point at the VM; its firewall opens 80 and 443, and SSH to the operator only.
 
 Each deploy of the current `main`, from your machine:
 

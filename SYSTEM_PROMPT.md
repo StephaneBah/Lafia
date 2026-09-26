@@ -32,7 +32,7 @@ app citoyen   app soin   app caisse   app pharmacie      Next.js, one per actor
 2. **Services speak FHIR to the noyau only.** Services never call each other. `commun/` is a library imported at build time, never a runtime dependency.
 3. **HAPI runs in default configuration** and is consumed through its standard REST API. Project rules live in the services.
 4. **The noyau is internal.** HAPI publishes no port; the Caddy gateway is the only public entry.
-5. **One application per actor.** `web/citoyen`, `web/soin`, `web/caisse`, `web/pharmacie` are separate Next.js apps, each on its own subdomain. An app calls **its own service plus `identite`**, through the gateway, and nothing else. Apps are not on the noyau's network, never speak FHIR and store no medical data. They share two workspace packages, built in, never a runtime dependency: the design system `web/design/`, and `web/commun/`, the application code every app would otherwise repeat, such as reaching its own service through the gateway. `web/commun/` must never open a path around the services: it calls only the app's own service and `identite`, never another actor's service, the noyau or FHIR. A new actor (laboratoire, télémédecine, a third party) joins the same way: its own app, its own service, FHIR to the noyau. See `docs/adr/0001-une-application-par-acteur.md`.
+5. **One application per actor.** `web/citoyen`, `web/soin`, `web/caisse`, `web/pharmacie` are separate Next.js apps, each on its own subdomain. An app calls **its own service plus `identite`**, through the gateway, and nothing else. Apps are not on the noyau's network, never speak FHIR and store no medical data. They share two workspace packages, built in, never a runtime dependency: the design system `web/design/`, and `web/commun/`, the application code every app would otherwise repeat, such as reaching its own service through the gateway. `web/commun/` must never open a path around the services: it calls only the app's own service and `identite`, never another actor's service, the noyau or FHIR. A new actor (laboratoire, télémédecine, a third party) joins the same way: its own app, its own service, FHIR to the noyau. The product site `web/site/`, on the domain itself, is not an actor: it links to each app and calls no service. See `docs/adr/0001-une-application-par-acteur.md`.
 6. **Identity is the NPI**, carried in `Patient.identifier` with system `https://npi.gouv.bj`. Lafia creates no patient identifier of its own; a person without an NPI has no Lafia dossier in v1.
 7. **Only `identite` owns a database**: agent accounts, roles, facility, codes carnet. It stores no medical data.
 8. **Records are append-only.** A correction is a new version; history stays readable.
@@ -105,7 +105,7 @@ Each row is a feature, not a ticket, worked in dependency order. One session gri
 
 | # | Feature | Blocked by | Day |
 |---|---|---|---|
-| F0 | Design system: tokens, pictograms, components in `web/design/` | none | 1 |
+| F0 | Design system: tokens, pictograms, components in `web/design/`; product site `web/site/` | none | 1 |
 | F1 | Socle: Compose, noyau, gateway and subdomains, `commun/`, web workspace, Azure deploy | none | 1 |
 | F2 | Identité (agents, officines, code carnet) and synthetic dataset with tarifs | F1 | 1 |
 | F3 | Service and application soin, relation de soin | F0, F2 | 2 |

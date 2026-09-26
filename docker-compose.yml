@@ -264,6 +264,18 @@ services:
     environment:
       PASSERELLE_URL: http://citoyen.${LAFIA_DOMAINE:-localhost}:8080
 
+  # Le site produit, sur le domaine lui-même. Il n'appelle aucun service : il ne reçoit que le domaine,
+  # pour ses liens vers chaque application.
+  application-site:
+    <<: *application
+    build:
+      context: web
+      args:
+        APPLICATION: site
+    image: lafia/application-site
+    environment:
+      LAFIA_DOMAINE: ${LAFIA_DOMAINE:-localhost}
+
 networks:
   passerelle:
   noyau:

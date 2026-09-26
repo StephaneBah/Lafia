@@ -6,7 +6,7 @@ How to put the stack on a server, then keep it up to date. How the deployed syst
 
 - An Ubuntu 24.04 VM with 2 vCPU and 8 GB of memory.
 - A firewall (on Azure, the VM's network security group) that admits 80 and 443 from anywhere, and 22 from your own address only. Nothing else.
-- A domain with two DNS records pointing at the VM's public IP: `lafia.<domaine>` and the wildcard `*.lafia.<domaine>`. Every application is served on a subdomain of `lafia.<domaine>`.
+- A domain with two DNS records pointing at the VM's public IP: `lafia.<domaine>` and the wildcard `*.lafia.<domaine>`. Every application is served on a subdomain of `lafia.<domaine>`, and the product site on `lafia.<domaine>` itself.
 - The VM's SSH private key, a `.pem` file, on your machine.
 
 The live deployment uses `lafia.stephanebah.page` and the user `azureuser`.

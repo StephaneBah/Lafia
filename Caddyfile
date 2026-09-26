@@ -1,6 +1,7 @@
 # Passerelle : la seule entrée publique de Lafia.
 # Chaque application a son sous-domaine ; sur ce sous-domaine, /api/<son service>/* va à son
 # service, /api/identite/* à identite, tout autre /api/* reçoit 404, et le reste va à l'application.
+# Le domaine lui-même sert le site produit, qui n'appelle aucun service : tout /api/* y reçoit 404.
 #
 # LAFIA_DOMAINE vaut localhost en local : Caddy signe alors les certificats de
 # soin.localhost, … par son autorité interne. Sur un vrai domaine, il les obtient
@@ -19,27 +20,31 @@
 	}
 }
 
+# Sur toute réponse, page, API ou refus, du site comme de chaque application : HTTPS seul, pas
+# d'interprétation du type, jamais dans le cadre d'un autre site, aucune adresse transmise en référent
+# à un autre site (elle peut porter un identifiant). Vers la même origine, le navigateur garde son
+# origine : identite n'accepte un formulaire que s'il la porte, et `no-referrer` la remplacerait par
+# `null`. La caméra reste permise : la caisse et la pharmacie liront le QR code de l'ordonnance.
+# Rien ne nomme le logiciel derrière la passerelle.
+(en-tetes) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Content-Security-Policy "frame-ancestors 'none'"
+		Referrer-Policy "same-origin"
+		Permissions-Policy "geolocation=(), microphone=()"
+		-Server
+		-X-Powered-By
+		-Via
+	}
+}
+
 # La règle de tout acteur : `import acteur <nom>` sert <nom>.<domaine>, où son service est le
 # conteneur <nom> et son application le conteneur application-<nom>.
 (acteur) {
 	{args[0]}.{$LAFIA_DOMAINE}, http://{args[0]}.{$LAFIA_DOMAINE}:8080 {
-		# Sur toute réponse, page, API ou refus : HTTPS seul, pas d'interprétation du type, jamais dans
-		# le cadre d'un autre site, aucune adresse transmise en référent à un autre site (elle peut
-		# porter un identifiant). Vers la même origine, le navigateur garde son origine : identite
-		# n'accepte un formulaire que s'il la porte, et `no-referrer` la remplacerait par `null`.
-		# La caméra reste permise : la caisse et la pharmacie liront le QR code de l'ordonnance.
-		# Rien ne nomme le logiciel derrière la passerelle.
-		header {
-			Strict-Transport-Security "max-age=31536000"
-			X-Content-Type-Options "nosniff"
-			X-Frame-Options "DENY"
-			Content-Security-Policy "frame-ancestors 'none'"
-			Referrer-Policy "same-origin"
-			Permissions-Policy "geolocation=(), microphone=()"
-			-Server
-			-X-Powered-By
-			-Via
-		}
+		import en-tetes
 		handle /api/{args[0]}/* {
 			reverse_proxy {args[0]}:8000
 		}
@@ -59,3 +64,15 @@ import acteur soin
 import acteur caisse
 import acteur pharmacie
 import acteur citoyen
+
+# Le site produit, sur le domaine lui-même : la vision, et un lien vers chaque application. Il n'a pas
+# d'entrée interne, n'appelle aucun service et n'en expose aucun.
+{$LAFIA_DOMAINE} {
+	import en-tetes
+	handle /api/* {
+		respond 404
+	}
+	handle {
+		reverse_proxy application-site:3000
+	}
+}

@@ -44,7 +44,14 @@ SONDE_TCP_PYTHON = [
 ]
 REPONSE, SANS_REPONSE = 0, 3
 
-APPLICATIONS = ["application-soin", "application-caisse", "application-pharmacie", "application-citoyen"]
+# Les serveurs Next.js : une application par acteur, et le site produit, qui n'appelle aucun service.
+APPLICATIONS = [
+    "application-soin",
+    "application-caisse",
+    "application-pharmacie",
+    "application-citoyen",
+    "application-site",
+]
 SERVICES_FHIR = ["soin", "caisse", "pharmacie", "citoyen"]
 
 # Chaque conteneur a les sondes de l'interpréteur qu'il embarque : HTTP, puis TCP.

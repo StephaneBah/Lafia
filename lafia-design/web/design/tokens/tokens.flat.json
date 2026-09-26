@@ -1,0 +1,207 @@
+{
+  "couleur": {
+    "bleu-royal": {
+      "clair": "#3648C0",
+      "ardoise": "#3648C0"
+    },
+    "bleu-denim": {
+      "clair": "#4E72AE",
+      "ardoise": "#4E72AE"
+    },
+    "pervenche": {
+      "clair": "#C0C6FC",
+      "ardoise": "#C0C6FC"
+    },
+    "fond-pale": {
+      "clair": "#EAF0FC",
+      "ardoise": "#EAF0FC"
+    },
+    "ardoise": {
+      "clair": "#242A36",
+      "ardoise": "#242A36"
+    },
+    "encre": {
+      "clair": "#121212",
+      "ardoise": "#121212"
+    },
+    "blanc": {
+      "clair": "#FFFFFF",
+      "ardoise": "#FFFFFF"
+    },
+    "terre": {
+      "clair": "#C2562B",
+      "ardoise": "#D96A3E"
+    },
+    "illu-soleil": {
+      "clair": "#F2B544",
+      "ardoise": "#F2B544"
+    },
+    "illu-peau-1": {
+      "clair": "#A8704A",
+      "ardoise": "#A8704A"
+    },
+    "illu-peau-2": {
+      "clair": "#8A5A3C",
+      "ardoise": "#8A5A3C"
+    },
+    "illu-peau-3": {
+      "clair": "#5E3A24",
+      "ardoise": "#5E3A24"
+    },
+    "color-bg": {
+      "clair": "{fond-pale}",
+      "ardoise": "#1A1F29"
+    },
+    "color-surface": {
+      "clair": "{blanc}",
+      "ardoise": "{ardoise}"
+    },
+    "color-surface-sunken": {
+      "clair": "#F4F7FD",
+      "ardoise": "#2C3342"
+    },
+    "color-surface-soft": {
+      "clair": "{pervenche}",
+      "ardoise": "#343C63"
+    },
+    "color-band": {
+      "clair": "{bleu-denim}",
+      "ardoise": "#1A1F29"
+    },
+    "color-on-band": {
+      "clair": "{blanc}",
+      "ardoise": "#F2F4FA"
+    },
+    "color-text": {
+      "clair": "{encre}",
+      "ardoise": "#F2F4FA"
+    },
+    "color-text-muted": {
+      "clair": "#4A5163",
+      "ardoise": "#B8BFD0"
+    },
+    "color-action": {
+      "clair": "{bleu-royal}",
+      "ardoise": "{pervenche}"
+    },
+    "color-action-hover": {
+      "clair": "#2A3A9E",
+      "ardoise": "#D6DAFE"
+    },
+    "color-on-action": {
+      "clair": "{blanc}",
+      "ardoise": "{encre}"
+    },
+    "color-link": {
+      "clair": "{bleu-royal}",
+      "ardoise": "{pervenche}"
+    },
+    "color-border": {
+      "clair": "#D5DCEB",
+      "ardoise": "#3A4252"
+    },
+    "color-border-control": {
+      "clair": "#6B7489",
+      "ardoise": "#8A93A8"
+    },
+    "color-focus": {
+      "clair": "{bleu-royal}",
+      "ardoise": "{pervenche}"
+    },
+    "color-fil": {
+      "clair": "{encre}",
+      "ardoise": "{pervenche}"
+    },
+    "status-paye-fg": {
+      "clair": "#00524B",
+      "ardoise": "#7ED6C9"
+    },
+    "status-paye-bg": {
+      "clair": "#DCF2EE",
+      "ardoise": "#123A36"
+    },
+    "status-apayer-fg": {
+      "clair": "#723D00",
+      "ardoise": "#F5B866"
+    },
+    "status-apayer-bg": {
+      "clair": "#FFEFD6",
+      "ardoise": "#3A2A10"
+    },
+    "status-aretirer-fg": {
+      "clair": "#26339A",
+      "ardoise": "#C0C6FC"
+    },
+    "status-aretirer-bg": {
+      "clair": "#E4E8FF",
+      "ardoise": "#262E5C"
+    },
+    "status-partiel-fg": {
+      "clair": "#582C84",
+      "ardoise": "#D3B2F2"
+    },
+    "status-partiel-bg": {
+      "clair": "#F1E7FA",
+      "ardoise": "#33224A"
+    },
+    "status-retire-fg": {
+      "clair": "#3F4656",
+      "ardoise": "#C3C9D6"
+    },
+    "status-retire-bg": {
+      "clair": "#E6E9EF",
+      "ardoise": "#2E3442"
+    },
+    "status-danger-fg": {
+      "clair": "#9A1C15",
+      "ardoise": "#FF9C92"
+    },
+    "status-danger-bg": {
+      "clair": "#FDE8E6",
+      "ardoise": "#45191A"
+    },
+    "status-danger-solid": {
+      "clair": "#9A1C15",
+      "ardoise": "#FF8A7E"
+    },
+    "color-on-danger": {
+      "clair": "{blanc}",
+      "ardoise": "{encre}"
+    }
+  },
+  "spacing": {
+    "space-1": "4px",
+    "space-2": "8px",
+    "space-3": "12px",
+    "space-4": "16px",
+    "space-5": "24px",
+    "space-6": "32px",
+    "space-7": "48px",
+    "space-8": "64px",
+    "space-9": "120px"
+  },
+  "radius": {
+    "radius-sm": "8px",
+    "radius-md": "14px",
+    "radius-lg": "20px",
+    "radius-xl": "32px",
+    "radius-pill": "999px"
+  },
+  "size": {
+    "target-min": "48px",
+    "target-pro": "40px",
+    "stroke-illustration": "3px",
+    "content-max": "1200px"
+  },
+  "duration": {
+    "motion-press": "100ms",
+    "motion-quick": "180ms",
+    "motion-standard": "280ms",
+    "motion-expressive": "640ms"
+  },
+  "easing": {
+    "ease-standard": "cubic-bezier(0.2, 0, 0, 1)",
+    "ease-exit": "cubic-bezier(0.3, 0, 1, 1)",
+    "ease-spring": "cubic-bezier(0.34, 1.3, 0.64, 1)"
+  }
+}
