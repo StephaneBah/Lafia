@@ -136,6 +136,12 @@
 .sn-page { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border: 1px solid var(--color-border-control); border-radius: var(--radius-pill); color: var(--color-text); font-weight: 700; text-decoration: none; }
 .sn-page[aria-current="page"] { background: var(--color-action); border-color: var(--color-action); color: var(--color-on-action); }
 .sn-page:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+/* Un Document relu : ses pages et sa Transcription côte à côte, empilées sur un petit écran (F6.6). */
+.sn-document-relu { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+.sn-document-relu-pages { position: sticky; top: var(--space-4); }
+.sn-transcription { display: grid; gap: var(--space-3); }
+.sn-origine.sn-papier-abime { display: flex; align-items: flex-start; margin: 6px 0 0; color: var(--status-partiel-fg); }
+.sn-papier-abime svg { flex: none; margin-top: 2px; }
 .sn-page-image { display: block; max-width: 100%; height: auto; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-sunken); }
 .sn-espace-contenu { display: grid; gap: var(--space-4); }
 .sn-intro { margin: 0; display: flex; gap: 8px; align-items: center; font-weight: 700; }
@@ -196,6 +202,8 @@
 .sn-recap dd { margin: 0; }
 
 @media (max-width: 860px) {
+  .sn-document-relu { grid-template-columns: minmax(0, 1fr); }
+  .sn-document-relu-pages { position: static; }
   .sn-recherche, .sn-deux, .sn-deux--urgence, .sn-dossier, .sn-recu-ecran, .sn-grille, .sn-synthese, .sn-bandeau-histoire, .sn-recap > div { grid-template-columns: minmax(0, 1fr); }
   .sn-bandeau { position: static; }
   .sn-radios--ligne, .sn-radios--groupes { grid-template-columns: 1fr 1fr; }

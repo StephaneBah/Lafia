@@ -13,6 +13,7 @@ from citoyen.regles import carnet, documents
 from citoyen.regles.acces import SessionCitoyen, session_du_citoyen
 from commun.fhir import documents as fhir_documents
 from commun.fhir import dossier as dossier_fhir
+from commun.fhir import relecture as fhir_relecture
 from commun.fhir import transcriptions as fhir_transcriptions
 from commun.fhir.citoyen import DossierDuCitoyen, lire_dossier
 from commun.fhir.client import ClientFhir, Ressource
@@ -159,7 +160,7 @@ async def transcription_de_mon_document(
     document = await fhir.lire("DocumentReference", document_id)
     if document is None or not documents.est_du_citoyen(document, patient["id"]):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="document introuvable")
-    relue = await fhir_transcriptions.transcription_relue(fhir, document_id)
+    relue = await fhir_relecture.transcription_relue(fhir, document_id)
     lue = await fhir_transcriptions.lire_transcription(fhir, document, relue) if relue else None
     if relue is None or lue is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="pas encore relu")
@@ -177,7 +178,7 @@ async def par_etablissement(
     lues = [
         (scan, markdown)
         for scan, relue in sorted(relues.items())
-        if (markdown := await fhir_transcriptions.markdown_de(fhir, relue)) is not None
+        if (markdown := await fhir_relecture.markdown_de(fhir, relue)) is not None
     ]
     await _tracer_lecture(fhir, patient["id"])
     return documents.par_etablissement(lues)

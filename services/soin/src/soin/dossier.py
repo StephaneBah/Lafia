@@ -9,6 +9,7 @@ Les règles (relation de soin, catalogues, rôles) viennent de `soin.regles` ; l
 from typing import Any
 
 from commun.fhir import documents as fhir_documents
+from commun.fhir import relecture as fhir_relecture
 from commun.fhir import soin as fhir_soin
 from commun.fhir import systemes
 from commun.fhir import transcriptions as fhir_transcriptions
@@ -535,7 +536,7 @@ async def transcription_du_document(
     """La Transcription relue d'un Document, avec une relation de soin avec son patient. Lecture tracée.
     Une version préliminaire, en relecture, n'en est pas une : `TranscriptionInconnue`."""
     document, patient, motif = await _document_lisible(fhir, soignant, document_id)
-    relue = await fhir_transcriptions.transcription_relue(fhir, document_id)
+    relue = await fhir_relecture.transcription_relue(fhir, document_id)
     lue = await fhir_transcriptions.lire_transcription(fhir, document, relue) if relue else None
     if lue is None:
         raise TranscriptionInconnue()

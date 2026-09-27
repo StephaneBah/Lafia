@@ -25,14 +25,13 @@ Les numéros à montrer (citoyens de citoyens.toml, patients de patients.toml) :
 - patient-013, NPI 0000002316294, code carnet B8F-5ZE : rien de clinique, le carnet vide.
 """
 
-import base64
 import struct
 import zlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import donnees
-from commun.fhir import systemes
+from commun.fhir import relecture, systemes
 from commun.fhir.documents import Page, avec_origine, binary, document_reference
 from commun.fhir.client import Ressource
 from commun.fhir.ressources import DEVISE
@@ -42,9 +41,6 @@ CATEGORIE_D_OBSERVATION = "http://terminology.hl7.org/CodeSystem/observation-cat
 CLASSE_DE_VISITE = "http://terminology.hl7.org/CodeSystem/v3-ActCode"
 STATUT_CLINIQUE = "http://terminology.hl7.org/CodeSystem/condition-clinical"
 MOMENTS_FHIR = {"matin": "MORN", "midi": "NOON", "soir": "EVE", "nuit": "NIGHT"}
-# ADR 0010 : une Transcription est du Markdown ; l'issue d'une Tâche de relecture se dit dans ce système.
-FORMAT_DE_TRANSCRIPTION = "text/markdown; charset=utf-8"
-ISSUE_DE_RELECTURE = f"{systemes.LAFIA}/CodeSystem/issue-de-relecture"
 
 
 def _ref(type_: str, id_: str) -> dict[str, str]:
@@ -298,68 +294,49 @@ class _Histoire:
             "entity": [{"what": _ref("Patient", patient)}],
         })
 
-    def document_transcrit(self, id_: str, patient: str, *, numerise: datetime, relu: datetime,
-                           agent: str, relecteur: str, controleur: str, markdown: str,
-                           pages: list[bytes], **document: Any) -> None:
-        """Un Document numérisé, ses pages, et sa Transcription relue (ADR 0010) : le Markdown dans un
-        Binary, la version finale qui `transforms` le scan, la Relecture et le Contrôle en Provenance, et
-        la Tâche de relecture close, pour que la relecture ne la redonne à personne."""
+    def document_transcrit(self, id_: str, patient: str, *, numerise: datetime, confirme: datetime,
+                           controle: datetime, agent: str, relecteur: str, controleur: str, markdown: str,
+                           resume: str, pages: list[bytes], **document: Any) -> None:
+        """Un Document numérisé, ses pages, et le chemin de sa Transcription (ADR 0010, docs/specs/F6),
+        écrit par les mêmes fonctions que le service relecture : la version confirmée par `relecteur`,
+        préliminaire puis remplacée ; la version relue, finale, au Contrôle de `controleur` ; leurs
+        Provenance ; la Tâche de relecture et celle du Contrôle, closes, pour que personne ne les reçoive."""
         pages_ecrites = []
         for rang, octets in enumerate(pages, start=1):
             page = Page(format="image/png", octets=octets)
             self._ajouter({**binary(page, patient), "id": f"{id_}-page-{rang}"})
             pages_ecrites.append((f"{id_}-page-{rang}", page))
-        scan = document_reference(patient=patient, auteur=agent, pages=pages_ecrites, depot=None, **document)
-        self._ajouter({**scan, "id": id_, "date": _instant(numerise)})
+        scan = {**document_reference(patient=patient, auteur=agent, pages=pages_ecrites, depot=None, **document),
+                "id": id_, "date": _instant(numerise)}
+        self._ajouter(scan)
 
-        transcription = f"{id_}-transcription"
-        self._ajouter({
-            "resourceType": "Binary", "id": f"{transcription}-texte",
-            "contentType": FORMAT_DE_TRANSCRIPTION,
-            "securityContext": _ref("Patient", patient),
-            "data": base64.b64encode(markdown.encode()).decode(),
-        })
-        self._ajouter(avec_origine({
-            "resourceType": "DocumentReference", "id": transcription,
-            "status": "current", "docStatus": "final",
-            "type": {"coding": [{"system": systemes.TYPE_DE_DOCUMENT, "code": "transcription",
-                                 "display": "Transcription"}], "text": "Transcription"},
-            "subject": _ref("Patient", patient),
-            "date": _instant(relu),
-            "author": [_ref("Practitioner", relecteur), _ref("Practitioner", controleur)],
-            "relatesTo": [{"code": "transforms", "target": _ref("DocumentReference", id_)}],
-            "context": {"period": {"start": document["annee"]}},
-            "content": [{"attachment": {"contentType": FORMAT_DE_TRANSCRIPTION, "url": f"Binary/{transcription}-texte",
-                                        "size": len(markdown.encode()), "title": "Transcription"}}],
-        }, "extraction"))
-        for activite, libelle, qui, role, quand in (
-            ("relecture", "Relecture", relecteur, "Relu par", relu - timedelta(days=2)),
-            ("controle", "Contrôle", controleur, "Contrôlé par", relu),
+        texte = {**relecture.binary_de_transcription(markdown, patient), "id": f"{id_}-transcription-texte"}
+        self._ajouter(texte)
+        confirmee_id, relue_id = f"{id_}-transcription-1", f"{id_}-transcription-2"
+        commune = {"scan": scan, "binary": texte["id"], "taille": len(markdown.encode())}
+        confirmee = relecture.transcription(auteurs=[relecteur], relue=False, precedente=None, **commune)
+        self._ajouter({**relecture.remplacee(confirmee), "id": confirmee_id, "date": _instant(confirme)})
+        relue = relecture.transcription(auteurs=[relecteur, controleur], relue=True, precedente=confirmee_id, **commune)
+        self._ajouter({**relue, "id": relue_id, "date": _instant(controle)})
+        for version, qui, activite, quand in (
+            (confirmee_id, relecteur, "relecture", confirme), (relue_id, controleur, "controle", controle)
         ):
-            self._ajouter({
-                "resourceType": "Provenance", "id": f"{transcription}-{activite}",
-                "target": [_ref("DocumentReference", transcription)],
-                "recorded": _instant(quand),
-                "activity": {"coding": [{"system": systemes.RELECTURE, "code": activite, "display": libelle}],
-                             "text": libelle},
-                "agent": [{"type": {"text": role}, "who": _ref("Practitioner", qui)}],
-                "entity": [{"role": "source", "what": _ref("DocumentReference", id_)}],
-            })
-        annee, numero, _ = relu.isocalendar()
-        self._ajouter({
-            "resourceType": "Task", "id": f"{id_}-relecture",
-            "meta": {"tag": [{"system": systemes.SEMAINE_DE_RELECTURE, "code": f"{annee}-W{numero:02d}"}]},
-            "status": "completed", "intent": "order",
-            "code": {"coding": [{"system": systemes.RELECTURE, "code": "relecture", "display": "Relecture"}]},
-            "businessStatus": {"coding": [{"system": ISSUE_DE_RELECTURE, "code": "relue", "display": "Relue"}]},
-            "focus": _ref("DocumentReference", id_),
-            "for": _ref("Patient", patient),
-            "owner": _ref("Practitioner", relecteur),
-            "authoredOn": _instant(numerise),
-            "executionPeriod": {"start": _instant(numerise), "end": _instant(relu)},
-            "output": [{"type": {"text": "Transcription"},
-                        "valueReference": _ref("DocumentReference", transcription)}],
-        })
+            provenance = relecture.provenance_de_relecture(
+                cible=_ref("DocumentReference", version), scan=id_, relecteur=qui, activite=activite, modele=None)
+            self._ajouter({**provenance, "id": f"{version}-{activite}", "recorded": _instant(quand)})
+
+        def close(tache: Ressource, debut: datetime, fin: datetime) -> Ressource:
+            periode = {"start": _instant(debut), "end": _instant(fin)}
+            return {**tache, "authoredOn": _instant(debut), "lastModified": _instant(controle), "executionPeriod": periode}
+
+        tache = {**relecture.tache_de_relecture(document=id_, patient=patient, relecteur=relecteur,
+                                                jour=numerise.date()), "id": f"{id_}-relecture"}
+        tache = relecture.confirmee(tache, transcription=_ref("DocumentReference", confirmee_id), resume=resume, relue=False)
+        self._ajouter(close(relecture.relue(tache, _ref("DocumentReference", relue_id)), numerise, confirme))
+        verification = relecture.tache_de_controle(id_=f"{id_}-controle", relecture=tache,
+                                                   transcription=_ref("DocumentReference", confirmee_id), resume=resume)
+        verification = relecture.controlee(relecture.reassignee(verification, controleur, confirme.date()), "accepter")
+        self._ajouter(close(verification, confirme, controle))
 
 
 def _patient_a(h: _Histoire) -> None:
@@ -412,9 +389,10 @@ def _patient_a(h: _Histoire) -> None:
     # Un ancien carnet papier, déposé au CNHU-HKM il y a trois semaines, relu hors du Littoral puis contrôlé.
     h.document_transcrit(
         "hist-a-carnet-papier", p,
-        numerise=h.il_y_a(24, 11, 5), relu=h.il_y_a(10, 16, 20),
+        numerise=h.il_y_a(24, 11, 5), confirme=h.il_y_a(12, 15, 40), controle=h.il_y_a(10, 16, 20),
         agent="agent-23", relecteur="agent-25", controleur="agent-26",
         markdown=CARNET_PAPIER_TRANSCRIT, pages=[_page_de_carnet(n) for n in range(1, 5)],
+        resume="Quatre volets relus contre les pages ; tableau de la page 3 recopié, fin manquante (coin déchiré).",
         type_="carnet", annee="2015", lisibilite="partiel", etablissement_d_origine="CS Kpanroun",
         papier_abime="Coin inférieur de la page 3 déchiré avant le dépôt : la fin du tableau manque.",
     )

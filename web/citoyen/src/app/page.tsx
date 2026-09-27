@@ -104,6 +104,12 @@ function CarnetDuCitoyen({ carnet }: { carnet: Accueil }) {
           detail="Vos anciens papiers, numérisés"
         />
         <Tuile
+          href="/par-etablissement"
+          marque={<Icon name="hospital" size={36} />}
+          titre="Par établissement"
+          detail="Vos anciens papiers relus, lieu par lieu"
+        />
+        <Tuile
           href="/acces"
           marque={<Picto name="consultation" size={44} decorative />}
           titre="Qui a ouvert mon dossier"
