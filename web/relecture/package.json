@@ -2,7 +2,7 @@
   "name": "@lafia/relecture",
   "version": "0.1.0",
   "private": true,
-  "description": "Application relecture : le triage des agents de relecture et la validation des soignants, appariée au service relecture.",
+  "description": "Application relecture : le triage des Documents par les agents de relecture et la validation des Extractions par les soignants, appariée au service relecture.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

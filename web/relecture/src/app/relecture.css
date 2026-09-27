@@ -1,0 +1,155 @@
+/* La relecture : des pages en grand, un choix clair à côté. Calme, lisible, rien qui presse. */
+
+.rel-main { max-width: 960px; }
+.rel-main--large { max-width: 1280px; }
+.rel-meta { margin: 0; color: var(--color-text-muted); font-size: 15px; line-height: 22px; }
+.rel-chiffres { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.rel-masque { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.rel-retour { display: inline-flex; align-items: center; gap: var(--space-2); justify-self: start; min-height: 40px; color: var(--color-link); font-weight: 700; text-decoration: none; }
+.rel-retour:hover span { text-decoration: underline; }
+.rel-retour:focus-visible, .rel-tache-lien:focus-visible, .rel-pages-onglet:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+.rel-entete { display: flex; justify-content: space-between; align-items: end; gap: var(--space-4); flex-wrap: wrap; }
+.rel-session { display: grid; grid-template-columns: auto auto; gap: 2px var(--space-3); margin: 0; font-size: 15px; line-height: 22px; }
+.rel-session dt { color: var(--color-text-muted); }
+.rel-session dd { margin: 0; font-weight: 700; }
+
+.rel-carte { display: grid; gap: var(--space-4); padding: var(--space-5); background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-card); min-width: 0; align-content: start; }
+.rel-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
+.rel-erreur { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--status-danger-fg); font-weight: 700; }
+
+/* Ma semaine : le compte écrit, la barre qui le redit. */
+.rel-avancement { display: grid; gap: var(--space-2); }
+.rel-avancement-compte { margin: 0; font-size: 20px; line-height: 28px; font-weight: 700; }
+.rel-avancement-compte .rel-chiffres { font-size: 28px; }
+.rel-barre { height: 14px; border-radius: var(--radius-pill); background: var(--color-surface-sunken); border: 1px solid var(--color-border); overflow: hidden; }
+.rel-barre-plein { display: block; height: 100%; background: var(--color-action); border-radius: var(--radius-pill); transition: width var(--motion-standard) var(--ease-standard); }
+.rel-echeance { display: flex; align-items: center; gap: var(--space-2); }
+
+.rel-taches { list-style: none; margin: 0; padding: 0; display: grid; }
+.rel-tache { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--color-border); }
+.rel-tache:first-child { border-top: 0; }
+.rel-tache-rang { color: var(--color-text-muted); text-align: end; }
+.rel-tache-texte { display: grid; gap: 2px; min-width: 0; }
+.rel-tache-type { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-weight: 700; }
+.rel-tache.is-faite .rel-tache-type { color: var(--color-text-muted); }
+.rel-tache-lien { display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--space-3); color: var(--color-link); font-weight: 700; }
+
+.rel-vide { justify-items: center; text-align: center; padding: var(--space-7) var(--space-5); }
+.rel-vide-marque { display: grid; place-items: center; width: 72px; height: 72px; border-radius: var(--radius-pill); background: var(--status-paye-bg); color: var(--status-paye-fg); }
+
+/* Une tâche : ce qui est déclaré, puis les pages à côté du choix. */
+.rel-tache-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); }
+.rel-declare { display: grid; grid-template-columns: repeat(4, auto); grid-auto-flow: column; grid-template-rows: auto auto; justify-content: start; gap: 0 var(--space-5); margin: 0; }
+.rel-declare > dt { color: var(--color-text-muted); font-size: 14px; line-height: 20px; }
+.rel-declare > dd { margin: 0; font-weight: 700; }
+.rel-declare-type { display: inline-flex; align-items: center; gap: var(--space-2); }
+
+.rel-plan { display: grid; gap: var(--space-5); align-items: start; }
+.rel-plan--triage { grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); }
+.rel-plan--validation { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.rel-cote { display: grid; gap: var(--space-4); min-width: 0; }
+
+.rel-pseudonymat { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-surface-soft); border: 1px solid var(--color-border); font-weight: 700; }
+.rel-pseudonymat .lf-icon { flex: none; margin-top: 1px; }
+
+/* Les pages : une à la fois, grande, qu'on agrandit ; la visionneuse reste en vue en défilant. */
+.rel-pages { display: grid; gap: var(--space-3); padding: var(--space-4); background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-card); min-width: 0; position: sticky; top: var(--space-4); }
+.rel-pages-barre { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.rel-pages-compte { margin: 0; font-weight: 800; }
+.rel-pages-zoom { display: flex; align-items: center; gap: var(--space-1); }
+.rel-page-cadre { height: min(72vh, 900px); overflow: auto; border-radius: var(--radius-sm); background: var(--color-surface-sunken); border: 1px solid var(--color-border); }
+.rel-page-cadre:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.rel-page-image { display: block; max-width: none; height: auto; margin: 0 auto; background: #FFFFFF; }
+.rel-page-image.is-entiere { max-width: 100%; max-height: 100%; width: auto; }
+.rel-page-pdf { display: block; width: 100%; height: 100%; border: 0; background: #FFFFFF; }
+.rel-pages-navigation { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.rel-pages-onglet { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 40px; color: var(--color-link); font-weight: 700; }
+.rel-pages-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.rel-pages-numero { min-width: 40px; min-height: 40px; border: 2px solid var(--color-border-control); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: 700 16px/20px var(--font-mono); cursor: pointer; }
+.rel-pages-numero.is-courante { border-color: var(--color-action); background: var(--color-action); color: var(--color-on-action); }
+.rel-pages-numero:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+
+/* Le triage : de grands boutons, icône et mot, une aide sous chacun. */
+.rel-triage { display: grid; gap: var(--space-4); }
+.rel-champ-annee { max-width: 320px; }
+.rel-champ-annee .lf-input { font-family: var(--font-mono); font-size: 20px; letter-spacing: .06em; }
+.rel-verdicts, .rel-choix-type { margin: 0; padding: 0; border: 0; display: grid; gap: var(--space-2); min-width: 0; }
+.rel-legende { display: flex; align-items: center; gap: var(--space-2); padding: 0; margin-bottom: var(--space-2); font: 700 18px/24px var(--font-sans); }
+.rel-verdict { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-3); width: 100%; min-height: 64px; padding: var(--space-3) var(--space-4); border: 2px solid var(--color-border-control); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text); text-align: start; font: inherit; cursor: pointer; transition: border-color var(--motion-quick) var(--ease-standard), background var(--motion-quick) var(--ease-standard); }
+.rel-verdict:hover:not(:disabled) { border-color: var(--color-action); background: var(--color-surface-soft); }
+.rel-verdict:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.rel-verdict:disabled { cursor: progress; opacity: .7; }
+.rel-verdict-marque { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--radius-pill); background: var(--color-surface-sunken); }
+.rel-verdict--utilisable { border-color: var(--status-paye-fg); }
+.rel-verdict--utilisable .rel-verdict-marque { background: var(--status-paye-bg); color: var(--status-paye-fg); }
+.rel-verdict-texte { display: grid; gap: 2px; }
+.rel-verdict-mot { font-size: 18px; line-height: 24px; font-weight: 800; }
+.rel-verdict-aide { color: var(--color-text-muted); font-size: 15px; line-height: 20px; }
+
+.rel-tuiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-2); }
+.rel-tuile { position: relative; display: grid; justify-items: center; align-content: center; gap: var(--space-2); min-height: 104px; padding: var(--space-3); border: 2px solid var(--color-border-control); border-radius: var(--radius-md); background: var(--color-surface); text-align: center; font-weight: 600; line-height: 20px; cursor: pointer; }
+.rel-tuile input { position: absolute; top: var(--space-2); left: var(--space-2); width: 20px; height: 20px; margin: 0; accent-color: var(--color-action); }
+.rel-tuile:hover { border-color: var(--color-action); }
+.rel-tuile:has(input:checked) { border-color: var(--color-action); background: var(--color-surface-soft); font-weight: 800; box-shadow: inset 0 0 0 1px var(--color-action); }
+.rel-tuile:has(input:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+
+/* La validation : une carte par proposition, la décision dite en mots. */
+.rel-texte summary { cursor: pointer; font-weight: 700; color: var(--color-link); min-height: 40px; display: flex; align-items: center; }
+.rel-texte pre { margin: var(--space-2) 0 0; padding: var(--space-3); max-height: 240px; overflow: auto; white-space: pre-wrap; background: var(--color-surface-sunken); border-radius: var(--radius-sm); font: 14px/20px var(--font-mono); }
+.rel-validation { display: grid; gap: var(--space-4); }
+.rel-propositions { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.rel-proposition { border: 2px solid var(--color-border); border-left-width: 6px; border-radius: var(--radius-md); background: var(--color-surface); }
+.rel-proposition.is-accepter, .rel-proposition.is-corriger { border-left-color: var(--status-paye-fg); }
+.rel-proposition.is-rejeter { border-left-color: var(--color-text-muted); background: var(--color-surface-sunken); }
+.rel-proposition-corps { margin: 0; padding: var(--space-4); border: 0; display: grid; gap: var(--space-3); min-width: 0; }
+.rel-proposition-genre { display: flex; align-items: center; gap: var(--space-2); padding: 0; color: var(--color-text-muted); font-size: 14px; line-height: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.rel-proposition-tete { display: grid; gap: var(--space-1); }
+.rel-proposition-libelle { margin: 0; font-weight: 700; }
+.rel-proposition-valeur { margin: 0; font: 800 24px/30px var(--font-sans); overflow-wrap: anywhere; }
+.rel-proposition-valeur.is-barree { text-decoration: line-through; color: var(--color-text-muted); }
+.rel-confiance { display: inline-flex; align-items: center; gap: 6px; justify-self: start; padding: 2px 10px 2px 8px; border-radius: var(--radius-pill); font-size: 14px; line-height: 20px; font-weight: 700; }
+.rel-confiance--elevee { background: var(--status-paye-bg); color: var(--status-paye-fg); }
+.rel-confiance--moyenne { background: var(--status-apayer-bg); color: var(--status-apayer-fg); }
+.rel-confiance--faible { background: var(--status-danger-bg); color: var(--status-danger-fg); }
+.rel-extrait { margin: 0; padding: var(--space-2) var(--space-3); border-left: 3px solid var(--color-border-control); background: var(--color-surface-sunken); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.rel-extrait figcaption { color: var(--color-text-muted); font-size: 14px; line-height: 20px; }
+.rel-extrait blockquote { margin: 0; font: italic 16px/24px var(--font-sans); overflow-wrap: anywhere; }
+.rel-decisions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.rel-decision { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 48px; padding: 0 var(--space-4); border: 2px solid var(--color-border-control); border-radius: var(--radius-sm); background: var(--color-surface); font-size: 17px; cursor: pointer; }
+.rel-decision input { width: 22px; height: 22px; margin: 0; accent-color: var(--color-action); }
+.rel-decision:has(input:checked) { border-color: var(--color-action); background: var(--color-surface-soft); font-weight: 800; }
+.rel-decision:has(input:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.rel-correction { max-width: 420px; }
+.rel-proposition-fait { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-weight: 700; }
+.rel-envoi { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
+
+.rel-confirmation { justify-items: start; }
+.rel-confirmation:focus { outline: none; }
+.rel-entrees { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.rel-entrees li { display: flex; align-items: flex-start; gap: var(--space-2); }
+.rel-entrees .lf-icon { flex: none; margin-top: 2px; }
+
+/* Petit écran : une colonne, les pages au-dessus du choix. */
+@media (max-width: 960px) {
+  .rel-plan--triage, .rel-plan--validation { grid-template-columns: minmax(0, 1fr); }
+  .rel-pages { position: static; }
+  .rel-page-cadre { height: 60vh; }
+}
+
+@media (max-width: 640px) {
+  .rel-carte { padding: var(--space-4); }
+  .rel-pages { padding: var(--space-3); }
+  .rel-tache { grid-template-columns: minmax(0, 1fr) auto; }
+  .rel-tache-rang { display: none; }
+  .rel-tache-lien { grid-column: 1 / -1; justify-self: start; padding: 0; }
+  .rel-tuiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rel-declare { grid-auto-flow: row; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: none; gap: 2px var(--space-3); align-items: baseline; }
+  .rel-pages-navigation .lf-btn { flex: 1 1 auto; }
+  .rel-decision { flex: 1 1 auto; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rel-verdict, .rel-barre-plein { transition: none; }
+}
