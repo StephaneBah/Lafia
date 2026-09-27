@@ -1,6 +1,8 @@
-// Les pages, préparées dans le navigateur avant l'envoi (ADR 0008) : une image devient un JPEG d'au plus
-// 1600 px sur son grand côté, dont la qualité descend jusqu'à peser 1 Mo ; un PDF part tel quel, s'il
-// pèse au plus 3 Mo. Le service refuse ce qui dépasse ; ici, l'agent l'apprend avant d'envoyer.
+// Les pages d'un Document, préparées dans le navigateur avant l'envoi (ADR 0008), au guichet de
+// numérisation comme au service soin : une image devient un JPEG d'au plus 1600 px sur son grand côté,
+// sur fond blanc, dont la qualité descend jusqu'à peser 1 Mo ; un PDF part tel quel, s'il pèse au plus
+// 3 Mo. Le service refuse ce qui dépasse ; ici, l'utilisateur l'apprend avant d'envoyer.
+// Navigateur seulement : ce module dessine sur un canvas et n'importe rien du serveur.
 
 export const COTE_MAX = 1600;
 export const POIDS_VISE = 1_000_000;

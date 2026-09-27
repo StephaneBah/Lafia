@@ -9,25 +9,18 @@ valeur clinique. Chaque lecture et chaque écriture laisse un AuditEvent, au mot
 
 import logging
 import secrets
-from datetime import date
 
 from pydantic import BaseModel
 
 from commun.fhir import documents, dossier
 from commun.fhir.client import ClientFhir
-from commun.fhir.documents import OuvertureDeDepot, Page
+from commun.fhir.documents import DocumentRefuse, DocumentTropLourd, DocumentVu, OuvertureDeDepot, Page
 from commun.jeton import Agent
 
 SERVICE = "numerisation"
 MOTIF = "numerisation"
-PREMIERE_ANNEE = 1900
 
-# Les premiers octets de chaque format admis : une page se reconnaît à son contenu, pas à ce qu'elle déclare.
-SIGNATURES = {
-    "image/jpeg": b"\xff\xd8\xff",
-    "image/png": b"\x89PNG\r\n\x1a\n",
-    "application/pdf": b"%PDF-",
-}
+__all__ = ["DocumentRefuse", "DocumentTropLourd"]
 
 journal = logging.getLogger(SERVICE)
 
@@ -52,14 +45,6 @@ class DocumentIntrouvable(Exception):
     """Aucun Document de ce Dépôt sous cet identifiant, ou aucune page à ce rang."""
 
 
-class DocumentRefuse(Exception):
-    """Type, année, lisibilité ou format d'une page hors de ce que le Document admet."""
-
-
-class DocumentTropLourd(Exception):
-    """Plus de pages, ou une page plus lourde, que l'ADR 0008 n'en admet."""
-
-
 class IdentiteAuGuichet(BaseModel):
     """Ce que l'agent voit du patient pour le comparer à la pièce d'identité : rien d'autre."""
 
@@ -73,16 +58,9 @@ class DepotOuvert(BaseModel):
     patient: IdentiteAuGuichet
 
 
-class DocumentDuDepot(BaseModel):
-    id: str
-    type: str
-    annee: str | None
-    pages: int
-
-
 class Depot(BaseModel):
     patient: IdentiteAuGuichet
-    documents: list[DocumentDuDepot]
+    documents: list[DocumentVu]
 
 
 class DocumentAjoute(BaseModel):
@@ -100,11 +78,16 @@ async def _tracer(
     agent: Agent,
     patient: str,
     action: dossier.Action,
+    depot: str,
     *,
     ressource: dict[str, str] | None = None,
-    etiquettes: list[dict[str, str]] | None = None,
+    reprise: bool = False,
     raison: str | None = None,
 ) -> None:
+    """Trace un accès au dossier, étiqueté de son Dépôt : le journal du citoyen fait une ligne par Dépôt."""
+    etiquettes = [documents.etiquette_de_depot(depot)]
+    if reprise:
+        etiquettes.append(documents.etiquette_d_origine("reprise"))
     await dossier.tracer(
         fhir,
         patient=patient,
@@ -131,10 +114,7 @@ async def ouvrir(fhir: ClientFhir, agent: Agent, npi: str, piece: str, reprise: 
     if not patient:
         raise PatientIntrouvable()
     depot = secrets.token_hex(16)
-    etiquettes = [documents.etiquette_de_depot(depot)]
-    if reprise:
-        etiquettes.append(documents.etiquette_d_origine("reprise"))
-    await _tracer(fhir, agent, patient["id"], "create", etiquettes=etiquettes, raison=piece)
+    await _tracer(fhir, agent, patient["id"], "create", depot, reprise=reprise, raison=piece)
     journal.info("dépôt %s ouvert : patient %s, agent %s", depot, patient["id"], agent.sub)
     return DepotOuvert(depot_id=depot, patient=await _identite(fhir, patient["id"]))
 
@@ -152,23 +132,6 @@ async def _depot_ouvert(fhir: ClientFhir, agent: Agent, depot: str) -> Ouverture
     return ouverture
 
 
-def _verifier(type_: str, annee: str, lisibilite: str, pages: list[Page]) -> None:
-    if type_ not in documents.TYPES_DE_DOCUMENT or lisibilite not in documents.LISIBILITES:
-        raise DocumentRefuse("type ou lisibilité inconnus")
-    if not (annee.isdigit() and len(annee) == 4 and PREMIERE_ANNEE <= int(annee) <= date.today().year):
-        raise DocumentRefuse("année sur quatre chiffres, passée")
-    if not pages:
-        raise DocumentRefuse("au moins une page")
-    if len(pages) > documents.PAGES_PAR_DOCUMENT:
-        raise DocumentTropLourd(f"au plus {documents.PAGES_PAR_DOCUMENT} pages")
-    for page in pages:
-        signature = SIGNATURES.get(page.format)
-        if not signature or not page.octets.startswith(signature):
-            raise DocumentRefuse("format accepté : JPEG, PNG ou PDF")
-        if len(page.octets) > documents.OCTETS_PAR_PAGE:
-            raise DocumentTropLourd("une page ne dépasse pas 3 Mo")
-
-
 async def ajouter_document(
     fhir: ClientFhir,
     agent: Agent,
@@ -180,9 +143,9 @@ async def ajouter_document(
     lisibilite: str,
     pages: list[Page],
 ) -> DocumentAjoute:
-    """Numérise un Document dans le Dépôt : ses pages en Binary, lui en DocumentReference étiqueté du Dépôt."""
+    """Numérise un Document dans le Dépôt : ses pages en Binary, lui en DocumentReference étiqueté du Dépôt.
+    `commun.fhir.documents.valider_document` le juge avant toute écriture."""
     ouverture = await _depot_ouvert(fhir, agent, depot)
-    _verifier(type_, annee, lisibilite, pages)
     ecrit = await documents.ecrire_document(
         fhir,
         patient=ouverture.patient,
@@ -194,7 +157,9 @@ async def ajouter_document(
         etablissement_d_origine=(etablissement_d_origine or "").strip() or None,
         depot=depot,
     )
-    await _tracer(fhir, agent, ouverture.patient, "create", ressource=dossier.reference("DocumentReference", ecrit["id"]))
+    await _tracer(
+        fhir, agent, ouverture.patient, "create", depot, ressource=dossier.reference("DocumentReference", ecrit["id"])
+    )
     journal.info("document %s numérisé : %d pages, dépôt %s, agent %s", ecrit["id"], len(pages), depot, agent.sub)
     return DocumentAjoute(document_id=ecrit["id"], pages=len(pages))
 
@@ -203,11 +168,8 @@ async def lire_depot(fhir: ClientFhir, agent: Agent, depot: str) -> Depot:
     """Le Dépôt en cours : l'identité du patient au guichet, et les seuls Documents de ce Dépôt."""
     ouverture = await _depot_ouvert(fhir, agent, depot)
     vus = [documents.document_vu(d) for d in await documents.documents_du_depot(fhir, depot)]
-    await _tracer(fhir, agent, ouverture.patient, "read")
-    return Depot(
-        patient=await _identite(fhir, ouverture.patient),
-        documents=[DocumentDuDepot(id=v.id, type=v.type, annee=v.annee, pages=v.pages) for v in vus],
-    )
+    await _tracer(fhir, agent, ouverture.patient, "read", depot)
+    return Depot(patient=await _identite(fhir, ouverture.patient), documents=vus)
 
 
 async def lire_page(fhir: ClientFhir, agent: Agent, depot: str, document: str, rang: int) -> Page:
@@ -217,7 +179,7 @@ async def lire_page(fhir: ClientFhir, agent: Agent, depot: str, document: str, r
     lue = await documents.page(fhir, trouve, rang) if trouve else None
     if not lue:
         raise DocumentIntrouvable()
-    await _tracer(fhir, agent, ouverture.patient, "read", ressource=dossier.reference("DocumentReference", document))
+    await _tracer(fhir, agent, ouverture.patient, "read", depot, ressource=dossier.reference("DocumentReference", document))
     return lue
 
 
@@ -237,6 +199,6 @@ async def clore(fhir: ClientFhir, agent: Agent, depot: str) -> Cloture:
             )
         )
     # La trace de clôture porte l'étiquette du Dépôt : un Dépôt vide, qui n'écrit pas de Provenance, est clos aussi.
-    await _tracer(fhir, agent, ouverture.patient, "update", etiquettes=[documents.etiquette_de_depot(depot)])
+    await _tracer(fhir, agent, ouverture.patient, "update", depot)
     journal.info("dépôt %s clos : %d documents, agent %s", depot, len(ids), agent.sub)
     return Cloture(depot_id=depot, documents=len(ids))

@@ -8,7 +8,7 @@ import { Alert, Button, Icon, TextInput } from "@lafia/design";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
-import { compresser, enKo, PageRefusee, PAGES_MAX, preparerFichier, TYPES_ACCEPTES } from "../../../../compression";
+import { compresser, enKo, PageRefusee, PAGES_MAX, preparerFichier, TYPES_ACCEPTES } from "@lafia/commun/televersement";
 import { adresseDuDepot, LISIBILITES, TYPES_DE_DOCUMENT } from "../../../../libelles";
 
 type Page = { cle: string; blob: Blob; pdf: boolean; apercu: string | null };

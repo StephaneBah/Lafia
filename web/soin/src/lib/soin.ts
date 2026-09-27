@@ -7,8 +7,6 @@ import type { Bandeau, Catalogue, DocumentDuDossier, Dossier, Moment, SessionSoi
 
 const COOKIE_DE_SESSION = "__Host-session";
 const DELAI_MS = 8000;
-/** Un Document peut compter vingt pages : l'envoi et la lecture d'une page ont plus de temps. */
-const DELAI_DES_PAGES_MS = 30000;
 
 function passerelle(): string {
   const adresse = process.env.PASSERELLE_URL;
@@ -48,50 +46,6 @@ async function appeler<T>(methode: "GET" | "POST" | "PUT", chemin: string, corps
 
 const patient = (id: string) => `/api/soin/patients/${encodeURIComponent(id)}`;
 
-/** Envoie un formulaire multipart (les pages d'un Document) ; rend le statut et le corps JSON. */
-async function envoyerFormulaire<T>(chemin: string, formulaire: FormData): Promise<Reponse<T>> {
-  const jeton = (await cookies()).get(COOKIE_DE_SESSION)?.value;
-  if (!jeton) return { statut: 401, corps: null };
-  try {
-    const reponse = await fetch(`${passerelle()}${chemin}`, {
-      method: "POST",
-      cache: "no-store",
-      headers: { Cookie: `${COOKIE_DE_SESSION}=${jeton}` },
-      body: formulaire,
-      signal: AbortSignal.timeout(DELAI_DES_PAGES_MS),
-    });
-    if (!reponse.ok) console.warn(`POST ${chemin} : ${reponse.status}`);
-    const texte = await reponse.text();
-    try {
-      return { statut: reponse.status, corps: texte ? (JSON.parse(texte) as T) : null };
-    } catch {
-      return { statut: reponse.status, corps: null };
-    }
-  } catch (erreur) {
-    console.warn(`passerelle injoignable : ${chemin.split("/").slice(0, 4).join("/")}`, erreur);
-    return { statut: 503, corps: null };
-  }
-}
-
-/**
- * Une page d'un Document, lue par la passerelle avec la session du soignant : la réponse du service
- * telle quelle (octets et format), que l'application relaie au navigateur.
- */
-export async function lirePage(documentId: string, rang: number): Promise<Response> {
-  const jeton = (await cookies()).get(COOKIE_DE_SESSION)?.value;
-  if (!jeton) return new Response(null, { status: 401 });
-  try {
-    return await fetch(`${passerelle()}/api/soin/documents/${encodeURIComponent(documentId)}/pages/${rang}`, {
-      cache: "no-store",
-      headers: { Cookie: `${COOKIE_DE_SESSION}=${jeton}` },
-      signal: AbortSignal.timeout(DELAI_DES_PAGES_MS),
-    });
-  } catch (erreur) {
-    console.warn("passerelle injoignable : /api/soin/documents", erreur);
-    return new Response(null, { status: 503 });
-  }
-}
-
 // Le patient est désigné par son id de ressource Patient : le NPI ne part qu'une fois, dans le corps
 // de la recherche, et n'entre jamais dans une adresse ni un journal.
 export const soin = {
@@ -122,8 +76,6 @@ export const soin = {
   arreterTraitement: (traitementId: string) => appeler<unknown>("POST", `/api/soin/traitements/${encodeURIComponent(traitementId)}/arret`),
   groupeSanguin: (id: string, valeur: string) => appeler<unknown>("PUT", `${patient(id)}/groupe-sanguin`, { valeur }),
   documents: (id: string) => appeler<DocumentDuDossier[]>("GET", `${patient(id)}/documents`),
-  ajouterDocument: (id: string, formulaire: FormData) =>
-    envoyerFormulaire<{ document_id: string; pages: number }>(`${patient(id)}/documents`, formulaire),
 };
 
 /** Le soignant connecté, qu'identite lit du jeton ; `null` sans session valide. */

@@ -67,7 +67,7 @@ export default async function DocumentsDuPatient({ params, searchParams }: Param
             <Card className="sn-panneau">
               <h2 className="sn-h2 sn-titre-document">
                 <IconeDuType type={choisi.type} />
-                {`${choisi.libelle_du_type}${choisi.annee ? ` · ${choisi.annee}` : ""}`}
+                {`${choisi.libelle}${choisi.annee ? ` · ${choisi.annee}` : ""}`}
               </h2>
               <p className="sn-meta">
                 {[choisi.etablissement, choisi.lisibilite === "partiel" ? "Partiellement lisible" : "Lisible"]

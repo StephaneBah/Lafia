@@ -10,12 +10,12 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 
 from commun.fhir.client import ClientFhir
-from commun.fhir.documents import OCTETS_PAR_PAGE, Page, PageRefusee
+from commun.fhir.documents import DocumentRefuse, DocumentTropLourd, DocumentVu, Lisibilite, TypeDeDocument
 from commun.jeton import Agent, VerificateurDeJetons
 from commun.service import client_fhir, creer_service
+from commun.televersement import pages_televersees
 from soin import dossier, modeles
 from soin.regles.acces import ROLES_ADMIS
-from soin.regles.documents import DocumentTropLourd
 from soin.regles.dossier import SaisieRefusee
 from soin.regles.relation import SansRelationDeSoin
 from soin.regles.visite import VisiteRefusee, peut_clore
@@ -52,7 +52,7 @@ def _http(erreur: Exception) -> HTTPException:
             return HTTPException(status.HTTP_403_FORBIDDEN, "pas de relation de soin")
         case dossier.CasClos():
             return HTTPException(status.HTTP_409_CONFLICT, "ce cas est clos")
-        case VisiteRefusee() | SaisieRefusee() | PageRefusee():
+        case VisiteRefusee() | SaisieRefusee() | DocumentRefuse():
             return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(erreur))
     raise erreur
 
@@ -67,8 +67,7 @@ ERREURS = (
     dossier.CasClos,
     VisiteRefusee,
     SaisieRefusee,
-    PageRefusee,
-    DocumentTropLourd,
+    DocumentRefuse,
 )
 
 
@@ -257,7 +256,7 @@ async def acces_d_urgence(
 @routes.get("/patients/{patient_id}/documents", responses=REFUS)
 async def documents(
     patient_id: str, soignant: Agent = Depends(soignant_connecte), fhir: ClientFhir = Depends(client_fhir)
-) -> list[dict[str, Any]]:
+) -> list[DocumentVu]:
     """Les Documents du patient, numérisés, non vérifiés : type, année, établissement d'origine,
     lisibilité, nombre de pages, origine. Avec une relation de soin."""
     try:
@@ -286,25 +285,20 @@ async def page_du_document(
     )
 
 
-async def _pages_recues(fichiers: list[UploadFile]) -> list[Page]:
-    """Les pages reçues, lues sans dépasser d'un octet la limite d'une page : au-delà, le 413 suit."""
-    pages = []
-    for fichier in fichiers:
-        octets = await fichier.read(OCTETS_PAR_PAGE + 1)
-        pages.append(Page(format=(fichier.content_type or "").split(";")[0].strip(), octets=octets))
-    return pages
-
-
 @routes.post(
     "/patients/{patient_id}/documents",
     status_code=status.HTTP_201_CREATED,
-    responses={**SAISIE, 413: {"description": "Plus de 20 pages, ou une page de plus de 3 Mo."}},
+    responses={
+        **SAISIE,
+        413: {"description": "Plus de 20 pages, ou une page de plus de 3 Mo."},
+        422: {"description": "Type, année (quatre chiffres, passée) ou lisibilité refusés, ou page ni JPEG, ni PNG, ni PDF, ou autre que son format déclaré."},
+    },
 )
 async def ajouter_document(
     patient_id: str,
-    type: Annotated[str, Form()],
-    annee: Annotated[str, Form(pattern=modeles.ANNEE)],
-    lisibilite: Annotated[str, Form()],
+    type: Annotated[TypeDeDocument, Form()],
+    annee: Annotated[str, Form(max_length=4)],
+    lisibilite: Annotated[Lisibilite, Form()],
     pages: Annotated[list[UploadFile], File()],
     etablissement: Annotated[str | None, Form(max_length=200)] = None,
     soignant: Agent = Depends(soignant_connecte),
@@ -318,10 +312,10 @@ async def ajouter_document(
             soignant,
             patient_id,
             type_=type,
-            annee=annee,
+            annee=annee.strip(),
             lisibilite=lisibilite,
             etablissement=(etablissement or "").strip() or None,
-            pages=await _pages_recues(pages),
+            pages=await pages_televersees(pages),
         )
     except ERREURS as erreur:
         raise _http(erreur) from erreur

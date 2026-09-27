@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { Cadre, CarnetNonLu, Retour, Scene } from "../../composants/cadre";
 import { IconeDuDocument, pages } from "../../composants/documents";
+import { OrigineEnMots } from "../../composants/origine";
 import { lire, type DocumentLu } from "../../lib/carnet";
 
 /** Mes documents : mes anciens papiers, numérisés ; un toucher ouvre ses pages. */
@@ -40,7 +41,10 @@ export default async function MesDocuments() {
                   <span>
                     {d.libelle}
                     <small>{[d.annee, pages(d.pages), d.etablissement].filter(Boolean).join(" · ")}</small>
-                    {!d.lisible && (
+                    <small>
+                      <OrigineEnMots origine={d.origine} />
+                    </small>
+                    {d.lisibilite === "partiel" && (
                       <small className="carnet-document-etat">
                         <Icon name="warning" size={18} />
                         Difficile à lire
