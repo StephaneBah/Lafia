@@ -66,6 +66,7 @@ export function TexteRelu({ documentId, transcription }: { documentId: string; t
       <RenduDeTranscription
         transcription={lireTranscription(transcription.markdown, transcription.pages)}
         urlDePage={(n) => adresseDeLaPage(documentId, n)}
+        variante="fil"
       />
     </div>
   );

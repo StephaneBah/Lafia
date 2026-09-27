@@ -335,3 +335,18 @@ button.lf-volet-pages { background: none; border: 0; padding: 0; font: inherit; 
 .lf-transcription-voir { background: none; border: 0; padding: 0; cursor: zoom-in; display: block; }
 .lf-transcription-voir:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .lf-mention-patrimoniale { display: flex; gap: var(--space-2); align-items: flex-start; background: var(--color-surface-sunken); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); color: var(--color-text-muted); }
+
+/* Les pages d'un volet en vignettes, et le fil de vie d'une Transcription (dates à gauche, volets à droite). */
+.lf-volet-apercus { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-3) 0 0; padding: 0; }
+.lf-volet-apercus button, .lf-volet-apercu { display: grid; justify-items: center; gap: 2px; background: none; border: 1px solid var(--color-border); border-radius: 6px; padding: 4px; font: inherit; font-size: 13px; color: var(--color-text-muted); }
+.lf-volet-apercus button { cursor: zoom-in; }
+.lf-volet-apercus button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.lf-volet-apercus img { width: 72px; height: 96px; object-fit: cover; object-position: top; border-radius: 3px; background: var(--color-surface-sunken); }
+.lf-fil { list-style: none; margin: 0; padding: 0; gap: 0; }
+.lf-fil-etape { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--space-3); position: relative; padding-bottom: var(--space-4); }
+.lf-fil-etape::before { content: ""; position: absolute; left: 27px; top: 22px; bottom: 0; width: 2px; background: var(--color-border); }
+.lf-fil-etape:last-child::before { display: none; }
+.lf-fil-repere { display: grid; justify-items: center; align-content: start; gap: var(--space-1); position: relative; z-index: 1; }
+.lf-fil-point { width: 14px; height: 14px; border-radius: 50%; background: var(--color-action); border: 3px solid var(--color-surface); box-shadow: 0 0 0 2px var(--color-action); margin-top: 6px; }
+.lf-fil-date { font-weight: 800; font-size: 14px; background: var(--color-bg); padding: 0 2px; }
+@media (max-width: 480px) { .lf-fil-etape { grid-template-columns: 40px minmax(0, 1fr); gap: var(--space-2); } .lf-fil-etape::before { left: 19px; } }

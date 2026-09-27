@@ -308,8 +308,45 @@ function blocs(corps: string, ctx: Contexte, cle: string): ReactNode[] {
   return sortie;
 }
 
-/** Un volet rendu : son en-tête (type, date, établissement, pages) et son contenu. */
-export function RenduDeVolet({ volet, urlDePage, surPage, entete }: { volet: Volet; entete?: ReactNode } & Contexte) {
+/** Les pages que cite un volet, en vignettes : le papier reste sous les yeux, le long du fil. */
+function Apercus({ pages, urlDePage, surPage }: { pages: number[] } & Contexte) {
+  if (!pages.length) return null;
+  return (
+    <ul className="lf-volet-apercus" aria-label="Pages du papier">
+      {pages.map((n) => {
+        // eslint-disable-next-line @next/next/no-img-element
+        const image = <img src={urlDePage(n)} alt={`Page ${n} du papier`} loading="lazy" />;
+        return (
+          <li key={n}>
+            {surPage ? (
+              <button type="button" onClick={() => surPage(n)} aria-label={`Voir la page ${n}`}>
+                {image}
+                <span>page {n}</span>
+              </button>
+            ) : (
+              <span className="lf-volet-apercu">
+                {image}
+                <span>page {n}</span>
+              </span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+type Options = {
+  /** Montrer, sous chaque volet, les vignettes des pages qu'il cite. */
+  apercus?: boolean;
+};
+
+function pagesEnLettres(pages: number[]): string {
+  return pages.length > 1 ? `pages ${pages[0]} à ${pages[pages.length - 1]}` : `page ${pages[0]}`;
+}
+
+/** Un volet rendu : son en-tête (type, date, établissement, pages), son contenu, et ses pages en vignettes. */
+export function RenduDeVolet({ volet, urlDePage, surPage, entete, apercus }: { volet: Volet; entete?: ReactNode } & Contexte & Options) {
   return (
     <section className={`lf-volet lf-volet--${volet.type}`} aria-label={`${LIBELLES_DES_VOLETS[volet.type]}, ${dateEnLettres(volet.date)}`}>
       <header className="lf-volet-entete">
@@ -319,27 +356,51 @@ export function RenduDeVolet({ volet, urlDePage, surPage, entete }: { volet: Vol
         {volet.pages.length > 0 && (
           surPage ? (
             <button type="button" className="lf-volet-pages" onClick={() => surPage(volet.pages[0])}>
-              {volet.pages.length > 1 ? `pages ${volet.pages[0]} à ${volet.pages[volet.pages.length - 1]}` : `page ${volet.pages[0]}`}
+              {pagesEnLettres(volet.pages)}
             </button>
           ) : (
-            <span className="lf-volet-pages">
-              {volet.pages.length > 1 ? `pages ${volet.pages[0]} à ${volet.pages[volet.pages.length - 1]}` : `page ${volet.pages[0]}`}
-            </span>
+            <span className="lf-volet-pages">{pagesEnLettres(volet.pages)}</span>
           )
         )}
         {entete}
       </header>
       <div className="lf-volet-corps">{blocs(volet.corps, { urlDePage, surPage }, `v${volet.rang}`)}</div>
+      {apercus && <Apercus pages={volet.pages} urlDePage={urlDePage} surPage={surPage} />}
     </section>
   );
 }
 
-/** Une Transcription entière, volets dans l'ordre donné. Le libellé patrimonial est dit par l'application. */
-export function RenduDeTranscription({ transcription, urlDePage, surPage }: { transcription: Transcription } & Contexte) {
+/**
+ * Une Transcription entière, volets dans l'ordre donné. `variante="fil"` la montre comme un fil de vie :
+ * une frise des dates à gauche, chaque volet avec son texte et ses images, les pages du papier en vignettes.
+ * Le libellé patrimonial est dit par l'application.
+ */
+export function RenduDeTranscription({
+  transcription,
+  urlDePage,
+  surPage,
+  apercus,
+  variante = "cartes",
+}: { transcription: Transcription; variante?: "cartes" | "fil" } & Contexte & Options) {
+  if (variante === "fil") {
+    return (
+      <ol className="lf-transcription lf-fil">
+        {transcription.volets.map((v) => (
+          <li key={v.rang} className="lf-fil-etape">
+            <span className="lf-fil-repere" aria-hidden="true">
+              <span className="lf-fil-point" />
+              <span className="lf-fil-date">{v.date ? v.date.slice(0, 4) : "?"}</span>
+            </span>
+            <RenduDeVolet volet={v} urlDePage={urlDePage} surPage={surPage} apercus={apercus ?? true} />
+          </li>
+        ))}
+      </ol>
+    );
+  }
   return (
     <div className="lf-transcription">
       {transcription.volets.map((v) => (
-        <RenduDeVolet key={v.rang} volet={v} urlDePage={urlDePage} surPage={surPage} />
+        <RenduDeVolet key={v.rang} volet={v} urlDePage={urlDePage} surPage={surPage} apercus={apercus} />
       ))}
     </div>
   );

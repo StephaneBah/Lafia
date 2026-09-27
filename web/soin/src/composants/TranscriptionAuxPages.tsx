@@ -28,7 +28,7 @@ export function TranscriptionAuxPages({ documentId, markdown, pages }: { documen
         <Icon name="info" size={20} />
         <span>{MENTION_PATRIMONIALE}</span>
       </p>
-      <RenduDeTranscription transcription={transcription} urlDePage={urlDePage} surPage={surPage} />
+      <RenduDeTranscription transcription={transcription} urlDePage={urlDePage} surPage={surPage} variante="fil" />
     </div>
   );
 }

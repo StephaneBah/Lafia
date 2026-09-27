@@ -61,6 +61,7 @@ export default async function ParEtablissement() {
                     // L'établissement est déjà le titre de la rubrique : le volet ne le répète pas.
                     volet={voletDe(v, rang, null)}
                     urlDePage={(n) => adresseDeLaPage(v.document_id, n)}
+                    apercus
                     entete={
                       <a href={`/documents/${encodeURIComponent(v.document_id)}`} className="carnet-lien carnet-voir-papier">
                         <Icon name="eye" size={20} />
