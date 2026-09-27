@@ -6,6 +6,7 @@ CodeableConcept son `text` : un lecteur n'a besoin d'aucun catalogue pour les af
 
 import uuid
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Literal
 
 from commun.fhir import systemes
@@ -67,6 +68,56 @@ DIAGNOSTICS: dict[str, Diagnostic] = {
     )
 }
 
+ALLERGIES: dict[str, str] = {
+    "M01A": "Anti-inflammatoires non stéroïdiens (AINS)",
+    "J01C": "Pénicillines",
+    "J01E": "Sulfamides",
+    "N02BA": "Aspirine et salicylés",
+    "P01BC": "Quinine et apparentés",
+    "N02A": "Codéine et opioïdes",
+    "V08": "Iode (produits de contraste)",
+}
+"""Les classes ATC auxquelles une allergie se déclare : la pharmacie arrête toute ligne de la classe."""
+
+GROUPES_SANGUINS = ("A+", "A−", "B+", "B−", "AB+", "AB−", "O+", "O−")
+GROUPE_SANGUIN = ("882-1", "Groupe sanguin ABO et Rhésus")
+
+TypeDAntecedent = Literal["medical", "chirurgical"]
+TYPES_D_ANTECEDENT = {"medical": "Médical", "chirurgical": "Chirurgical", "familial": "Familial"}
+
+LienDeParente = Literal["mere", "pere", "fratrie", "enfant", "grand-parent"]
+LIENS_DE_PARENTE: dict[str, tuple[str, str]] = {
+    "mere": ("MTH", "Mère"),
+    "pere": ("FTH", "Père"),
+    "fratrie": ("SIB", "Frère ou sœur"),
+    "enfant": ("CHILD", "Enfant"),
+    "grand-parent": ("GRPRN", "Grand-parent"),
+}
+LIENS_DES_CODES = {code: lien for lien, (code, _) in LIENS_DE_PARENTE.items()} | {
+    "GRMTH": "grand-parent",
+    "GRFTH": "grand-parent",
+}
+
+CATEGORIES_DE_CONDITION = {"problem-list-item": "Antécédent", "encounter-diagnosis": "Diagnostic de visite"}
+
+
+def forme_du_produit(libelle: str) -> str:
+    """L'unité dans laquelle un produit se compte, tirée de son libellé au catalogue."""
+    texte = libelle.lower()
+    for mot, forme in (
+        ("comprimé", "comprimé"),
+        ("gélule", "gélule"),
+        ("sachet", "sachet"),
+        ("sirop", "flacon"),
+        ("flacon", "flacon"),
+        ("injectable", "ampoule"),
+        ("injection", "ampoule"),
+    ):
+        if mot in texte:
+            return forme
+    return "unité"
+
+
 TypeDeVisite = Literal["consultation", "soins-infirmiers", "continuite", "urgence"]
 TYPES_DE_VISITE: dict[str, str] = {
     "consultation": "Consultation",
@@ -83,7 +134,7 @@ MOMENTS_DES_TIMINGS = {v: k for k, v in MOMENTS.items()}
 SYSTEME_CLASSE = "http://terminology.hl7.org/CodeSystem/v3-ActCode"
 CLASSES = {"AMB": "ambulatory", "EMER": "emergency"}
 SYSTEME_STATUT_CLINIQUE = "http://terminology.hl7.org/CodeSystem/condition-clinical"
-SYSTEME_VERIFICATION = "http://terminology.hl7.org/CodeSystem/condition-ver-status"
+SYSTEME_VERIFICATION = systemes.VERIFICATION
 
 
 def nouvel_id(prefixe: str) -> str:
@@ -181,6 +232,7 @@ def condition(
     ressource: Ressource = {
         "resourceType": "Condition",
         "id": nouvel_id("diagnostic"),
+        "category": [_categorie_de_condition("encounter-diagnosis")],
         "clinicalStatus": _concept(SYSTEME_STATUT_CLINIQUE, "active", "Actif"),
         "verificationStatus": _concept(SYSTEME_VERIFICATION, verification, "Confirmé" if confirme else "Provisoire"),
         "code": {
@@ -198,6 +250,96 @@ def condition(
     if note:
         ressource["note"] = [{"text": note}]
     return ressource
+
+
+def _categorie_de_condition(code: str) -> dict[str, Any]:
+    return _concept(systemes.CATEGORIE_DE_CONDITION, code, CATEGORIES_DE_CONDITION[code])
+
+
+def antecedent(
+    *, patient: str, type_: TypeDAntecedent, libelle: str, depuis: str | None, actif: bool, soignant: str
+) -> Ressource:
+    """Un antécédent médical ou chirurgical : une Condition de la liste des problèmes, sans visite."""
+    ressource: Ressource = {
+        "resourceType": "Condition",
+        "category": [
+            _categorie_de_condition("problem-list-item"),
+            _concept(systemes.TYPE_D_ANTECEDENT, type_, TYPES_D_ANTECEDENT[type_]),
+        ],
+        "clinicalStatus": _concept(
+            SYSTEME_STATUT_CLINIQUE, "active" if actif else "resolved", "Actif" if actif else "Résolu"
+        ),
+        "code": {"text": libelle},
+        "subject": reference("Patient", patient),
+        "recorder": reference("Practitioner", soignant),
+        "recordedDate": maintenant(),
+    }
+    if depuis:
+        ressource["onsetString"] = depuis
+    return ressource
+
+
+def family_member_history(*, patient: str, lien: LienDeParente, libelle: str) -> Ressource:
+    """Un antécédent familial : la maladie d'un parent, par son lien au patient."""
+    code, texte = LIENS_DE_PARENTE[lien]
+    return {
+        "resourceType": "FamilyMemberHistory",
+        "status": "completed",
+        "patient": reference("Patient", patient),
+        "date": maintenant(),
+        "relationship": _concept(systemes.LIEN_DE_PARENTE, code, texte),
+        "condition": [{"code": {"text": libelle}}],
+    }
+
+
+def medication_statement(
+    *, patient: str, tarif: Ressource | None, libelle: str, posologie: str, moments: list[str], soignant: str
+) -> Ressource:
+    """Un traitement au long cours : le produit du catalogue quand il y est, son texte toujours."""
+    medicament: dict[str, Any] = {"text": libelle}
+    if tarif is not None:
+        medicament = {"coding": tarif["code"]["coding"], "text": tarif["code"].get("text") or libelle}
+    return {
+        "resourceType": "MedicationStatement",
+        "status": "active",
+        "subject": reference("Patient", patient),
+        "medicationCodeableConcept": medicament,
+        "dosage": [
+            {"text": posologie, "timing": {"repeat": {"when": [MOMENTS[m] for m in MOMENTS if m in moments]}}}
+        ],
+        "effectivePeriod": {"start": maintenant()},
+        "informationSource": reference("Practitioner", soignant),
+        "dateAsserted": maintenant(),
+    }
+
+
+def arreter_traitement(traitement: Ressource) -> Ressource:
+    """Le même traitement, arrêté maintenant : sa nouvelle version."""
+    traitement["status"] = "stopped"
+    traitement.setdefault("effectivePeriod", {})["end"] = maintenant()
+    return traitement
+
+
+def groupe_sanguin(*, patient: str, valeur: str, soignant: str) -> Ressource:
+    """Le groupe sanguin : une Observation de laboratoire, LOINC 882-1. La plus récente fait foi."""
+    code, libelle = GROUPE_SANGUIN
+    return {
+        "resourceType": "Observation",
+        "status": "final",
+        "category": [_concept(SYSTEME_CATEGORIE_OBSERVATION, "laboratory", LIBELLES_DES_CATEGORIES["laboratory"])],
+        "code": _concept(systemes.LOINC, code, libelle),
+        "subject": reference("Patient", patient),
+        "performer": [reference("Practitioner", soignant)],
+        "effectiveDateTime": maintenant(),
+        "valueCodeableConcept": {"text": valeur},
+    }
+
+
+def clore(cas: Ressource) -> Ressource:
+    """Le même cas, clos maintenant : sa nouvelle version."""
+    cas["status"] = "finished"
+    cas.setdefault("period", {})["end"] = maintenant()
+    return cas
 
 
 def allergy_intolerance(*, patient: str, code_atc: str, libelle: str, soignant: str) -> Ressource:
@@ -234,6 +376,7 @@ def medication_request(
 ) -> Ressource:
     """Une ligne d'ordonnance : le produit tel que le tarif de l'établissement le nomme (catalogue et ATC)."""
     code = tarif["code"]
+    forme = forme_du_produit(code.get("text", ""))
     timings = [MOMENTS[m] for m in MOMENTS if m in moments]
     return {
         "resourceType": "MedicationRequest",
@@ -249,7 +392,7 @@ def medication_request(
         "authoredOn": maintenant(),
         "dispenseRequest": {
             "performer": reference("Organization", etablissement),
-            "quantity": {"value": quantite},
+            "quantity": {"value": quantite, "unit": forme},
         },
         "dosageInstruction": [
             {
@@ -260,7 +403,7 @@ def medication_request(
                         "boundsDuration": {"value": jours, "unit": "d", "system": systemes.UCUM, "code": "d"},
                     }
                 },
-                "doseAndRate": [{"doseQuantity": {"value": dose}}],
+                "doseAndRate": [{"doseQuantity": {"value": dose, "unit": forme}}],
             }
         ],
     }
@@ -298,10 +441,31 @@ def nom_de_personne(ressource: Ressource | None) -> str:
     return " ".join([*nom.get("given", []), nom.get("family", "")]).strip()
 
 
+def nom_de(ressource: Ressource | None, repli: str = "") -> str:
+    """Le nom d'un établissement ou d'une personne, tel que le noyau le tient."""
+    if not ressource:
+        return repli
+    if ressource.get("resourceType") == "Organization":
+        return ressource.get("name") or repli
+    return nom_de_personne(ressource) or repli
+
+
+def age(naissance: str | None, aujourd_hui: date | None = None) -> int | None:
+    """L'âge révolu, en années, d'une date de naissance FHIR (`AAAA`, `AAAA-MM` ou `AAAA-MM-JJ`)."""
+    if not naissance:
+        return None
+    parties = [int(p) for p in naissance.split("-")]
+    annee, mois, jour = (parties + [1, 1])[:3]
+    jour_j = aujourd_hui or date.today()
+    return jour_j.year - annee - ((jour_j.month, jour_j.day) < (mois, jour))
+
+
 def resume_patient(patient: Ressource) -> dict[str, Any]:
     nom = patient.get("name", [{}])[0]
     return {
         "id": patient["id"],
+        "npi": next((i["value"] for i in patient.get("identifier", []) if i.get("system") == systemes.NPI), None),
+        "age": age(patient.get("birthDate")),
         "nom": nom.get("family", ""),
         "prenoms": " ".join(nom.get("given", [])),
         "sexe": {"female": "féminin", "male": "masculin"}.get(patient.get("gender", ""), ""),
@@ -320,6 +484,145 @@ def resume_allergie(allergie: Ressource) -> dict[str, Any]:
 
 def motif_du_cas(cas: Ressource) -> str:
     return (cas.get("type") or [{}])[0].get("text", "")
+
+
+def cas_actif(cas: Ressource) -> bool:
+    return cas.get("status") == "active"
+
+
+def statut_du_cas(cas: Ressource) -> str:
+    return "en-cours" if cas_actif(cas) else "termine"
+
+
+def debut(ressource: Ressource) -> str:
+    return ressource.get("period", {}).get("start", "")
+
+
+def fin(ressource: Ressource) -> str | None:
+    return ressource.get("period", {}).get("end")
+
+
+def patient_du_cas(cas: Ressource) -> str | None:
+    return id_de(cas.get("patient"))
+
+
+def etablissement_du_cas(cas: Ressource) -> str | None:
+    return id_de(cas.get("managingOrganization"))
+
+
+def etablissement_de_la_visite(visite: Ressource) -> str | None:
+    return id_de(visite.get("serviceProvider"))
+
+
+def cas_de_la_visite(visite: Ressource) -> set[str]:
+    return {i for e in visite.get("episodeOfCare", []) if (i := id_de(e))}
+
+
+def visite_d_urgence(visite: Ressource) -> bool:
+    return visite.get("class", {}).get("code") == "EMER"
+
+
+def motif_de_la_visite(visite: Ressource) -> str:
+    return (visite.get("reasonCode") or [{}])[0].get("text", "")
+
+
+def soignant_de_la_visite(visite: Ressource) -> dict[str, str] | None:
+    return (visite.get("participant") or [{}])[0].get("individual")
+
+
+def visite_de(ressource: Ressource) -> str | None:
+    """La visite où une mesure, un diagnostic ou une ligne a été écrit ; None pour ce qui n'en a pas."""
+    return id_de(ressource.get("encounter"))
+
+
+def _codes_de_categorie(ressource: Ressource) -> set[str]:
+    return {c.get("code") for cat in ressource.get("category", []) for c in cat.get("coding", [])}
+
+
+def est_antecedent(condition: Ressource) -> bool:
+    """Un antécédent porte `problem-list-item` ; un diagnostic `encounter-diagnosis` (ou rien, avant F4)."""
+    return "problem-list-item" in _codes_de_categorie(condition)
+
+
+def est_groupe_sanguin(observation: Ressource) -> bool:
+    return any(
+        c.get("system") == systemes.LOINC and c.get("code") == GROUPE_SANGUIN[0]
+        for c in observation.get("code", {}).get("coding", [])
+    )
+
+
+def valeur_du_groupe_sanguin(observations: list[Ressource]) -> str | None:
+    """La valeur du groupe sanguin le plus récent, ou None."""
+    groupes = sorted(
+        (o for o in observations if est_groupe_sanguin(o)), key=lambda o: o.get("effectiveDateTime", "")
+    )
+    return groupes[-1].get("valueCodeableConcept", {}).get("text") if groupes else None
+
+
+def resume_antecedent(condition: Ressource) -> dict[str, Any]:
+    type_ = next(
+        (
+            c["code"]
+            for cat in condition.get("category", [])
+            for c in cat.get("coding", [])
+            if c.get("system") == systemes.TYPE_D_ANTECEDENT
+        ),
+        "medical",
+    )
+    return {
+        "id": condition.get("id"),
+        "type": type_,
+        "libelle": condition.get("code", {}).get("text", ""),
+        "depuis": condition.get("onsetString"),
+        "actif": any(c.get("code") == "active" for c in condition.get("clinicalStatus", {}).get("coding", [])),
+    }
+
+
+def resume_familial(historique: Ressource) -> dict[str, Any]:
+    lien = historique.get("relationship", {})
+    code = next((c.get("code") for c in lien.get("coding", [])), "")
+    return {
+        "id": historique.get("id"),
+        "lien": LIENS_DES_CODES.get(code, lien.get("text", "")),
+        "libelle": (historique.get("condition") or [{}])[0].get("code", {}).get("text", ""),
+    }
+
+
+def traitement_actif(traitement: Ressource) -> bool:
+    return traitement.get("status") == "active"
+
+
+def patient_du_traitement(traitement: Ressource) -> str | None:
+    return id_de(traitement.get("subject"))
+
+
+def resume_traitement(traitement: Ressource) -> dict[str, Any]:
+    dosage = (traitement.get("dosage") or [{}])[0]
+    quand = dosage.get("timing", {}).get("repeat", {}).get("when", [])
+    return {
+        "id": traitement.get("id"),
+        "libelle": traitement.get("medicationCodeableConcept", {}).get("text", ""),
+        "produit": code_du_catalogue(traitement, "medicationCodeableConcept"),
+        "posologie": dosage.get("text", ""),
+        "moments": [MOMENTS_DES_TIMINGS[w] for w in quand if w in MOMENTS_DES_TIMINGS],
+        "depuis": traitement.get("effectivePeriod", {}).get("start"),
+        "actif": traitement_actif(traitement),
+    }
+
+
+def series_de_mesures(observations: list[Ressource]) -> dict[str, list[dict[str, Any]]]:
+    """Les mesures chiffrées des visites, par code LOINC et dans l'ordre du temps : de quoi tracer une courbe."""
+    series: dict[str, list[dict[str, Any]]] = {}
+    for o in sorted(observations, key=lambda o: o.get("effectiveDateTime", "")):
+        valeur = o.get("valueQuantity", {}).get("value")
+        if visite_de(o) is None or not isinstance(valeur, int | float):
+            continue
+        code = next(
+            (c["code"] for c in o.get("code", {}).get("coding", []) if c.get("system") == systemes.LOINC), None
+        )
+        if code:
+            series.setdefault(code, []).append({"date": o.get("effectiveDateTime"), "valeur": valeur})
+    return series
 
 
 def type_de_visite(visite: Ressource) -> str:
@@ -383,6 +686,7 @@ def resume_ligne(ligne: Ressource) -> dict[str, Any]:
         "produit": code_du_catalogue(ligne, "medicationCodeableConcept"),
         "libelle": ligne.get("medicationCodeableConcept", {}).get("text", ""),
         "quantite": ligne.get("dispenseRequest", {}).get("quantity", {}).get("value"),
+        "unite": ligne.get("dispenseRequest", {}).get("quantity", {}).get("unit"),
         "dose": dose,
         "moments": [MOMENTS_DES_TIMINGS[w] for w in repeat.get("when", []) if w in MOMENTS_DES_TIMINGS],
         "jours": repeat.get("boundsDuration", {}).get("value"),
