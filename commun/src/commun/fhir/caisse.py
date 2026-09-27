@@ -86,9 +86,9 @@ def lignes_encaissees(invoice: Ressource) -> list[tuple[str, str, int]]:
     return lignes
 
 
-def lignes_payees(factures: list[Ressource]) -> set[str]:
+def lignes_payees(trouves: list[Ressource]) -> set[str]:
     """Les identifiants des lignes que portent ces encaissements."""
-    return {id_ for facture in factures for id_, _, _ in lignes_encaissees(facture)}
+    return {id_ for encaissement in trouves for id_, _, _ in lignes_encaissees(encaissement)}
 
 
 def identifiant(ressource: Ressource, systeme: str) -> str | None:

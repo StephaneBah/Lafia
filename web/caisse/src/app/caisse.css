@@ -25,7 +25,7 @@
 .caisse-tampon { position: absolute; right: 150px; top: 10px; padding: 6px 18px; border: 5px solid var(--status-paye-fg); border-radius: 10px; color: var(--status-paye-fg); background: var(--status-paye-bg); font: 800 34px/1 var(--font-sans); transform: rotate(-10deg); pointer-events: none; animation: caisse-tampon var(--motion-standard) var(--ease-standard) both; }
 @keyframes caisse-tampon { from { opacity: 0; transform: rotate(-10deg) scale(1.25); } to { opacity: 1; transform: rotate(-10deg) scale(1); } }
 
-/* Le récépissé : un ticket, qui sort de l'imprimante. */
+/* Le récépissé : une bande de papier, qui sort de l'imprimante. */
 .caisse-main--recepisse { max-width: 560px; }
 .caisse-recepisse { position: relative; display: grid; gap: var(--space-2); padding: var(--space-5); background: #FFFFFF; color: #121212; border: 1px dashed var(--color-border-control); border-radius: var(--radius-sm); font-size: 16px; line-height: 22px; animation: caisse-impression 600ms var(--ease-standard) both; }
 @keyframes caisse-impression { from { transform: translateY(-24px); opacity: 0; } to { transform: none; opacity: 1; } }

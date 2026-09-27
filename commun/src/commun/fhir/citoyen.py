@@ -24,7 +24,7 @@ GROUPE_SANGUIN = "882-1"
 
 STATUT_CLINIQUE = "http://terminology.hl7.org/CodeSystem/condition-clinical"
 LIENS_DE_PARENTE = {
-    "MTH": "mere", "FTH": "pere", "SIB": "fratrie", "CHILD": "enfant", "GRMTH": "grand-parent", "GRFTH": "grand-parent",
+    "MTH": "mere", "FTH": "pere", "SIB": "fratrie", "CHILD": "enfant", "GRMTH": "grand-parent", "GRFTH": "grand-parent", "GRPRN": "grand-parent",
 }
 
 
@@ -380,10 +380,10 @@ async def lire_dossier(fhir: ClientFhir, patient: Ressource) -> DossierDuCitoyen
         fhir.chercher("MedicationDispense", {"prescription": ",".join(f"MedicationRequest/{i}" for i in ids)})
         if ids else asyncio.sleep(0, []),
     )
-    for facture in encaissements:
-        if facture.get("status") in ("cancelled", "entered-in-error"):
+    for encaissement in encaissements:
+        if encaissement.get("status") in ("cancelled", "entered-in-error"):
             continue
-        for poste in facture.get("lineItem", []):
+        for poste in encaissement.get("lineItem", []):
             code = _code(poste.get("chargeItemCodeableConcept"), systemes.LIGNE)
             if code:
                 dossier.payees.add(code)

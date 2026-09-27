@@ -188,12 +188,12 @@ async def encaisser(fhir: ClientFhir, caissier: Agent, saisie: str, ids: list[st
     return _recepisse(ecrit, await _nom_de_l_etablissement(fhir, caissier.etablissement))
 
 
-def _recepisse(facture: Ressource, etablissement: str) -> Recepisse:
-    lignes = [LigneEncaissee(id=i, libelle=l, montant=m) for i, l, m in fhir_caisse.lignes_encaissees(facture)]
+def _recepisse(encaissement: Ressource, etablissement: str) -> Recepisse:
+    lignes = [LigneEncaissee(id=i, libelle=l, montant=m) for i, l, m in fhir_caisse.lignes_encaissees(encaissement)]
     return Recepisse(
-        recepisse=fhir_caisse.identifiant(facture, systemes.RECEPISSE) or "",
-        numero=fhir_caisse.identifiant(facture, systemes.ORDONNANCE) or "",
-        date=str(facture.get("date", "")),
+        recepisse=fhir_caisse.identifiant(encaissement, systemes.RECEPISSE) or "",
+        numero=fhir_caisse.identifiant(encaissement, systemes.ORDONNANCE) or "",
+        date=str(encaissement.get("date", "")),
         etablissement=etablissement,
         montant=sum(ligne.montant for ligne in lignes),
         lignes=lignes,
@@ -207,8 +207,8 @@ class RecepisseIntrouvable(Exception):
 async def lire_recepisse(fhir: ClientFhir, caissier: Agent, saisie: str) -> Recepisse:
     """Le récépissé `saisie`, pour le réimprimer : seulement s'il a été émis dans l'établissement du caissier."""
     numero = dossier.normaliser_numero(saisie, "REC")
-    facture = await fhir_caisse.encaissement_par_recepisse(fhir, numero)
-    if not facture or dossier.id_de(facture.get("issuer")) != caissier.etablissement:
+    encaissement = await fhir_caisse.encaissement_par_recepisse(fhir, numero)
+    if not encaissement or dossier.id_de(encaissement.get("issuer")) != caissier.etablissement:
         raise RecepisseIntrouvable(numero)
-    await _tracer(fhir, caissier, dossier.id_de(facture.get("subject")) or "", "read", dossier.reference("Invoice", facture["id"]))
-    return _recepisse(facture, await _nom_de_l_etablissement(fhir, caissier.etablissement))
+    await _tracer(fhir, caissier, dossier.id_de(encaissement.get("subject")) or "", "read", dossier.reference("Invoice", encaissement["id"]))
+    return _recepisse(encaissement, await _nom_de_l_etablissement(fhir, caissier.etablissement))
