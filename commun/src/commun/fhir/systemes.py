@@ -89,3 +89,16 @@ VERIFICATION = "http://terminology.hl7.org/CodeSystem/condition-ver-status"
 
 LIEN_DE_PARENTE = "http://terminology.hl7.org/CodeSystem/v3-RoleCode"
 """Le lien d'un parent au patient : MTH, FTH, SIB, CHILD, GRMTH, GRFTH."""
+
+# F5 : la Reprise du passé médical (docs/specs/F5-reprise-du-passe-medical.md, ADR 0007 et 0008).
+ORIGINE = f"{LAFIA}/CodeSystem/origine"
+"""D'où vient une entrée du dossier (`meta.tag`) : visite, numerisation, declaration, report ; `reprise` sur un Dépôt."""
+
+TYPE_DE_DOCUMENT = f"{LAFIA}/CodeSystem/type-de-document"
+"""carnet, compte-rendu, resultat-analyse, ordonnance, imagerie, certificat, autre."""
+
+DEPOT = f"{LAFIA}/identifiant/depot"
+"""Le Dépôt d'un Document (`meta.tag`), et de l'AuditEvent qui l'ouvre."""
+
+LISIBILITE = f"{LAFIA}/StructureDefinition/lisibilite"
+"""Extension d'un DocumentReference : lisible ou partiel."""

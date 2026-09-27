@@ -110,3 +110,4 @@ Each row is a feature, not a ticket, worked in dependency order. One session gri
 | F2 | Identité (agents, officines, code carnet) and synthetic dataset with tarifs | F1 | 1 |
 | F3 | v1 complète: soin with relation de soin and accès d'urgence, caisse, pharmacie, citoyen carnet, audit (`docs/specs/F3-v1-complete.md`) | F0, F2 | 2 |
 | F4 | Dossier approfondi (antécédents, traitements au long cours, groupe sanguin), espace patient in soin, carnet aéré (`docs/specs/F4-dossier-approfondi.md`) | F3 | 2 |
+| F5 | Reprise du passé médical: numérisation of paper history by a new actor, Documents in soin and the carnet, origine on every entry (`docs/specs/F5-reprise-du-passe-medical.md`) | F4 | 4 |

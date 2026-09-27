@@ -14,7 +14,7 @@ from commun.fhir.client import ClientFhir, Ressource
 # L'alphabet du numéro d'ordonnance et du code carnet : ni 0, O, 1, I ni L.
 ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 
-Motif = Literal["recherche", "relation-de-soin", "acces-urgence", "citoyen", "numero-d-ordonnance"]
+Motif = Literal["recherche", "relation-de-soin", "acces-urgence", "citoyen", "numero-d-ordonnance", "numerisation"]
 Action = Literal["read", "create", "update"]
 _ACTIONS = {"read": "R", "create": "C", "update": "U"}
 
@@ -75,6 +75,7 @@ def audit_event(
     etablissement: str | None = None,
     raison: str | None = None,
     ressource: dict[str, str] | None = None,
+    etiquettes: list[dict[str, str]] | None = None,
 ) -> Ressource:
     """Un accès au dossier de `patient` (identifiant de son Patient), en `AuditEvent`.
 
@@ -92,7 +93,7 @@ def audit_event(
     entites: list[dict[str, object]] = [{"what": reference("Patient", patient)}]
     if ressource:
         entites.append({"what": ressource})
-    return {
+    evenement: Ressource = {
         "resourceType": "AuditEvent",
         "type": {"system": systemes.DICOM, "code": "110110", "display": "Patient Record"},
         "subtype": [{"system": systemes.ACTION_REST, "code": action}],
@@ -103,6 +104,10 @@ def audit_event(
         "source": source,
         "entity": entites,
     }
+    # Une étiquette retrouve l'accès par recherche : l'ouverture d'un Dépôt porte le sien.
+    if etiquettes:
+        evenement["meta"] = {"tag": etiquettes}
+    return evenement
 
 
 async def tracer(fhir: ClientFhir, **acces: object) -> None:

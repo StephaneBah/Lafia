@@ -51,6 +51,29 @@ _Avoid_: traitement chronique, traitement de fond
 **Groupe sanguin**:
 The patient's ABO and Rhesus group, recorded once.
 
+**Document**:
+A file in the dossier that is not structured data: a scanned page of an old carnet, a compte rendu, a lab report, an image. Typed and dated; its origin says whether it was produced in Lafia or numérisé from paper.
+_Avoid_: pièce jointe, archive, scan (for the thing itself)
+
+**Numérisation**:
+Turning a paper document the patient holds into a Document of their dossier. The paper goes back to the patient; Lafia keeps the Document.
+_Avoid_: archivage, digitalisation
+
+**Dépôt**:
+One person's batch of paper documents handed over at a desk and numérisés in one sitting.
+_Avoid_: lot, envoi
+
+**Reprise**:
+The nationwide, medium-term programme that numérises the paper medical past citizens hold, at desks in établissements and wherever else it is organised. A backfill: once a person's past is in, their dossier grows from the actors' own additions.
+_Avoid_: campagne, recensement, migration
+
+**Origine**:
+Where an entry of the dossier comes from: a visite, a numérisation, the patient's own declaration, or a report from a Document by a soignant. Every entry carries it, and every screen shows it.
+_Avoid_: source (too vague), fiabilité
+
+**Agent de numérisation**:
+An agent who performs numérisations, for the Reprise or at any desk. Adds Documents to a dossier; reads nothing else in it.
+
 **Ordonnance**:
 A prescription issued at the end of a visite, identified by a unique numéro d'ordonnance, made of lignes.
 _Avoid_: prescription (for the whole document)
@@ -85,7 +108,7 @@ _Avoid_: dispensation, vente
 A médecin or infirmier writing in the dossier.
 
 **Agent**:
-Any authenticated professional user: soignant, caissier or pharmacien.
+Any authenticated professional user: soignant, caissier, pharmacien or agent de numérisation.
 
 **Établissement**:
 A health facility where visites happen.
@@ -131,6 +154,8 @@ _Avoid_: front, portail
 ## Relationships
 
 - A **Patient** has one **Dossier** and many **Cas de visite**
+- A **Dossier** only grows: each actor adds within its own reach, nobody edits or deletes; a correction is a new entry that supersedes the old one
+- A **Dépôt** produces one or more **Documents**, each numérisé from paper and attached to the patient's **Dossier**
 - A **Dossier** holds **Antécédents**, **Allergies**, **Traitements au long cours** and a **Groupe sanguin**, which outlive any **Cas de visite**; a **Diagnostic** belongs to one **Cas de visite**
 - A **Cas de visite** holds one or more **Visites** and may span several **Établissements**
 - A **Visite** produces **Mesures**, **Diagnostics** and at most one **Ordonnance** per issue
