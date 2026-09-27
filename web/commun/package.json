@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./renouvellement": "./src/renouvellement.ts",
     "./televersement": "./src/televersement.ts",
-    "./pages": "./src/pages.ts"
+    "./pages": "./src/pages.ts",
+    "./transcription": "./src/transcription.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

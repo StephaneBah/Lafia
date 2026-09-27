@@ -1,54 +1,70 @@
-# F6 : Relecture des Documents et Extraction — les fondations, démontrables
+# F6 : Transcription du passé papier — capture rigoureuse, Relecture, Contrôle
 
-Follows F5 (Reprise du passé médical). Grounded in ADR 0007 (the dossier only grows), ADR 0008 (Documents in the noyau) and ADR 0009 (the Extraction contract). The machine reading model does not exist yet: F6 builds the workflow around it with a stand-in, so the real model plugs in later without any other change.
+Follows F5 (Reprise du passé médical). Grounded in ADR 0007 (the dossier only grows), 0008 (Documents in the noyau), 0009 (the Extraction contract) and 0010 (the Transcription format). The machine reading model does not exist yet: F6 builds everything around it with a stand-in, so the real model plugs in later without any other change. Revised on 2026-09-27 after the first draft made triage a gate that could only end by recalling the citizen.
 
 ## Problem Statement
 
-The Reprise turns paper into Documents, but a Document is an image: a soignant must open it and read it to use it, and nothing in it can be searched, charted or checked against a prescription. Reading millions of pages needs a machine, and trusting a machine needs people: someone to say a scan is usable before any machine reads it, and a soignant to accept each fact the machine proposes. None of this exists, and the team that will build the model needs a place to plug it in.
+The Reprise turns paper into Documents, but a Document is a set of photos: a soignant must decipher each page, doctors' handwriting is often illegible, and nothing can be regrouped by place or date. Reading millions of pages needs a machine, and trusting the result needs people with some medical literacy who correct it by hand. The citizen must not pay for any of this: they come to the desk once, and nothing after it may send them back.
+
+## Principles
+
+1. **The citizen comes once.** Everything that needs them (identity, legible pages, every page, in order) happens at the desk while they are there. They may come back on their own with papers they forgot; the platform never summons them. Their paper history is never closed: a later Dépôt adds Documents that join the same views.
+2. **Quality is enforced at capture**, where fixing it costs ten seconds.
+3. **The machine eases the work; people make it true.** The Extraction drafts a Transcription; agents de relecture correct and structure it, confirm it twice, and a second reviewer controls it.
+4. **A Transcription is a heritage asset** of the patient's history before Lafia, not verified clinical data, and every screen says so.
+5. **The citizen and the soignant benefit early**: the scan is in the dossier from the desk on; the Transcription joins it once relue.
 
 ## Solution
 
-1. **Tâches de relecture.** Each numérised Document gets a Tâche de relecture. Part-time agents de relecture receive a weekly quota of tâches, assigned outside their own département, and see only the pages: no NPI, no name from the system.
-2. **Triage** by the agent de relecture: usable or not (illegible, not medical, wrong type, duplicate), the right type, a corrected year. A usable Document goes to Extraction.
-3. **Extraction** through the `extraction` service (ADR 0009). Today it is a stand-in that answers the real contract with sample proposals, labelled "extraction de démonstration" everywhere.
-4. **Clinical validation** by a soignant doing relecture: they see the pages beside the proposals, accept, correct or reject each one. Accepted proposals enter the dossier with origine `extraction`; the text becomes a derived Document.
-5. **The patient** sees in "qui a ouvert mon dossier" that their Documents were read for relecture, without the reviewer's name.
+1. **Rigorous capture at the desk** (numerisation, and the soignant's "Ajouter un document"): every page is checked in the browser as it is taken: sharpness, brightness and contrast, framing (the page's edges inside the frame, minimum resolution), glare. A page that fails cannot be kept; a guide says what to change ("trop sombre : rapprochez-vous de la lumière", "page coupée : reculez"). The only override is a paper damaged in itself, declared by the agent and noted on the Document. Before closing a Document the agent confirms the page count against the paper and can reorder pages.
+2. **Extraction** (stand-in today) reads each numérised Document and returns a draft Transcription in volets (ADR 0010), the raw text, and proposed clinical facts.
+3. **Relecture** by an agent de relecture, from their weekly tâches: the pages scroll on the left, the rendered Transcription on the right, each volet pointing to its pages. They correct the reading by hand, reorder, split and merge volets, add photos of pages or regions, mark what is illegible. **Double confirmation**: first they tick each volet as checked against its pages, then they confirm the whole Transcription with a summary of their changes.
+4. **Contrôle** by a second agent de relecture (never the same person): they read the confirmed Transcription against the pages and accept it, or send it back to the first with a note. Accepted, it becomes relue (`docStatus` final).
+5. **Reading it**: soin's Documents tab shows the relue Transcription rendered next to the scan, labelled "Transcription d'un document ancien, relue — ce n'est pas une donnée clinique vérifiée". The carnet's "Mes documents" shows it too, and a **"Par établissement"** view regroups every volet of every relue Transcription by établissement, in date order.
+6. **Clinical facts** (secondary): the Extraction's proposals wait in the Tâche; once the Transcription is relue, a soignant can validate them into the dossier (origine `extraction`, ADR 0009). The structured Transcription makes that work easier.
+7. **Follow-up for reviewers**: "Ma semaine" (quota, done, returned by Contrôle), and the history of their Relectures and Contrôles.
 
 ## Decisions
 
-- **Two tiers**: triage by agents de relecture (no clinical fact), validation by soignants (ADR 0007).
-- **Pseudonymised, not anonymous**: the system never shows who the patient is; a page may. Assignment avoids the reviewer's own département; every view is audited.
-- **Weekly quota**: set per reviewer (default 50 tâches); unfinished tâches return to the pool at the end of the week.
-- **State in the noyau**: a Tâche de relecture is a FHIR `Task`; proposals are its `contained` resources until validated.
-- **Carnet papier and annexes**: a carnet is one Document; its annexes are Documents attached to it (`context.related`), reviewed separately, opened together.
-- **Designed, not built**: the real model, automatic name blurring on pages, priority rules for the queue (e.g. patients with an upcoming visite), reviewer quality statistics.
+- A Document's paper order is kept in its pages; the Transcription orders volets by date where known. Nothing is stored per établissement: that view is computed.
+- Agents de relecture have some medical literacy; they transcribe and structure, never validate a clinical fact.
+- Pseudonymised, not anonymous: the system never shows who the patient is; a page may. Tâches are assigned outside the reviewer's own département; every page view is audited; the citizen sees "Vos papiers ont été relus" without a name.
+- Contrôle is systematic for now (every Transcription), with a configurable share (`PART_CONTROLEE`, default 1) so it can become sampling later.
+- An unusable Document (not medical, duplicate) is marked so by the reviewer and closed; an illegible passage is a volet of type `illisible`. Nothing reopens the Dépôt or contacts the citizen.
+- Designed, not built: the real model; automatic name blurring; a supervisor view; queue priorities; paying reviewers.
 
 ## FHIR contract (additions)
 
 | Thing | Resource | Shape |
 |---|---|---|
-| Tâche de relecture | `Task` | `status` ready \| in-progress \| completed \| rejected; `intent` order; `code` = {system `RELECTURE`, code `triage` \| `validation`}; `focus` = DocumentReference; `for` = Patient (never shown to the reviewer); `owner` = Practitioner; `restriction.period.end` = due date (end of the week); `businessStatus.text` = triage verdict; `output[]` = the derived text Document and the validated entries; `contained[]` = Extraction proposals; `meta.tag` week `2026-W39` |
-| Extraction text | `DocumentReference` | `relatesTo` = {code `transforms`, target the scan}; `content[0].attachment` text/plain as `Binary`; `category` origine `extraction`; `author` = the Device |
-| Model | `Device` | `deviceName` = modele.nom; `version[0].value` = modele.version |
-| Validated fact | Observation, Condition, AllergyIntolerance, MedicationStatement | as F4, `meta.tag` origine `extraction`, plus a `Provenance` (entity source the scan, agents the soignant and the Device) |
-| Annexe | `DocumentReference` | `context.related[]` = the Carnet papier's DocumentReference |
+| Tâche de relecture | `Task` | `code` system `RELECTURE`: `relecture` \| `controle` \| `validation`; `status` ready \| in-progress \| completed \| rejected; `focus` = scanned DocumentReference; `for` = Patient (never shown); `owner` = reviewer; `restriction.period.end` = end of week; `output[]` = current Transcription; `contained[]` = proposals; `note[]` = Contrôle's return notes; `meta.tag` week |
+| Transcription | `DocumentReference` | type Transcription; `text/markdown` Binary (ADR 0010); `relatesTo` transforms the scan, `replaces` the previous version; `docStatus` preliminary → final at Contrôle; `meta.tag` origine extraction |
+| Relecture, Contrôle | `Provenance` | target the Transcription version; agent the reviewer; `activity` relecture \| controle; entity source the scan |
+| Capture quality | DocumentReference extension `…/StructureDefinition/papier-abime` | valueString: the agent's note when a damaged paper overrode a check |
 
-## Services and routes
+## Routes (relecture, under `/api/relecture`)
 
-- `relecture` (new actor: roles `agent de relecture`, and médecin/infirmier for validation; its own application): `GET /api/relecture/taches` (my week), `GET /api/relecture/taches/{id}` (pages, no identity), `GET .../pages/{n}`, `POST .../triage {verdict, type?, annee?}`, `POST .../validation {propositions:[{id, decision: accepter|corriger|rejeter, valeur?}]}`.
-- `extraction` (internal, no gateway route, no application): `POST /extraire` per ADR 0009; stand-in implementation.
-- numerisation: Documents created from F6 on get a Tâche de relecture; annexes can be attached to a carnet at the desk.
+- `GET /taches` → my week: `[{id, etape: relecture|controle|validation, document:{type, annee, pages}, echeance, statut, renvoyee?}]`; assigns up to the quota.
+- `GET /taches/{id}` → `{id, etape, document, transcription (Markdown), volets:[{titre, type, date, etablissement, pages}], texte, modele, notes_de_controle, propositions?}`; never the patient.
+- `GET /taches/{id}/pages/{n}`.
+- `PUT /taches/{id}/transcription {markdown}` → saves a working draft (in the Task, not yet a version).
+- `POST /taches/{id}/confirmation {volets_verifies:[...], resume}` → writes a Transcription version, Provenance relecture, creates the Contrôle tâche for another reviewer.
+- `POST /taches/{id}/controle {decision: accepter|renvoyer, note?}` → accept: final version + Provenance controle; send back: the relecture tâche returns to its reviewer with the note.
+- `POST /taches/{id}/inutilisable {raison: non-medical|doublon}`.
+- `POST /taches/{id}/validation` (soignant, clinical facts) as before.
+- soin: `GET /api/soin/documents/{id}/transcription`; citoyen: `GET /api/citoyen/documents/{id}/transcription` and `GET /api/citoyen/par-etablissement`.
 
-## Tickets (after F5 is deployed)
+## Tickets
 
 | # | Slice |
 |---|---|
-| F6.1 | Contract: ADR 0009, glossary, systems, `commun/fhir/relecture.py` (Task, Device, Extraction helpers) |
-| F6.2 | `extraction` stand-in service on the internal network, and its contract test |
-| F6.3 | `relecture` service and actor: quota assignment, triage, extraction call, validation writing the dossier with Provenance |
-| F6.4 | `relecture` application: my week, triage screen, validation screen (pages beside proposals) |
-| F6.5 | Annexes at the desk; relecture shown in the carnet's access log; origine `extraction` shown in soin and the carnet |
+| F6.1 | Contract, glossary, ADR 0009/0010, `commun/fhir/relecture.py`, `commun/extraction.py` (done) |
+| F6.2 | Extraction stand-in: draft Transcriptions in volets per ADR 0010 (done in a first form; extend) |
+| F6.3 | relecture service: relecture, confirmation, contrôle, inutilisable, versions and Provenance; quota and follow-up |
+| F6.4 | relecture application: side-by-side reviewer (pages left, rendered Transcription right, editing, volets, double confirmation), Contrôle screen, Ma semaine and history |
+| F6.5 | Rigorous capture: shared quality checks in `web/commun`, used by the desk and soin; page count and reorder; damaged-paper override |
+| F6.6 | Reading: shared Transcription parser/renderer (ADR 0010); soin Documents tab; carnet "Mes documents" and "Par établissement"; heritage label |
 
 ## Out of Scope
 
-The real model and its server; name blurring; queue priorities; statistics; paying reviewers.
+The real model and its server; name blurring; supervisor dashboards; paying reviewers; the citizen uploading papers themself.
