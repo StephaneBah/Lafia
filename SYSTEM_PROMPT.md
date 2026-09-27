@@ -14,7 +14,7 @@ The unit of care is the **cas de visite**: a health problem from opening to clos
 
 ## Sources of truth
 
-This file and `CONTEXT.md` are canonical. `cahier-des-charges-lafia.html` (functional) and `lafia-document-technique.html` (technical) are the French deliverables for the jury, derived from them; when they disagree, this file wins and the HTML is updated at the end of the session. `prd_for_design.md` governs the design system and interfaces.
+This file and `CONTEXT.md` are canonical. `docs/cahier-des-charges-lafia.html` (functional) and `docs/lafia-document-technique.html` (technical) are the French deliverables for the jury, derived from them; when they disagree, this file wins and the HTML is updated at the end of the session. `docs/prd_for_design.md` governs the design system and interfaces.
 
 ## Architecture invariants
 
@@ -89,7 +89,7 @@ A shared national record concentrates the most intimate data a person has. These
 
 ## Inclusivity requirement
 
-The population served is not a connected one. Citizen screens are understandable without reading: the illustration carries the meaning, every action pairs an icon with a word, colour never carries meaning alone, WCAG 2.2 AA is the floor. UI work follows `prd_for_design.md` and the design system in `web/design/` and `docs/design/`.
+The population served is not a connected one. Citizen screens are understandable without reading: the illustration carries the meaning, every action pairs an icon with a word, colour never carries meaning alone, WCAG 2.2 AA is the floor. UI work follows `docs/prd_for_design.md` and the design system in `web/design/` and `docs/design/`.
 
 ## Scope
 

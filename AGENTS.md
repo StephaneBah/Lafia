@@ -27,7 +27,7 @@ docs/            architecture, deployment runbook, specs, ADRs (docs/adr/), desi
 
 Commands live in `docker-compose.yml`, each service's `pyproject.toml`, the `web/` workspace's `package.json` and `tests/pyproject.toml`; `README.md` lists the ones to start the stack and run the suite.
 
-`SYSTEM_PROMPT.md` and `CONTEXT.md` are canonical. The HTML files at the root are the French deliverables derived from them.
+`SYSTEM_PROMPT.md` and `CONTEXT.md` are canonical. The HTML files `docs/cahier-des-charges-lafia.html` and `docs/lafia-document-technique.html` are the French deliverables derived from them.
 
 ## Conventions
 
