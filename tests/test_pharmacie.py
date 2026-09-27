@@ -145,3 +145,12 @@ def test_une_ligne_non_payee_ne_se_remet_pas_et_le_caissier_n_a_pas_acces(applic
 
     caissier = pharmacie.get(f"/api/pharmacie/ordonnances/{numero}", headers=_porteur(jeton_de("caissier")))
     assert caissier.status_code == 403
+
+
+def test_le_pharmacien_voit_les_traitements_au_long_cours_du_patient(application, jeton_de):
+    # L'ordonnance en cours du carnet vécu (donnees/src/donnees/historique.py) : son patient prend de
+    # l'amlodipine au long cours.
+    vue = application("pharmacie").get("/api/pharmacie/ordonnances/ORD-7K4-M2P", headers=_porteur(jeton_de("pharmacien")))
+
+    assert vue.status_code == 200, vue.text
+    assert any("amlodipine" in t["libelle"].lower() for t in vue.json()["traitements_au_long_cours"])

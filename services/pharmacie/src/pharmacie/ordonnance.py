@@ -50,6 +50,11 @@ class AllergieVue(BaseModel):
     lignes: list[str]
 
 
+class TraitementVu(BaseModel):
+    libelle: str
+    posologie: str
+
+
 class OrdonnanceVue(BaseModel):
     numero: str
     patient: PatientVu
@@ -57,6 +62,7 @@ class OrdonnanceVue(BaseModel):
     date: str | None
     lignes: list[LigneVue]
     allergies: list[AllergieVue]
+    traitements_au_long_cours: list[TraitementVu] = []
 
 
 class Delivrance(BaseModel):
@@ -113,9 +119,10 @@ async def consulter(fhir: ClientFhir, saisie: str, pharmacien: Agent) -> Ordonna
     """L'ordonnance au comptoir : ses lignes remettables, leur état, les allergies qui les concernent."""
     lu = await _lire(fhir, saisie, pharmacien)
     premiere = lu.lignes[0]
-    (nom, prenoms), prescripteur = await asyncio.gather(
+    (nom, prenoms), prescripteur, traitements = await asyncio.gather(
         fhir_pharmacie.nom_du_patient(fhir, lu.patient),
         fhir_pharmacie.nom_du_prescripteur(fhir, premiere.prescripteur),
+        fhir_pharmacie.traitements_au_long_cours(fhir, lu.patient),
     )
     await dossier.tracer(
         fhir,
@@ -149,6 +156,7 @@ async def consulter(fhir: ClientFhir, saisie: str, pharmacien: Agent) -> Ordonna
         date=premiere.date,
         lignes=lignes,
         allergies=[AllergieVue(libelle=a.libelle, lignes=a.lignes) for a in lu.allergies],
+        traitements_au_long_cours=[TraitementVu(libelle=t.libelle, posologie=t.posologie) for t in traitements],
     )
 
 

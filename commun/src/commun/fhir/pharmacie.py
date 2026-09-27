@@ -142,6 +142,25 @@ async def allergies_du_patient(fhir: ClientFhir, patient: str) -> list[Allergie]
     return allergies
 
 
+@dataclass(frozen=True)
+class TraitementAuLongCours:
+    libelle: str
+    posologie: str
+
+
+async def traitements_au_long_cours(fhir: ClientFhir, patient: str) -> list[TraitementAuLongCours]:
+    """Les traitements au long cours en cours du patient (MedicationStatement actifs), que le pharmacien
+    voit avant de remettre : une interaction se repère au comptoir."""
+    trouves = await fhir.chercher("MedicationStatement", {"subject": f"Patient/{patient}", "status": "active"})
+    return [
+        TraitementAuLongCours(
+            libelle=_libelle(t.get("medicationCodeableConcept", {})),
+            posologie=(t.get("dosage") or [{}])[0].get("text", ""),
+        )
+        for t in trouves
+    ]
+
+
 def _nom(ressource: Ressource | None) -> tuple[str, str]:
     """Le nom de famille et les prénoms d'un Patient ou d'un Practitioner."""
     if not ressource or not ressource.get("name"):

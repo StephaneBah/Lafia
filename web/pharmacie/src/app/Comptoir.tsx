@@ -36,6 +36,7 @@ type Ordonnance = {
   date: string | null;
   lignes: Ligne[];
   allergies: { libelle: string; lignes: string[] }[];
+  traitements_au_long_cours?: { libelle: string; posologie: string }[];
 };
 type Delivrance = { id: string; ligne: string; libelle: string; quantite: number; reste: number };
 
@@ -271,6 +272,20 @@ export function Comptoir() {
             laissez-la de côté, ou reconnaissez l’allergie pour la remettre.
           </Alert>
         ))}
+
+      {(vue.traitements_au_long_cours ?? []).length > 0 && (
+        <Alert tone="info" title="Traitements au long cours du patient">
+          <ul className="cp-traitements">
+            {vue.traitements_au_long_cours!.map((t) => (
+              <li key={t.libelle}>
+                <b>{t.libelle}</b>
+                {t.posologie && <span> · {t.posologie}</span>}
+              </li>
+            ))}
+          </ul>
+          Vérifiez qu’aucune ligne ne fait double emploi ni n’interagit avec eux.
+        </Alert>
+      )}
 
       {erreur && (
         <Alert tone="danger" title="Remise refusée">

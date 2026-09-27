@@ -63,3 +63,7 @@
 .of-faits { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3) var(--space-5); margin: 0; }
 .of-faits dt { color: var(--color-text-muted); font-size: 14px; line-height: 20px; text-transform: uppercase; letter-spacing: .05em; }
 .of-faits dd { margin: 0; font-weight: 700; font-size: 17px; line-height: 24px; }
+
+/* Traitements au long cours du patient, au-dessus des lignes. */
+.cp-traitements { margin: 0 0 var(--space-2); padding-left: var(--space-5); }
+.cp-traitements li + li { margin-top: var(--space-1); }
