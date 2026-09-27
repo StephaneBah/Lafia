@@ -211,6 +211,11 @@ def document_vu(ressource: Ressource) -> DocumentVu:
     )
 
 
+def formats_des_pages(ressource: Ressource) -> list[str]:
+    """Le format de chaque page d'un Document, dans l'ordre : de quoi montrer une image ou ouvrir un PDF."""
+    return [c.get("attachment", {}).get("contentType", "") for c in ressource.get("content", [])]
+
+
 async def documents_du_patient(fhir: ClientFhir, patient: str) -> list[Ressource]:
     """Les Documents courants du patient, du plus récent au plus ancien."""
     trouves = await fhir.chercher("DocumentReference", {"subject": f"Patient/{patient}", "status": "current"})

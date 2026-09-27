@@ -8,12 +8,15 @@ Les règles (relation de soin, catalogues, rôles) viennent de `soin.regles` ; l
 
 from typing import Any
 
+from commun.fhir import documents as fhir_documents
 from commun.fhir import soin as fhir_soin
 from commun.fhir import systemes
 from commun.fhir.client import ClientFhir, Ressource, ecriture
-from commun.fhir.dossier import Action, Motif, numero_d_ordonnance, patient_par_npi, reference, tracer
+from commun.fhir.documents import Origine, Page, avec_origine
+from commun.fhir.dossier import Action, Motif, id_de, numero_d_ordonnance, patient_par_npi, reference, tracer
 from commun.jeton import Agent
 from soin import modeles
+from soin.regles import documents as regles_documents
 from soin.regles import dossier as regles_dossier
 from soin.regles import relation
 from soin.regles import visite as regles_visite
@@ -21,7 +24,15 @@ from soin.regles.relation import SansRelationDeSoin
 
 SERVICE = "soin"
 
-__all__ = ["CasClos", "CasInconnu", "PatientInconnu", "SansRelationDeSoin", "TraitementInconnu"]
+__all__ = [
+    "CasClos",
+    "CasInconnu",
+    "DocumentInconnu",
+    "PageInconnue",
+    "PatientInconnu",
+    "SansRelationDeSoin",
+    "TraitementInconnu",
+]
 
 
 class PatientInconnu(Exception):
@@ -37,6 +48,14 @@ class CasClos(Exception):
 
 
 class TraitementInconnu(Exception):
+    pass
+
+
+class DocumentInconnu(Exception):
+    pass
+
+
+class PageInconnue(Exception):
     pass
 
 
@@ -275,8 +294,11 @@ async def dossier(fhir: ClientFhir, soignant: Agent, patient_id: str) -> dict[st
 async def ouvrir_cas(fhir: ClientFhir, soignant: Agent, patient_id: str, demande: modeles.NouveauCas) -> str:
     """Un nouveau cas à l'établissement du soignant : la relation de soin est établie. Tracé."""
     await _patient(fhir, patient_id)
-    cas = fhir_soin.episode_of_care(
-        patient=patient_id, etablissement=soignant.etablissement, soignant=soignant.sub, motif=demande.motif
+    cas = avec_origine(
+        fhir_soin.episode_of_care(
+            patient=patient_id, etablissement=soignant.etablissement, soignant=soignant.sub, motif=demande.motif
+        ),
+        "visite",
     )
     await fhir.transaction([ecriture(cas)])
     await _tracer(fhir, soignant, patient_id, "create", "relation-de-soin", ressource=reference("EpisodeOfCare", cas["id"]))
@@ -350,7 +372,7 @@ async def enregistrer_visite(
                 **commun,
             )
         )
-    await fhir.transaction([ecriture(r) for r in ressources])
+    await fhir.transaction([ecriture(avec_origine(r, "visite")) for r in ressources])
     _, visites = await _cas_et_visites(fhir, patient)
     motif: Motif = "acces-urgence" if relation.cas_d_urgence(cas, visites) else "relation-de-soin"
     await _tracer(fhir, soignant, patient, "create", motif, ressource=reference("Encounter", rencontre["id"]))
@@ -366,12 +388,22 @@ async def clore_cas(fhir: ClientFhir, soignant: Agent, cas_id: str) -> None:
     await _tracer(fhir, soignant, patient, "update", motif, ressource=reference("EpisodeOfCare", cas_id))
 
 
-async def _ecrire_au_dossier(fhir: ClientFhir, soignant: Agent, patient_id: str, ressource: Ressource) -> str:
-    """Écrit `ressource` au dossier du patient, avec une relation de soin. Tracé."""
+async def _ecrire_au_dossier(
+    fhir: ClientFhir, soignant: Agent, patient_id: str, ressource: Ressource, document_id: str | None = None
+) -> str:
+    """Écrit `ressource` au dossier du patient, avec une relation de soin, marquée de son origine. Tracé.
+
+    Avec `document_id`, l'entrée est reportée depuis ce Document, qui doit être du même patient : elle
+    porte l'origine `report`, et un `Provenance` la lie à son Document (ADR 0007)."""
     await _patient(fhir, patient_id)
     motif = await _motif_exige(fhir, soignant, patient_id)
-    ecrite = await fhir.creer(ressource)
-    await _tracer(fhir, soignant, patient_id, "create", motif, ressource=reference(ressource["resourceType"], ecrite["id"]))
+    if document_id:
+        regles_documents.exiger_document_du_patient(await fhir.lire("DocumentReference", document_id), patient_id)
+    ecrite = await fhir.creer(avec_origine(ressource, regles_documents.origine_de_la_saisie(document_id)))
+    cible = reference(ressource["resourceType"], ecrite["id"])
+    if document_id:
+        await fhir.creer(fhir_documents.provenance_de_report(cible=cible, document=document_id, soignant=soignant.sub))
+    await _tracer(fhir, soignant, patient_id, "create", motif, ressource=cible)
     return str(ecrite["id"])
 
 
@@ -382,7 +414,7 @@ async def declarer_allergie(
     allergie = fhir_soin.allergy_intolerance(
         patient=patient_id, code_atc=demande.code_atc, libelle=libelle, soignant=soignant.sub
     )
-    return await _ecrire_au_dossier(fhir, soignant, patient_id, allergie)
+    return await _ecrire_au_dossier(fhir, soignant, patient_id, allergie, demande.document_id)
 
 
 async def ajouter_antecedent(
@@ -403,7 +435,7 @@ async def ajouter_antecedent(
             actif=demande.actif,
             soignant=soignant.sub,
         )
-    return await _ecrire_au_dossier(fhir, soignant, patient_id, ressource)
+    return await _ecrire_au_dossier(fhir, soignant, patient_id, ressource, demande.document_id)
 
 
 async def ajouter_traitement(
@@ -464,9 +496,78 @@ async def acces_d_urgence(
         type_="urgence",
         motif=demande.raison,
     )
-    await fhir.transaction([ecriture(cas), ecriture(rencontre)])
+    await fhir.transaction([ecriture(avec_origine(cas, "visite")), ecriture(avec_origine(rencontre, "visite"))])
     await _tracer(
         fhir, soignant, patient_id, "create", "acces-urgence", raison=demande.raison,
         ressource=reference("Encounter", rencontre["id"]),
     )
     return str(cas["id"]), str(rencontre["id"])
+
+
+def _document_lu(document: Ressource) -> dict[str, Any]:
+    vu = fhir_documents.document_vu(document)
+    return {
+        "id": vu.id,
+        "type": vu.type,
+        "libelle_du_type": vu.libelle_du_type,
+        "annee": vu.annee,
+        "etablissement": vu.etablissement,
+        "lisibilite": vu.lisibilite,
+        "pages": vu.pages,
+        "formats": fhir_documents.formats_des_pages(document),
+        "origine": vu.origine,
+        "depose_le": vu.depose_le,
+    }
+
+
+async def documents(fhir: ClientFhir, soignant: Agent, patient_id: str) -> list[dict[str, Any]]:
+    """Les Documents du patient, du plus récent au plus ancien, avec une relation de soin. Lecture tracée."""
+    await _patient(fhir, patient_id)
+    motif = await _motif_exige(fhir, soignant, patient_id)
+    trouves = await fhir_documents.documents_du_patient(fhir, patient_id)
+    await _tracer(fhir, soignant, patient_id, "read", motif)
+    return [_document_lu(d) for d in trouves]
+
+
+async def page_du_document(fhir: ClientFhir, soignant: Agent, document_id: str, rang: int) -> Page:
+    """La page `rang` d'un Document, avec une relation de soin avec son patient. Lecture tracée."""
+    document = await fhir.lire("DocumentReference", document_id)
+    patient = id_de(document.get("subject")) if document else None
+    if document is None or patient is None:
+        raise DocumentInconnu()
+    motif = await _motif_exige(fhir, soignant, patient)
+    lue = await fhir_documents.page(fhir, document, rang)
+    if lue is None:
+        raise PageInconnue()
+    await _tracer(fhir, soignant, patient, "read", motif, ressource=reference("DocumentReference", document_id))
+    return lue
+
+
+async def ajouter_document(
+    fhir: ClientFhir,
+    soignant: Agent,
+    patient_id: str,
+    *,
+    type_: str,
+    annee: str,
+    lisibilite: str,
+    etablissement: str | None,
+    pages: list[Page],
+) -> dict[str, Any]:
+    """Un Document que le patient a apporté, numérisé pendant la visite : origine `numerisation`,
+    auteur le soignant. Avec une relation de soin. Tracé."""
+    await _patient(fhir, patient_id)
+    motif = await _motif_exige(fhir, soignant, patient_id)
+    regles_documents.verifier_limites(pages)
+    ecrit = await fhir_documents.ecrire_document(
+        fhir,
+        patient=patient_id,
+        auteur=soignant.sub,
+        type_=type_,
+        annee=annee,
+        pages=pages,
+        lisibilite=lisibilite,
+        etablissement_d_origine=etablissement,
+    )
+    await _tracer(fhir, soignant, patient_id, "create", motif, ressource=reference("DocumentReference", ecrit["id"]))
+    return {"document_id": ecrit["id"], "pages": len(pages)}

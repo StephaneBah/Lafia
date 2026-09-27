@@ -77,6 +77,22 @@ export type AccesLu = {
   motif: string;
   urgence: boolean;
   raison: string | null;
+  /** Un dépôt : des papiers du citoyen ont été numérisés et ajoutés à son dossier. */
+  depot?: boolean;
+};
+
+/** Un de mes documents : un papier numérisé, que personne n'a vérifié. */
+export type DocumentLu = {
+  id: string;
+  type: string;
+  libelle: string;
+  annee: string | null;
+  etablissement: string | null;
+  pages: number;
+  /** Le format de chaque page : image/jpeg, image/png ou application/pdf. */
+  formats: string[];
+  lisible: boolean;
+  depose_le: string | null;
 };
 
 export type Accueil = {
@@ -136,6 +152,24 @@ export async function lire<T>(chemin: string): Promise<Lecture<T>> {
   } catch (erreur) {
     console.warn(`service citoyen injoignable : ${chemin}`, erreur);
     return { etat: "injoignable" };
+  }
+}
+
+/**
+ * Une page d'un de mes documents, lue au service citoyen avec le cookie de session : la réponse telle
+ * quelle (octets et format), que l'application relaie au navigateur.
+ */
+export async function lirePage(documentId: string, rang: number): Promise<Response> {
+  const jeton = (await cookies()).get(COOKIE_DE_SESSION)?.value;
+  if (!jeton) return new Response(null, { status: 401 });
+  try {
+    return await fetch(
+      `${adressePasserelle()}/api/citoyen/documents/${encodeURIComponent(documentId)}/pages/${rang}`,
+      { cache: "no-store", headers: { Cookie: `${COOKIE_DE_SESSION}=${jeton}` }, signal: AbortSignal.timeout(30000) },
+    );
+  } catch (erreur) {
+    console.warn("service citoyen injoignable : /documents", erreur);
+    return new Response(null, { status: 503 });
   }
 }
 

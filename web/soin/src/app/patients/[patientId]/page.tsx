@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { soignantConnecte } from "../../../composants/Cadre";
 import { CourbeDeTemperature } from "../../../composants/CourbeDeTemperature";
+import { OrigineDeLEntree } from "../../../composants/Documents";
 import { EspacePatient, PatientIntrouvable, adresseDuPatient } from "../../../composants/EspacePatient";
 import { valeurDeMesure } from "../../../composants/FilDuCas";
 import {
@@ -236,6 +237,7 @@ function Synthese({ bandeau, dossier, catalogue }: { bandeau: Bandeau; dossier: 
                       <b>{a.libelle}</b>
                       {a.depuis && <span className="sn-meta">{` · depuis ${a.depuis}`}</span>}
                       {!a.actif && <span className="sn-etiquette">Résolu</span>}
+                      <OrigineDeLEntree origine={a.origine} />
                     </li>
                   ))}
                 </ul>
@@ -252,6 +254,7 @@ function Synthese({ bandeau, dossier, catalogue }: { bandeau: Bandeau; dossier: 
                   <li key={f.id}>
                     <b>{f.libelle}</b>
                     <span className="sn-meta">{` · ${libelleDuLien(f.lien)}`}</span>
+                    <OrigineDeLEntree origine={f.origine} />
                   </li>
                 ))}
               </ul>
@@ -272,6 +275,7 @@ function Synthese({ bandeau, dossier, catalogue }: { bandeau: Bandeau; dossier: 
                   <div>
                     <b>{t.libelle}</b>
                     <div className="sn-meta">{[t.posologie, t.depuis && `depuis ${formatDate(t.depuis)}`].filter(Boolean).join(" · ")}</div>
+                    <OrigineDeLEntree origine={t.origine} />
                   </div>
                   <form action={arreterTraitement}>
                     <input type="hidden" name="patient_id" value={id} />
@@ -289,6 +293,16 @@ function Synthese({ bandeau, dossier, catalogue }: { bandeau: Bandeau; dossier: 
 
         <Card className="sn-panneau">
           <h2 className="sn-h2">Groupe sanguin et allergies</h2>
+          {bandeau.allergies.length > 0 && (
+            <ul className="sn-puces">
+              {bandeau.allergies.map((a) => (
+                <li key={a.id}>
+                  <b>{a.code_atc ? `${a.libelle} (${a.code_atc})` : a.libelle}</b>
+                  <OrigineDeLEntree origine={a.origine} />
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="sn-actions">
             <EnregistrerGroupeSanguin patientId={id} actuel={bandeau.groupe_sanguin} />
             <DeclarerAllergie patientId={id} catalogue={catalogue} />

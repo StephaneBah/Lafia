@@ -7,13 +7,14 @@ Chaque lecture laisse un `AuditEvent`, motif `citoyen`, au nom du patient lui-m�
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from citoyen.regles import carnet
+from citoyen.regles import carnet, documents
 from citoyen.regles.acces import SessionCitoyen, session_du_citoyen
+from commun.fhir import documents as fhir_documents
 from commun.fhir import dossier as dossier_fhir
 from commun.fhir.citoyen import DossierDuCitoyen, lire_dossier
-from commun.fhir.client import ClientFhir
+from commun.fhir.client import ClientFhir, Ressource
 from commun.jeton import Citoyen, VerificateurDeJetons
 from commun.service import client_fhir, creer_service
 
@@ -104,8 +105,69 @@ async def ma_sante(dossier: DossierDuCitoyen = Depends(dossier_du_citoyen)) -> c
 
 @routes.get("/acces", responses={**REFUS, **CARNET_INTROUVABLE})
 async def acces(dossier: DossierDuCitoyen = Depends(dossier_du_citoyen)) -> list[carnet.AccesLu]:
-    """Qui a ouvert le dossier, quand et pourquoi ; un accès d'urgence avec son motif."""
+    """Qui a ouvert le dossier, quand et pourquoi ; un accès d'urgence avec son motif ; chaque dépôt de
+    papiers numérisés, et où."""
     return carnet.journal_des_acces(dossier)
+
+
+async def patient_du_citoyen(
+    citoyen: Citoyen = Depends(citoyen_connecte), fhir: ClientFhir = Depends(client_fhir)
+) -> Ressource:
+    """Dépendance : le Patient du NPI du jeton, sans lire tout le dossier."""
+    patient = await dossier_fhir.patient_par_npi(fhir, citoyen.npi)
+    if patient is None:
+        journal.info("carnet introuvable pour le citoyen %s", citoyen.sub)
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="carnet introuvable")
+    return patient
+
+
+async def _tracer_lecture(fhir: ClientFhir, patient: str, ressource: dict[str, str] | None = None) -> None:
+    await dossier_fhir.tracer(
+        fhir,
+        patient=patient,
+        qui=dossier_fhir.reference("Patient", patient),
+        service=SERVICE,
+        action="read",
+        motif="citoyen",
+        ressource=ressource,
+    )
+
+
+@routes.get("/documents", responses={**REFUS, **CARNET_INTROUVABLE})
+async def mes_documents(
+    patient: Ressource = Depends(patient_du_citoyen), fhir: ClientFhir = Depends(client_fhir)
+) -> list[documents.DocumentLu]:
+    """Mes documents : les papiers numérisés, du plus récent au plus ancien, avec leur type, leur année
+    et leur nombre de pages. Numérisés, non vérifiés."""
+    trouves = await fhir_documents.documents_du_patient(fhir, patient["id"])
+    await _tracer_lecture(fhir, patient["id"])
+    return [documents.document_lu(d) for d in trouves]
+
+
+@routes.get(
+    "/documents/{document_id}/pages/{rang}",
+    responses={**REFUS, 404: {"description": "Pas un document de ce citoyen, ou pas de cette page."}},
+    response_class=Response,
+)
+async def page_de_mon_document(
+    document_id: str,
+    rang: int,
+    patient: Ressource = Depends(patient_du_citoyen),
+    fhir: ClientFhir = Depends(client_fhir),
+) -> Response:
+    """Les octets d'une page d'un de mes documents (à partir de 1) : JPEG, PNG ou PDF."""
+    document = await fhir.lire("DocumentReference", document_id)
+    if document is None or not documents.est_du_citoyen(document, patient["id"]):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="document introuvable")
+    page = await fhir_documents.page(fhir, document, rang)
+    if page is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="page introuvable")
+    await _tracer_lecture(fhir, patient["id"], dossier_fhir.reference("DocumentReference", document_id))
+    return Response(
+        content=page.octets,
+        media_type=page.format,
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 app = creer_service(SERVICE, routes, parle_fhir=True)

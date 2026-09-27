@@ -10,6 +10,9 @@ from commun.fhir.soin import LienDeParente, Moment
 Npi = Annotated[str, StringConstraints(pattern=r"^\d{13}$")]
 Texte = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 Periode = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+IdDeRessource = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9.-]{1,64}$")]
+ANNEE = r"^(19|20)\d{2}$"
+"""L'année d'un Document apporté : celle du papier d'origine."""
 
 
 class Recherche(BaseModel):
@@ -52,6 +55,8 @@ class NouvelleAllergie(BaseModel):
     code_atc: Annotated[str, StringConstraints(pattern=r"^[A-Z][0-9]{2}[A-Z0-9]{0,4}$")]
     libelle: Texte | None = None
     """Facultatif : le libellé de la classe au catalogue des allergies fait foi."""
+    document_id: IdDeRessource | None = None
+    """Le Document d'où l'allergie est reportée : elle porte alors l'origine `report`."""
 
 
 class DemandeDUrgence(BaseModel):
@@ -64,6 +69,8 @@ class NouvelAntecedent(BaseModel):
     depuis: Periode | None = None
     lien: LienDeParente | None = None
     actif: bool = True
+    document_id: IdDeRessource | None = None
+    """Le Document d'où l'antécédent est reporté : il porte alors l'origine `report`."""
 
 
 class NouveauTraitement(BaseModel):
