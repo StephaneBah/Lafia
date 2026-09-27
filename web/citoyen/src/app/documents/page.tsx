@@ -1,12 +1,22 @@
-import { Icon } from "@lafia/design";
+import { Button, Icon } from "@lafia/design";
 import { connection } from "next/server";
 
 import { Cadre, CarnetNonLu, Retour, Scene } from "../../composants/cadre";
-import { IconeDuDocument, pages } from "../../composants/documents";
+import { IconeDuDocument, PapierAbime, TexteRelu, pages } from "../../composants/documents";
 import { OrigineEnMots } from "../../composants/origine";
-import { lire, type DocumentLu } from "../../lib/carnet";
+import { lire, type DocumentLu, type MaTranscription } from "../../lib/carnet";
 
-/** Mes documents : mes anciens papiers, numérisés ; un toucher ouvre ses pages. */
+/** Le texte relu de chaque papier qui en a un ; un texte qui ne se lit pas cette fois ne bloque pas la liste. */
+async function textesRelus(documents: DocumentLu[]): Promise<Record<string, MaTranscription>> {
+  const lus = await Promise.all(
+    documents
+      .filter((d) => d.transcription)
+      .map(async (d) => [d.id, await lire<MaTranscription>(`/documents/${encodeURIComponent(d.id)}/transcription`)] as const),
+  );
+  return Object.fromEntries(lus.flatMap(([id, l]) => (l.etat === "lu" ? [[id, l.valeur]] : [])));
+}
+
+/** Mes documents : mes anciens papiers, numérisés ; un toucher ouvre ses pages ; un papier relu se lit en texte. */
 export default async function MesDocuments() {
   await connection();
   const lecture = await lire<DocumentLu[]>("/documents");
@@ -18,6 +28,7 @@ export default async function MesDocuments() {
     );
   }
   const documents = lecture.valeur;
+  const textes = await textesRelus(documents);
   return (
     <Cadre>
       <Retour />
@@ -30,7 +41,12 @@ export default async function MesDocuments() {
         </Scene>
       ) : (
         <>
-          <p className="carnet-doux">Vos anciens papiers, numérisés. Personne ne les a encore vérifiés.</p>
+          <p className="carnet-doux">
+            Vos anciens papiers, numérisés. Quand un papier a été relu, son texte recopié se lit en dessous.
+          </p>
+          <Button href="/par-etablissement" variant="secondary" icon="hospital" size="citizen" block>
+            Voir par établissement
+          </Button>
           <ul className="carnet-documents">
             {documents.map((d) => (
               <li key={d.id}>
@@ -50,9 +66,25 @@ export default async function MesDocuments() {
                         Difficile à lire
                       </small>
                     )}
+                    <PapierAbime note={d.papier_abime} />
+                    {textes[d.id] && (
+                      <small className="carnet-document-etat carnet-relu">
+                        <Icon name="check" size={18} />
+                        Relu
+                      </small>
+                    )}
                   </span>
                   <Icon name="eye" size={24} label="Voir" />
                 </a>
+                {textes[d.id] && (
+                  <details className="carnet-details-relu">
+                    <summary>
+                      <Icon name="list" size={22} />
+                      Lire le texte relu
+                    </summary>
+                    <TexteRelu documentId={d.id} transcription={textes[d.id]} />
+                  </details>
+                )}
               </li>
             ))}
           </ul>

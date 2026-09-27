@@ -129,5 +129,20 @@
 .carnet-page:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .carnet-lien { color: var(--color-link); font-weight: 700; }
 
+/* Les papiers relus (F6.6) : le texte recopié sous chaque papier, et la vue par établissement. */
+.carnet-papier-abime { align-items: flex-start; color: var(--status-partiel-fg); }
+.carnet-papier-abime svg { flex: none; margin-top: 3px; }
+.carnet-relu { color: var(--status-retire-fg); }
+.carnet-details-relu { margin-top: var(--space-2); padding: 0 var(--space-4); background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.carnet-details-relu > summary { display: flex; align-items: center; gap: 8px; min-height: 48px; font-weight: 700; font-size: 18px; color: var(--color-link); cursor: pointer; list-style: none; }
+.carnet-details-relu > summary::-webkit-details-marker { display: none; }
+.carnet-details-relu > summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.carnet-details-relu[open] { padding-bottom: var(--space-4); }
+.carnet-texte-relu { display: grid; gap: var(--space-3); font-size: 18px; line-height: 26px; }
+.carnet-texte-relu .lf-volet, .carnet-rubrique .lf-volet { padding: var(--space-3) var(--space-4); }
+.carnet-sommaire ul { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); list-style: none; margin: 0; padding: 0; }
+.carnet-sommaire a { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; }
+.carnet-voir-papier { display: inline-flex; align-items: center; gap: 4px; min-height: 48px; }
+
 /* D'où vient une information (ADR 0007) : une icône et quelques mots, discrets. */
 .carnet-origine { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text-muted, inherit); font-size: 0.875rem; }

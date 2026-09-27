@@ -1,12 +1,13 @@
-import { Alert, Card } from "@lafia/design";
+import { Alert, Card, formatDate } from "@lafia/design";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 import { AjouterUnDocument } from "../../../../composants/AjouterUnDocument";
 import { soignantConnecte } from "../../../../composants/Cadre";
-import { IconeDuType, ListeDesDocuments, NonVerifie, Visionneuse } from "../../../../composants/Documents";
+import { IconeDuType, ListeDesDocuments, NonVerifie, PapierAbime, TranscriptionRelue, Visionneuse } from "../../../../composants/Documents";
 import { EspacePatient, PatientIntrouvable } from "../../../../composants/EspacePatient";
 import { AjouterAntecedent, DeclarerAllergie } from "../../../../composants/FormulairesDuDossier";
+import { TranscriptionAuxPages } from "../../../../composants/TranscriptionAuxPages";
 import { adresseDuPatient } from "../../../../lib/adresses";
 import { soin } from "../../../../lib/soin";
 
@@ -23,7 +24,8 @@ const MESSAGES: Record<string, { ton: "succes" | "danger"; titre: string }> = {
 
 /**
  * L'onglet Documents : les papiers du patient, numérisés et non vérifiés, avec leurs pages ; ajouter
- * un document qu'il a apporté ; reporter depuis un document un antécédent ou une allergie.
+ * un document qu'il a apporté ; reporter depuis un document un antécédent ou une allergie. Un Document
+ * relu montre ses pages et, à côté, sa Transcription relue (ADR 0010), qui n'est pas une donnée clinique.
  */
 export default async function DocumentsDuPatient({ params, searchParams }: Parametres) {
   await connection();
@@ -37,6 +39,9 @@ export default async function DocumentsDuPatient({ params, searchParams }: Param
   if (documents.statut === 403) redirect(adresseDuPatient(patientId));
   const liste = documents.corps ?? [];
   const choisi = liste.find((d) => d.id === recherche.document);
+  const transcription = choisi?.transcription ? await soin.transcription(choisi.id) : null;
+  const relue = transcription?.statut === 200 ? transcription.corps : null;
+  const page = Number(recherche.page ?? "1") || 1;
   const messages = Object.entries(recherche)
     .map(([cle, valeur]) => MESSAGES[`${cle}=${valeur}`])
     .filter(Boolean);
@@ -74,8 +79,16 @@ export default async function DocumentsDuPatient({ params, searchParams }: Param
                   .filter(Boolean)
                   .join(" · ")}
               </p>
-              <NonVerifie />
-              <Visionneuse document={choisi} page={Number(recherche.page ?? "1") || 1} />
+              <div className="sn-document-etats">
+                <NonVerifie />
+                {relue && <TranscriptionRelue />}
+              </div>
+              <PapierAbime note={choisi.papier_abime} />
+              {relue ? (
+                <p className="sn-meta">Ses pages et sa transcription relue sont côte à côte, plus bas.</p>
+              ) : (
+                <Visionneuse document={choisi} page={page} />
+              )}
               <section className="sn-sous-partie">
                 <h3 className="sn-h3">Reporter depuis ce document</h3>
                 <p className="sn-meta">L’entrée reportée portera la mention « Reporté depuis un document », liée à ce document.</p>
@@ -90,6 +103,24 @@ export default async function DocumentsDuPatient({ params, searchParams }: Param
           )}
         </div>
       </div>
+
+      {choisi && relue && (
+        <Card className="sn-panneau">
+          <h2 className="sn-h2 sn-titre-document">
+            <IconeDuType type={choisi.type} />
+            {`${choisi.libelle}${choisi.annee ? ` · ${choisi.annee}` : ""} : pages et transcription relue`}
+          </h2>
+          {relue.relue_le && (
+            <p className="sn-meta">{`Relue et contrôlée le ${formatDate(relue.relue_le)}.`}</p>
+          )}
+          <div className="sn-document-relu">
+            <div className="sn-document-relu-pages">
+              <Visionneuse document={choisi} page={page} />
+            </div>
+            <TranscriptionAuxPages documentId={choisi.id} markdown={relue.markdown} pages={relue.pages} />
+          </div>
+        </Card>
+      )}
     </EspacePatient>
   );
 }

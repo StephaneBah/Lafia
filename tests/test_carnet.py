@@ -245,3 +245,43 @@ def test_le_journal_dit_un_depot_par_ligne_et_ce_qu_il_a_ajoute(
     assert avec_documents[0]["motif"].startswith("Vos papiers ont été numérisés")
     assert sans_rien[0]["motif"] == "Dossier consulté au guichet de numérisation, rien n'a été ajouté"
     assert npi not in journal.text
+
+
+# Le carnet papier de patient-001, numérisé, relu et contrôlé (historique.py, F6.6).
+DOCUMENT_TRANSCRIT = "hist-a-carnet-papier"
+
+
+def test_un_papier_relu_se_lit_en_texte_et_par_etablissement_et_jamais_par_un_autre(
+    application, jeton_de, jeton_du_citoyen, jeu, connecter_citoyen
+):
+    client = application("citoyen")
+    entetes = {"Authorization": f"Bearer {jeton_du_citoyen(CARNET_VECU)}"}
+
+    (document,) = [d for d in client.get("/api/citoyen/documents", headers=entetes).json() if d["id"] == DOCUMENT_TRANSCRIT]
+    assert document["transcription"] is True and document["papier_abime"]
+    texte = client.get(f"/api/citoyen/documents/{DOCUMENT_TRANSCRIT}/transcription", headers=entetes)
+    assert texte.status_code == 200, texte.text
+    assert texte.json()["pages"] == 4 and texte.json()["relue_le"]
+    assert "## consultation · 2015-06-02 · CS Kpanroun · p. 1" in texte.json()["markdown"]
+
+    par_etablissement = client.get("/api/citoyen/par-etablissement", headers=entetes)
+    assert par_etablissement.status_code == 200, par_etablissement.text
+    groupes = {e["etablissement"]: e["volets"] for e in par_etablissement.json()}
+    assert {"CS Kpanroun", "CHD Ouémé"} <= set(groupes)
+    kpanroun = [v for v in groupes["CS Kpanroun"] if v["document_id"] == DOCUMENT_TRANSCRIT]
+    assert [(v["type"], v["date"], v["pages"]) for v in kpanroun] == [
+        ("consultation", "2015-06-02", [1]), ("consultation", "2019-03-14", [4])
+    ]
+    assert {v["type"] for v in groupes["CHD Ouémé"] if v["document_id"] == DOCUMENT_TRANSCRIT} == {"hospitalisation", "analyse"}
+    for volets in groupes.values():
+        dates = [v["date"] for v in volets if v["date"]]
+        assert dates == sorted(dates)
+    # Le NPI ne quitte jamais le service.
+    assert CARNET_VECU not in par_etablissement.text and CARNET_VECU not in texte.text
+
+    # Un autre citoyen : ce papier et son texte n'existent pas pour lui.
+    _, autre = _citoyen_reserve_aux_tests(application, jeton_de, jeu, connecter_citoyen, -2)
+    assert client.get(f"/api/citoyen/documents/{DOCUMENT_TRANSCRIT}/transcription", headers=autre).status_code == 404
+    siens = client.get("/api/citoyen/par-etablissement", headers=autre)
+    assert siens.status_code == 200
+    assert DOCUMENT_TRANSCRIT not in {v["document_id"] for e in siens.json() for v in e["volets"]}
