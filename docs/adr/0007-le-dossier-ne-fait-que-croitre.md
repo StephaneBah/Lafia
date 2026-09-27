@@ -15,7 +15,7 @@ The dossier is fed by more and more actors: soignants at each visite (F3, F4), t
   |---|---|---|
   | médecin, infirmier | cas, visites, mesures, diagnostics, ordonnances, antécédents, allergies, traitements au long cours, groupe sanguin; reports from a Document | the full dossier, with a relation de soin |
   | agent de numérisation | Documents, grouped in a Dépôt | the patient's name and birth year to check identity, and the Documents of the current Dépôt |
-  | agent de relecture | the triage verdict of a Tâche de relecture | the pages of the Documents assigned to them, pseudonymised |
+  | agent de relecture | Transcriptions of the Documents assigned to them, by Relecture then Contrôle (ADR 0010) | the pages of the Documents assigned to them, pseudonymised |
   | médecin, infirmier (relecture) | entries validated from an Extraction (origine `extraction`) | the assigned Document and its Extraction |
   | caissier | encaissements | ordonnances by numéro |
   | pharmacien, officine | délivrances | as in `SYSTEM_PROMPT.md` |

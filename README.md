@@ -35,7 +35,7 @@ Four actors run on the foundation today:
 | **pharmacie** | pharmaciens, officines | Hand over the paid lines, stop on an allergy, record a partial délivrance |
 | **citoyen** | citoyens | A carnet that reads in pictures, and the journal of who opened the dossier |
 | **numerisation** | agents de numérisation | At a desk, turn a citoyen's paper medical past into Documents of their dossier, after checking an identity document |
-| **relecture** | agents de relecture, soignants | Triage numérised Documents without knowing whose they are, then validate the facts a machine reading proposes (today an Extraction de démonstration) |
+| **relecture** | agents de relecture, soignants | Correct and confirm the Transcription of numérised Documents without knowing whose they are, control each other's, then validate the facts a machine reading proposes (today an Extraction de démonstration) |
 | **identite** | everyone | Sign-in, signed session tokens, the code carnet printed on each reçu |
 
 Tomorrow's services join the same way: one service that speaks FHIR to the noyau, one application, one line in the gateway. No data is copied, no database is added, no existing code changes.

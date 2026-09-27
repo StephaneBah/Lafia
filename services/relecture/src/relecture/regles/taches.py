@@ -1,18 +1,30 @@
-"""Les Tâches de relecture (docs/specs/F6-relecture-et-extraction.md, ADR 0007, 0009).
+"""Les Tâches de relecture (docs/specs/F6-relecture-et-extraction.md, ADR 0007, 0009, 0010).
 
-Le triage : l'agent de relecture dit si le Document est utilisable, en corrige au besoin le type ou
-l'année ; utilisable, il est lu par l'Extraction, dont les propositions entrent dans la Tâche, et la
-Tâche passe au pool des soignants. La validation : un médecin ou un infirmier prend la Tâche, voit les
-pages à côté des propositions, accepte, corrige ou rejette chacune ; les retenues entrent au dossier
-avec l'origine `extraction` et leur Provenance, les rejetées restent dans la Tâche.
+La Relecture : l'agent de relecture ouvre une Tâche de sa semaine ; à la première ouverture, le Document
+est lu par l'Extraction, dont le brouillon de Transcription, le texte lu et les propositions entrent dans
+la Tâche. Il corrige le brouillon (enregistré dans la Tâche, sous `If-Match` sur sa version), coche chaque
+volet vérifié contre ses pages, puis confirme le tout avec le résumé de ses changements : une version de
+la Transcription est écrite (préliminaire), avec son Provenance, et un Contrôle naît au pool, pour un autre
+agent de relecture. `PART_CONTROLEE` (1 par défaut) dit quelle part des confirmations passe au Contrôle :
+les autres sont relues d'emblée.
+
+Le Contrôle : le contrôleur, jamais l'auteur, lit la Transcription contre les pages et l'accepte (une
+version finale, son Provenance ; les propositions de l'Extraction passent alors aux soignants) ou la
+renvoie à son relecteur avec une note, le brouillon gardé.
+
+Un Document inutilisable (pas médical, déjà numérisé) est clos sans Transcription ; rien ne rappelle le
+citoyen. La validation : un médecin ou un infirmier prend une Tâche de validation, accepte, corrige ou
+rejette chaque proposition ; les retenues entrent au dossier avec l'origine `extraction`.
 
 Personne ne voit ici qui est le patient : ni NPI, ni nom, ni lieu du dépôt ; seules les pages peuvent en
-porter un. Le Document ne change jamais (ADR 0007) : une correction du triage vit dans la Tâche. Chaque
-lecture d'une Tâche ou d'une page, et chaque écriture, laisse un AuditEvent au motif `relecture`.
+porter un. Le Document ne change jamais (ADR 0007). Chaque lecture d'une Tâche ou d'une page, et chaque
+écriture, laisse un AuditEvent au motif `relecture`.
 """
 
 import base64
 import logging
+import os
+import random
 import re
 import uuid
 from datetime import date
@@ -20,12 +32,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
 
+from commun import transcription as format_de_transcription
 from commun.extraction import MODELE_DE_DEMONSTRATION, DemandeDExtraction, Extraction, PageAExtraire
 from commun.fhir import documents, dossier, relecture, systemes
-from commun.fhir.client import ClientFhir, Ressource, TransactionRefusee, ecriture_si_inchangee
+from commun.fhir.client import ClientFhir, Ressource, TransactionRefusee, ecriture, ecriture_si_inchangee
 from commun.fhir.documents import Page
 from commun.fhir.dossier import id_de, reference
-from commun.fhir.relecture import Decision, Etape, PropositionVue, Verdict
+from commun.fhir.relecture import Decision, DecisionDeControle, Etape, PropositionVue, Raison
 from commun.jeton import Agent
 from relecture.lecteur import Lecteur
 from relecture.regles import acces
@@ -35,9 +48,22 @@ SERVICE = "relecture"
 MOTIF = "relecture"
 LIBRES_A_LA_FOIS = 5
 """Combien de Tâches de validation libres un soignant voit à la fois, en plus de celles qu'il a prises."""
+TAILLE_MAXIMALE = 200 * 1024
+"""Un brouillon de Transcription tient en 200 Ko : un carnet entier en fait quelques dizaines."""
+HISTORIQUE = 50
+"""Combien de Relectures et de Contrôles passés le suivi rend, les plus récents d'abord."""
 ANNEE = re.compile(r"^(19|20)\d{2}$")
 
 journal = logging.getLogger(SERVICE)
+
+
+def part_controlee() -> float:
+    """La part des Transcriptions confirmées qui passent au Contrôle : `PART_CONTROLEE`, entre 0 et 1, ou 1."""
+    try:
+        part = float(os.environ.get("PART_CONTROLEE", "") or 1)
+    except ValueError:
+        return 1.0
+    return min(1.0, max(0.0, part))
 
 
 class TacheIntrouvable(Exception):
@@ -45,15 +71,23 @@ class TacheIntrouvable(Exception):
 
 
 class TacheDUnAutre(Exception):
-    """La Tâche n'est pas celle de ce relecteur, ou pas de son étape."""
+    """La Tâche n'est pas celle de cet agent, ou pas d'une étape qu'il fait sur elle."""
 
 
 class RoleRefuse(Exception):
-    """Le rôle ne fait pas cette action : l'agent de relecture ne valide pas, le soignant ne trie pas."""
+    """Le rôle ne fait pas cette action : l'agent de relecture ne valide pas, le soignant ne relit pas."""
 
 
 class TacheDejaFaite(Exception):
-    """La Tâche n'est plus à cette étape : triée, validée, ou prise par un autre au même instant."""
+    """La Tâche n'est plus à cette étape : confirmée, contrôlée, close, ou changée par un autre au même instant."""
+
+
+class VersionAbsente(Exception):
+    """Un enregistrement sans `If-Match` : il écraserait sans le savoir ce qu'un autre onglet a enregistré."""
+
+
+class VersionPerimee(Exception):
+    """`If-Match` ne porte plus la version de la Tâche : quelqu'un l'a enregistrée depuis."""
 
 
 class PageIntrouvable(Exception):
@@ -61,7 +95,19 @@ class PageIntrouvable(Exception):
 
 
 class SaisieRefusee(ValueError):
-    """Un type, une année, une proposition ou une valeur que la relecture n'admet pas."""
+    """Une saisie que la relecture n'admet pas."""
+
+
+class TranscriptionRefusee(Exception):
+    """Une confirmation refusée : ce que le Markdown ne suit pas de l'ADR 0010, les volets non cochés."""
+
+    def __init__(self, erreurs: list[str], volets_non_verifies: list[int]) -> None:
+        super().__init__("transcription à reprendre")
+        self.erreurs = erreurs
+        self.volets_non_verifies = volets_non_verifies
+
+
+Statut = Literal["a-faire", "en-cours", "terminee"]
 
 
 class DocumentALire(BaseModel):
@@ -73,16 +119,16 @@ class DocumentALire(BaseModel):
     pages: int
     formats: list[str]
     """Le format de chaque page, dans l'ordre : image/jpeg, image/png ou application/pdf."""
-    lisibilite: str | None
 
 
 class TacheResumee(BaseModel):
     id: str
     etape: Etape
-    statut: Literal["a-faire", "en-cours", "terminee"]
+    statut: Statut
     document: DocumentALire
     echeance: str | None
-    verdict: str | None
+    renvoyee: bool
+    """Une Relecture que le Contrôle a renvoyée à son relecteur, et qu'il n'a pas encore confirmée de nouveau."""
 
 
 class ModeleLu(BaseModel):
@@ -92,10 +138,77 @@ class ModeleLu(BaseModel):
     """Vrai pour l'Extraction de démonstration : chaque écran le dit."""
 
 
+class VoletVu(BaseModel):
+    rang: int
+    titre: str
+    type: str
+    date: str | None
+    etablissement: str | None
+    pages: list[int]
+
+
+class NoteVue(BaseModel):
+    date: str | None
+    texte: str
+
+
 class TacheVue(TacheResumee):
-    propositions: list[PropositionVue] | None = None
-    modele: ModeleLu | None = None
+    version: str
+    """La version de la Tâche, à renvoyer en `If-Match` avec un brouillon (aussi dans l'en-tête ETag)."""
+    markdown: str | None = None
+    """Le brouillon à la Relecture ; la Transcription confirmée au Contrôle ; la relue à la validation."""
+    volets: list[VoletVu] = []
+    erreurs: list[str] = []
+    """Ce que le Markdown ne suit pas de l'ADR 0010 : une confirmation le refuse."""
     texte: str | None = None
+    modele: ModeleLu | None = None
+    notes_de_controle: list[NoteVue] = []
+    resume: str | None = None
+    propositions: list[PropositionVue] | None = None
+
+
+class Enregistrement(BaseModel):
+    id: str
+    version: str
+
+
+class Confirmation(BaseModel):
+    id: str
+    statut: Statut
+    transcription: str | None
+    """La version écrite de la Transcription."""
+    relue: bool
+    """Vrai quand aucun Contrôle ne suit : la version est déjà finale."""
+    controle: str | None
+    """La Tâche de Contrôle née de la confirmation, au pool des Contrôles."""
+
+
+class Controle(BaseModel):
+    id: str
+    decision: DecisionDeControle
+    transcription: str | None
+    """La version finale, quand le Contrôle l'accepte."""
+    validation: str | None
+    """La Tâche de validation des propositions, quand l'Extraction en a fait."""
+
+
+class Evenement(BaseModel):
+    id: str
+    etape: Etape
+    date: str
+    issue: str | None
+
+
+class Semaine(BaseModel):
+    a_relire: int
+    confirmees: int
+    renvoyees: int
+    controlees: int
+
+
+class Suivi(BaseModel):
+    semaine: Semaine
+    historique: list[Evenement]
 
 
 class DecisionRecue(BaseModel):
@@ -120,18 +233,21 @@ class Validation(BaseModel):
 
 async def _tache(fhir: ClientFhir, tache_id: str) -> Ressource:
     tache = await fhir.lire("Task", tache_id)
-    codes = [c.get("system") for c in (tache or {}).get("code", {}).get("coding", [])]
-    if not tache or systemes.RELECTURE not in codes:
+    if not tache or relecture.etape_de(tache) is None:
         raise TacheIntrouvable()
     return tache
 
 
 def _a_moi(tache: Ressource, agent: Agent) -> bool:
-    return id_de(tache.get("owner")) == agent.sub
+    return relecture.relecteur_de(tache) == agent.sub
 
 
 def _libre(tache: Ressource) -> bool:
     return tache.get("status") == "ready" and not tache.get("owner")
+
+
+def _version(tache: Ressource) -> str:
+    return str(tache.get("meta", {}).get("versionId", "1"))
 
 
 async def _ecrire(fhir: ClientFhir, suivante: Ressource, lue: Ressource) -> None:
@@ -142,12 +258,15 @@ async def _ecrire(fhir: ClientFhir, suivante: Ressource, lue: Ressource) -> None
 
 
 async def _tache_de(fhir: ClientFhir, agent: Agent, tache_id: str, *, prendre: bool = False) -> Ressource:
-    """La Tâche, si cet agent y a droit : l'agent de relecture, ses Tâches de triage ; le soignant, les
-    Tâches de validation qu'il a prises, et une libre quand il l'ouvre (`prendre`), qui devient la sienne."""
+    """La Tâche, si cet agent y a droit : l'agent de relecture, ses Relectures et ses Contrôles (jamais le
+    Contrôle de sa propre relecture) ; le soignant, les Tâches de validation qu'il a prises, et une libre
+    quand il l'ouvre (`prendre`), qui devient la sienne."""
     tache = await _tache(fhir, tache_id)
     etape = relecture.etape_de(tache)
-    if acces.fait_le_triage(agent):
-        if etape != "triage" or not _a_moi(tache, agent):
+    if acces.relit(agent):
+        if etape not in ("relecture", "controle") or not _a_moi(tache, agent):
+            raise TacheDUnAutre()
+        if etape == "controle" and relecture.auteur_de(tache) == agent.sub:
             raise TacheDUnAutre()
         return tache
     if etape != "validation":
@@ -159,6 +278,19 @@ async def _tache_de(fhir: ClientFhir, agent: Agent, tache_id: str, *, prendre: b
         journal.info("tâche %s prise par le soignant %s", tache_id, agent.sub)
         return await _tache(fhir, tache_id)
     raise TacheDUnAutre()
+
+
+async def _tache_a_relire(fhir: ClientFhir, agent: Agent, tache_id: str) -> Ressource:
+    """Une Relecture de cet agent, encore ouverte : ce que l'enregistrement, la confirmation et la
+    clôture exigent."""
+    if not acces.relit(agent):
+        raise RoleRefuse()
+    tache = await _tache_de(fhir, agent, tache_id)
+    if relecture.etape_de(tache) != "relecture":
+        raise TacheDUnAutre()
+    if not relecture.est_ouverte(tache):
+        raise TacheDejaFaite()
+    return tache
 
 
 async def _tracer(fhir: ClientFhir, agent: Agent, tache: Ressource, action: dossier.Action) -> None:
@@ -178,7 +310,7 @@ async def _tracer(fhir: ClientFhir, agent: Agent, tache: Ressource, action: doss
     )
 
 
-# Ce que le relecteur voit.
+# Ce que l'agent voit.
 
 
 async def _document(fhir: ClientFhir, tache: Ressource) -> Ressource:
@@ -189,49 +321,40 @@ async def _document(fhir: ClientFhir, tache: Ressource) -> Ressource:
     return document
 
 
-def _document_a_lire(document: Ressource, tache: Ressource) -> DocumentALire:
+def _document_a_lire(document: Ressource) -> DocumentALire:
     vu = documents.document_vu(document)
-    type_corrige, annee_corrigee = relecture.corrections_de(tache)
-    type_ = type_corrige or vu.type
-    return DocumentALire(
-        type=type_,
-        libelle=documents.TYPES_DE_DOCUMENT.get(type_, vu.libelle_du_type),
-        annee=annee_corrigee or vu.annee,
-        pages=vu.pages,
-        formats=documents.formats_des_pages(document),
-        lisibilite=vu.lisibilite,
-    )
+    return DocumentALire(type=vu.type, libelle=vu.libelle, annee=vu.annee, pages=vu.pages, formats=vu.formats)
 
 
-def _statut(tache: Ressource) -> Literal["a-faire", "en-cours", "terminee"]:
+def _statut(tache: Ressource) -> Statut:
     return {"ready": "a-faire", "in-progress": "en-cours"}.get(tache.get("status", ""), "terminee")  # type: ignore[return-value]
 
 
 def _resumee(tache: Ressource, document: Ressource) -> TacheResumee:
     return TacheResumee(
         id=tache["id"],
-        etape=relecture.etape_de(tache),
+        etape=relecture.etape_de(tache) or "relecture",
         statut=_statut(tache),
-        document=_document_a_lire(document, tache),
+        document=_document_a_lire(document),
         echeance=relecture.echeance_de(tache),
-        verdict=relecture.verdict_de(tache),
+        renvoyee=relecture.etape_de(tache) == "relecture" and relecture.issue_de(tache) == "renvoyee",
     )
 
 
-async def _texte_lu(fhir: ClientFhir, tache: Ressource) -> str | None:
-    texte_id = relecture.texte_de(tache)
-    texte = await fhir.lire("DocumentReference", texte_id) if texte_id else None
-    url = next(iter((texte or {}).get("content", [])), {}).get("attachment", {}).get("url", "")
-    binary = await fhir.lire("Binary", url.rsplit("/", 1)[-1]) if url else None
-    return base64.b64decode(binary.get("data", "")).decode() if binary else None
-
-
 async def mes_taches(fhir: ClientFhir, agent: Agent, jour: date) -> list[TacheResumee]:
-    """Les Tâches de l'agent. L'agent de relecture : celles de sa semaine, complétées jusqu'à son quota.
-    Le soignant : les Tâches de validation qu'il a prises, et quelques libres, les plus anciennes d'abord."""
-    if acces.fait_le_triage(agent):
+    """Les Tâches de l'agent. L'agent de relecture : sa semaine, complétée jusqu'à son quota, et ce qu'il
+    tient encore ouvert d'avant. Le soignant : les Tâches de validation qu'il a prises, et quelques libres,
+    les plus anciennes d'abord."""
+    if acces.relit(agent):
         await attribuer(fhir, agent, jour)
-        taches = await relecture.taches_de(fhir, agent.sub, relecture.semaine(jour))
+        par_id = {
+            t["id"]: t
+            for t in [
+                *await relecture.taches_de(fhir, agent.sub, relecture.semaine(jour)),
+                *await relecture.taches_ouvertes_de(fhir, agent.sub),
+            ]
+        }
+        taches = [t for t in par_id.values() if relecture.etape_de(t) in ("relecture", "controle")]
     else:
         validation = f"{systemes.RELECTURE}|validation"
         prises = await fhir.chercher("Task", {"code": validation, "owner": f"Practitioner/{agent.sub}", "status": "in-progress"})
@@ -243,20 +366,52 @@ async def mes_taches(fhir: ClientFhir, agent: Agent, jour: date) -> list[TacheRe
         if document:
             resumees.append(_resumee(tache, document))
     ordre = {"en-cours": 0, "a-faire": 1, "terminee": 2}
-    return sorted(resumees, key=lambda t: (ordre[t.statut], t.document.annee or "9999"))
+    return sorted(resumees, key=lambda t: (ordre[t.statut], t.document.annee or "9999", t.id))
 
 
-async def lire_tache(fhir: ClientFhir, agent: Agent, tache_id: str) -> TacheVue:
-    """Une Tâche : le Document sans qui il est, et à la validation, les propositions, le modèle, le texte lu.
-    Un soignant qui ouvre une Tâche de validation libre la prend."""
-    tache = await _tache_de(fhir, agent, tache_id, prendre=True)
-    document = await _document(fhir, tache)
-    vue = TacheVue(**_resumee(tache, document).model_dump())
-    modele = relecture.modele_de(tache)
+async def _markdown_de_la_version(fhir: ClientFhir, version_id: str | None) -> str | None:
+    version = await fhir.lire("DocumentReference", version_id) if version_id else None
+    return await relecture.markdown_de(fhir, version) if version else None
+
+
+async def _vue(fhir: ClientFhir, tache: Ressource, document: Ressource) -> TacheVue:
+    etape = relecture.etape_de(tache)
+    vue = TacheVue(**_resumee(tache, document).model_dump(), version=_version(tache))
+    # D'où viennent le texte, le modèle et les notes : la Relecture elle-même, ou celle qu'un Contrôle vise.
+    source = tache
+    if etape == "controle":
+        source = await fhir.lire("Task", relecture.relecture_de(tache) or "") or tache
+    if etape == "relecture":
+        vue.markdown = relecture.brouillon_de(tache)
+    else:
+        vue.markdown = await _markdown_de_la_version(fhir, relecture.transcription_de(tache))
+    if vue.markdown is not None:
+        lue = format_de_transcription.lire(vue.markdown, vue.document.pages)
+        vue.volets = [
+            VoletVu(rang=v.rang, titre=v.titre, type=v.type, date=v.date, etablissement=v.etablissement, pages=list(v.pages))
+            for v in lue.volets
+        ]
+        vue.erreurs = list(lue.erreurs)
+    vue.texte = relecture.texte_lu_de(source)
+    modele = relecture.modele_de(source)
     if modele:
         vue.modele = ModeleLu(nom=modele.nom, version=modele.version, demonstration=modele == MODELE_DE_DEMONSTRATION)
+    vue.notes_de_controle = [NoteVue(date=n.date, texte=n.texte) for n in relecture.notes_de_controle(source)]
+    vue.resume = relecture.resume_de(tache)
+    if etape == "validation":
         vue.propositions = relecture.propositions_de(tache)
-        vue.texte = await _texte_lu(fhir, tache)
+    return vue
+
+
+async def lire_tache(fhir: ClientFhir, lecteur: Lecteur, agent: Agent, tache_id: str) -> TacheVue:
+    """Une Tâche : le Document sans qui il est, la Transcription et ses volets, le texte lu, le modèle, les
+    notes du Contrôle. Une Relecture ouverte pour la première fois est d'abord lue par l'Extraction. Un
+    soignant qui ouvre une Tâche de validation libre la prend."""
+    tache = await _tache_de(fhir, agent, tache_id, prendre=True)
+    document = await _document(fhir, tache)
+    if relecture.etape_de(tache) == "relecture" and relecture.est_ouverte(tache) and relecture.brouillon_de(tache) is None:
+        tache = await _ouvrir(fhir, lecteur, tache, document)
+    vue = await _vue(fhir, tache, document)
     await _tracer(fhir, agent, tache, "read")
     return vue
 
@@ -271,23 +426,7 @@ async def lire_page(fhir: ClientFhir, agent: Agent, tache_id: str, rang: int) ->
     return lue
 
 
-# Le triage.
-
-
-def _verifier_corrections(type_: str | None, annee: str | None, jour: date) -> None:
-    if type_ is not None and type_ not in documents.TYPES_DE_DOCUMENT:
-        raise SaisieRefusee("type de document inconnu")
-    if annee is not None and not (ANNEE.match(annee) and int(annee) <= jour.year):
-        raise SaisieRefusee("année sur quatre chiffres, passée")
-
-
-def _texte_des_corrections(type_: str | None, annee: str | None) -> str:
-    morceaux = []
-    if type_:
-        morceaux.append(f"type corrigé : {documents.TYPES_DE_DOCUMENT[type_]}")
-    if annee:
-        morceaux.append(f"année corrigée : {annee}")
-    return " ; ".join(morceaux)
+# L'Extraction, à la première ouverture.
 
 
 def dater(extraction: Extraction, annee: str | None) -> Extraction:
@@ -317,62 +456,262 @@ async def _extraire(fhir: ClientFhir, lecteur: Lecteur, document: Ressource, typ
     return await lecteur.extraire(demande)
 
 
-async def trier(
-    fhir: ClientFhir,
-    lecteur: Lecteur,
-    agent: Agent,
-    tache_id: str,
-    *,
-    verdict: Verdict,
-    type_: str | None,
-    annee: str | None,
-    jour: date,
-) -> TacheResumee:
-    """Le verdict de l'agent de relecture. Utilisable, le Document est lu par l'Extraction : son texte
-    devient un Document dérivé, ses propositions entrent dans la Tâche, qui passe au pool des soignants.
-    Tout autre verdict clôt la Tâche. Une correction du type ou de l'année reste dans la Tâche."""
-    if not acces.fait_le_triage(agent):
+async def _ouvrir(fhir: ClientFhir, lecteur: Lecteur, tache: Ressource, document: Ressource) -> Ressource:
+    """La Relecture reçoit son Extraction : brouillon, texte lu, propositions, modèle. Elle passe en cours."""
+    vu = documents.document_vu(document)
+    extraction = dater(await _extraire(fhir, lecteur, document, vu.type), vu.annee)
+    await fhir.mettre_a_jour(relecture.device(extraction.modele))
+    suivante = relecture.avec_extraction(tache, extraction)
+    await _ecrire(fhir, suivante, tache)
+    journal.info(
+        "tâche %s : document %s lu par %s:%s, %d propositions",
+        tache["id"],
+        document["id"],
+        extraction.modele.nom,
+        extraction.modele.version,
+        len(suivante.get("contained", [])),
+    )
+    return await _tache(fhir, tache["id"])
+
+
+# La Relecture : enregistrer, confirmer, clore.
+
+
+def _version_attendue(si_version: str) -> str:
+    """`W/"3"`, `"3"` ou `3` : la version 3."""
+    valeur = si_version.strip()
+    if valeur.startswith("W/"):
+        valeur = valeur[2:]
+    return valeur.strip().strip('"')
+
+
+async def enregistrer(fhir: ClientFhir, agent: Agent, tache_id: str, markdown: str, si_version: str | None) -> Enregistrement:
+    """Le brouillon corrigé du relecteur, enregistré dans la Tâche à la place du précédent, si la Tâche
+    est encore à la version qu'il a lue. Ce n'est pas une version de la Transcription."""
+    if not acces.relit(agent):
         raise RoleRefuse()
-    tache = await _tache_de(fhir, agent, tache_id)
-    if tache.get("status") != "ready":
-        raise TacheDejaFaite()
-    type_ = type_ or None
-    annee = (annee or "").strip() or None
-    _verifier_corrections(type_, annee, jour)
+    if len(markdown.encode()) > TAILLE_MAXIMALE:
+        raise SaisieRefusee("transcription de plus de 200 Ko")
+    tache = await _tache_a_relire(fhir, agent, tache_id)
+    if si_version is None:
+        raise VersionAbsente()
+    if _version_attendue(si_version) != _version(tache):
+        raise VersionPerimee()
+    if relecture.brouillon_de(tache) is None:
+        raise SaisieRefusee("tâche à ouvrir avant d'en enregistrer la transcription")
+    await _ecrire(fhir, relecture.avec_brouillon(tache, markdown), tache)
+    await _tracer(fhir, agent, tache, "update")
+    ecrite = await _tache(fhir, tache_id)
+    return Enregistrement(id=tache_id, version=_version(ecrite))
+
+
+def _a_reprendre(markdown: str, pages: int, volets_verifies: list[int], resume: str) -> TranscriptionRefusee | None:
+    """Ce qui empêche de confirmer : le Markdown hors de l'ADR 0010, un volet non coché, pas de résumé."""
+    lue = format_de_transcription.lire(markdown, pages)
+    erreurs = list(lue.erreurs)
+    if not lue.volets:
+        erreurs.append("aucun volet : une Transcription en compte au moins un")
+    if not resume:
+        erreurs.append("résumé des changements manquant")
+    verifies = set(volets_verifies)
+    manquants = [v.rang for v in lue.volets if v.rang not in verifies]
+    return TranscriptionRefusee(erreurs, manquants) if erreurs or manquants else None
+
+
+def _nouvelle(cible: dict[str, str], ressource: Ressource) -> dict[str, Any]:
+    return {"fullUrl": cible["reference"], "resource": ressource, "request": {"method": "POST", "url": ressource["resourceType"]}}
+
+
+def _creee(ressource: Ressource) -> dict[str, Any]:
+    return {"resource": ressource, "request": {"method": "POST", "url": ressource["resourceType"]}}
+
+
+async def confirmer(
+    fhir: ClientFhir, agent: Agent, tache_id: str, *, volets_verifies: list[int], resume: str
+) -> Confirmation:
+    """La double confirmation du relecteur : chaque volet coché, le tout confirmé avec son résumé. En une
+    transaction : la version (préliminaire) de la Transcription et son Provenance, la précédente remplacée,
+    la Relecture close, et le Contrôle au pool ; sans Contrôle, la version est finale et les propositions
+    passent aux soignants."""
+    tache = await _tache_a_relire(fhir, agent, tache_id)
+    markdown = relecture.brouillon_de(tache)
+    if markdown is None:
+        raise SaisieRefusee("tâche à ouvrir avant de la confirmer")
     document = await _document(fhir, tache)
-    suivante = relecture.avec_corrections(tache, type_=type_, annee=annee) if (type_ or annee) else tache
-    suivante = relecture.apres_triage(suivante, verdict, agent.sub)
-    corrections = _texte_des_corrections(type_, annee)
-    if corrections:
-        suivante["note"][-1]["text"] += f" ; {corrections}"
-        suivante["businessStatus"]["text"] += f" ; {corrections}"
-    if verdict == "utilisable":
-        a_lire = _document_a_lire(document, suivante)
-        extraction = dater(await _extraire(fhir, lecteur, document, a_lire.type), a_lire.annee)
-        patient = relecture.patient_de(tache) or ""
-        await fhir.mettre_a_jour(relecture.device(extraction.modele))
-        binary = await fhir.creer(relecture.binary_de_texte(extraction.texte, patient))
-        texte = await fhir.creer(
-            relecture.document_de_texte(
-                scan=document["id"], patient=patient, texte=extraction.texte, modele=extraction.modele, binary=binary["id"]
+    resume = resume.strip()
+    refus = _a_reprendre(markdown, len(document.get("content", [])), volets_verifies, resume)
+    if refus:
+        raise refus
+    patient = relecture.patient_de(tache) or ""
+    binary = await fhir.creer(relecture.binary_de_transcription(markdown, patient))
+    precedente_id = relecture.transcription_de(tache)
+    precedente = await fhir.lire("DocumentReference", precedente_id) if precedente_id else None
+    controlee = random.random() < part_controlee()
+    cible = {"reference": f"urn:uuid:{uuid.uuid4()}"}
+    ecritures = [
+        _nouvelle(
+            cible,
+            relecture.transcription(
+                scan=document,
+                auteurs=[agent.sub],
+                binary=binary["id"],
+                taille=len(markdown.encode()),
+                relue=not controlee,
+                precedente=precedente_id,
+            ),
+        ),
+        _creee(
+            relecture.provenance_de_relecture(
+                cible=cible, scan=document["id"], relecteur=agent.sub, activite="relecture", modele=relecture.modele_de(tache)
             )
-        )
-        suivante = relecture.avec_extraction(suivante, extraction, texte["id"])
-        journal.info(
-            "tâche %s : document %s lu par %s:%s, %d propositions",
-            tache_id,
-            document["id"],
-            extraction.modele.nom,
-            extraction.modele.version,
-            len(suivante.get("contained", [])),
-        )
+        ),
+    ]
+    if precedente and precedente.get("status") == "current":
+        ecritures.append(ecriture_si_inchangee(relecture.remplacee(precedente), precedente))
+    ecritures.append(ecriture_si_inchangee(relecture.confirmee(tache, transcription=cible, resume=resume, relue=not controlee), tache))
+    controle_id = None
+    if controlee:
+        controle_id = f"controle-{uuid.uuid4().hex}"
+        ecritures.append(ecriture(relecture.tache_de_controle(id_=controle_id, relecture=tache, transcription=cible, resume=resume)))
+    else:
+        validation = relecture.tache_de_validation(id_=f"validation-{uuid.uuid4().hex}", relecture=tache, transcription=cible)
+        if validation:
+            ecritures.append(ecriture(validation))
+    try:
+        await fhir.transaction(ecritures)
+    except TransactionRefusee as erreur:
+        journal.warning("confirmation de la tâche %s refusée par le noyau : %s", tache_id, erreur)
+        raise TacheDejaFaite() from erreur
+    await _tracer(fhir, agent, tache, "create")
+    ecrite = await _tache(fhir, tache_id)
+    journal.info("tâche %s confirmée par l'agent %s, contrôle : %s", tache_id, agent.sub, controle_id or "aucun")
+    return Confirmation(
+        id=tache_id,
+        statut=_statut(ecrite),
+        transcription=relecture.transcription_de(ecrite),
+        relue=not controlee,
+        controle=controle_id,
+    )
+
+
+async def clore_inutilisable(fhir: ClientFhir, agent: Agent, tache_id: str, raison: Raison) -> TacheResumee:
+    """Un Document qui n'est pas médical, ou déjà numérisé : la Relecture est close sans Transcription.
+    Rien ne rappelle le citoyen, rien ne change le Document."""
+    tache = await _tache_a_relire(fhir, agent, tache_id)
+    document = await _document(fhir, tache)
+    suivante = relecture.inutilisable(tache, raison)
     await _ecrire(fhir, suivante, tache)
     await _tracer(fhir, agent, tache, "update")
-    journal.info("tâche %s triée par l'agent %s : %s", tache_id, agent.sub, verdict)
+    journal.info("tâche %s close par l'agent %s : %s", tache_id, agent.sub, raison)
     return _resumee(suivante, document)
 
 
-# La validation.
+# Le Contrôle.
+
+
+async def controler(
+    fhir: ClientFhir, agent: Agent, tache_id: str, *, decision: DecisionDeControle, note: str | None, jour: date
+) -> Controle:
+    """La décision du contrôleur, jamais l'auteur. Accepter : une version finale remplace la préliminaire,
+    avec le Provenance du Contrôle, et les propositions passent aux soignants. Renvoyer : la Relecture
+    revient à son relecteur, à faire, avec la note ; le brouillon reste."""
+    if not acces.relit(agent):
+        raise RoleRefuse()
+    controle = await _tache_de(fhir, agent, tache_id)
+    if relecture.etape_de(controle) != "controle":
+        raise TacheDUnAutre()
+    if not relecture.est_ouverte(controle):
+        raise TacheDejaFaite()
+    note = (note or "").strip()
+    if decision == "renvoyer" and not note:
+        raise SaisieRefusee("un renvoi porte sa note")
+    tache = await _tache(fhir, relecture.relecture_de(controle) or "")
+    if tache.get("status") != "completed" or relecture.issue_de(tache) != "confirmee":
+        raise TacheDejaFaite()
+    ecritures = [ecriture_si_inchangee(relecture.controlee(controle, decision), controle)]
+    validation_id = None
+    if decision == "accepter":
+        version_id = relecture.transcription_de(controle) or ""
+        version = await fhir.lire("DocumentReference", version_id)
+        if not version:
+            raise TacheIntrouvable()
+        document = await _document(fhir, tache)
+        auteurs = [id_ for a in version.get("author", []) if (id_ := id_de(a))]
+        cible = {"reference": f"urn:uuid:{uuid.uuid4()}"}
+        ecritures += [
+            _nouvelle(
+                cible,
+                relecture.transcription(
+                    scan=document,
+                    auteurs=[*auteurs, agent.sub],
+                    binary=relecture.binary_de(version) or "",
+                    taille=int(next(iter(version.get("content", [])), {}).get("attachment", {}).get("size", 0)),
+                    relue=True,
+                    precedente=version_id,
+                ),
+            ),
+            _creee(
+                relecture.provenance_de_relecture(cible=cible, scan=document["id"], relecteur=agent.sub, activite="controle", modele=None)
+            ),
+            ecriture_si_inchangee(relecture.remplacee(version), version),
+            ecriture_si_inchangee(relecture.relue(tache, cible), tache),
+        ]
+        validation = relecture.tache_de_validation(id_=f"validation-{uuid.uuid4().hex}", relecture=tache, transcription=cible)
+        if validation:
+            validation_id = validation["id"]
+            ecritures.append(ecriture(validation))
+    else:
+        ecritures.append(ecriture_si_inchangee(relecture.renvoyee(tache, note=note, controleur=agent.sub, jour=jour), tache))
+    try:
+        await fhir.transaction(ecritures)
+    except TransactionRefusee as erreur:
+        journal.warning("contrôle de la tâche %s refusé par le noyau : %s", tache_id, erreur)
+        raise TacheDejaFaite() from erreur
+    await _tracer(fhir, agent, controle, "update")
+    journal.info("tâche %s contrôlée par l'agent %s : %s", tache_id, agent.sub, decision)
+    finale = relecture.transcription_de(await _tache(fhir, tache["id"])) if decision == "accepter" else None
+    return Controle(id=tache_id, decision=decision, transcription=finale, validation=validation_id)
+
+
+# Le suivi de l'agent de relecture.
+
+
+async def suivi(fhir: ClientFhir, agent: Agent, jour: date) -> Suivi:
+    """Ma semaine (à relire, confirmées, renvoyées, contrôlées) et l'historique des Relectures et Contrôles
+    faits. Rien du patient ni du Document : des comptes et des dates."""
+    if not acces.relit(agent):
+        raise RoleRefuse()
+    taches = await fhir.chercher(
+        "Task", {"owner": f"Practitioner/{agent.sub}", "_elements": "code,status,businessStatus,executionPeriod,note"}
+    )
+    cette_semaine = relecture.semaine(jour)
+
+    def de_la_semaine(instant: str | None) -> bool:
+        try:
+            return bool(instant) and relecture.semaine(date.fromisoformat(str(instant)[:10])) == cette_semaine
+        except ValueError:
+            return False
+
+    relectures = [t for t in taches if relecture.etape_de(t) == "relecture"]
+    controles = [t for t in taches if relecture.etape_de(t) == "controle"]
+    semaine = Semaine(
+        a_relire=sum(1 for t in relectures if relecture.est_ouverte(t)),
+        confirmees=sum(
+            1 for t in relectures if relecture.issue_de(t) in ("confirmee", "relue") and de_la_semaine(relecture.fin_de(t))
+        ),
+        renvoyees=sum(1 for t in relectures for n in relecture.notes_de_controle(t) if de_la_semaine(n.date)),
+        controlees=sum(1 for t in controles if t.get("status") == "completed" and de_la_semaine(relecture.fin_de(t))),
+    )
+    historique = [
+        Evenement(id=t["id"], etape=relecture.etape_de(t) or "relecture", date=fin, issue=relecture.issue_de(t))
+        for t in [*relectures, *controles]
+        if not relecture.est_ouverte(t) and (fin := relecture.fin_de(t))
+    ]
+    historique.sort(key=lambda e: e.date, reverse=True)
+    return Suivi(semaine=semaine, historique=historique[:HISTORIQUE])
+
+
+# La validation clinique, par un soignant.
 
 VERIFICATION_D_ALLERGIE = "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification"
 
@@ -429,7 +768,7 @@ async def valider(fhir: ClientFhir, agent: Agent, tache_id: str, recues: list[De
     for proposition, recue in decisions.items():
         if recue.decision == "rejeter":
             continue
-        brouillon = relecture.brouillon_de(tache, proposition) or {}
+        brouillon = relecture.proposition_de(tache, proposition) or {}
         try:
             entree = relecture.entree_validee(
                 brouillon,
@@ -441,15 +780,8 @@ async def valider(fhir: ClientFhir, agent: Agent, tache_id: str, recues: list[De
             raise SaisieRefusee("valeur corrigée illisible : un nombre est attendu") from erreur
         cible = {"reference": f"urn:uuid:{uuid.uuid4()}"}
         cibles.append(cible)
-        ecritures.append(
-            {"fullUrl": cible["reference"], "resource": verifiee_par(entree, agent), "request": {"method": "POST", "url": entree["resourceType"]}}
-        )
-        ecritures.append(
-            {
-                "resource": relecture.provenance_d_extraction(cible=cible, scan=scan, soignant=agent.sub, modele=modele),
-                "request": {"method": "POST", "url": "Provenance"},
-            }
-        )
+        ecritures.append(_nouvelle(cible, verifiee_par(entree, agent)))
+        ecritures.append(_creee(relecture.provenance_d_extraction(cible=cible, scan=scan, soignant=agent.sub, modele=modele)))
     suivante = relecture.apres_validation(tache, {k: v.decision for k, v in decisions.items()}, agent.sub, cibles)
     ecritures.append(ecriture_si_inchangee(suivante, tache))
     try:
@@ -459,12 +791,7 @@ async def valider(fhir: ClientFhir, agent: Agent, tache_id: str, recues: list[De
         raise TacheDejaFaite() from erreur
     await _tracer(fhir, agent, tache, "create")
     # Le noyau a remplacé chaque `urn:uuid:` par l'identifiant de l'entrée écrite.
-    relue = await _tache(fhir, tache_id)
-    entrees = [
-        _type_et_id(o.get("valueReference", {}).get("reference", ""))
-        for o in relue.get("output", [])
-        if o.get("type", {}).get("text") == "Entrée validée"
-    ]
+    entrees = [_type_et_id(ref) for ref in relecture.entrees_validees(await _tache(fhir, tache_id))]
     retenues = len(cibles)
     journal.info("tâche %s validée par le soignant %s : %d retenues", tache_id, agent.sub, retenues)
     return Validation(
