@@ -68,11 +68,33 @@ The nationwide, medium-term programme that numérises the paper medical past cit
 _Avoid_: campagne, recensement, migration
 
 **Origine**:
-Where an entry of the dossier comes from: a visite, a numérisation, the patient's own declaration, or a report from a Document by a soignant. Every entry carries it, and every screen shows it.
+Where an entry of the dossier comes from: a visite, a numérisation, the patient's own declaration, a report from a Document by a soignant, or an Extraction validated by a soignant. Every entry carries it, and every screen shows it.
 _Avoid_: source (too vague), fiabilité
 
 **Agent de numérisation**:
 An agent who performs numérisations, for the Reprise or at any desk. Adds Documents to a dossier; reads nothing else in it.
+
+**Carnet papier**:
+The paper health booklet a patient holds, as opposed to their Carnet in Lafia. Numérisé whole as one Document of type carnet de santé, its pages in order.
+_Avoid_: carnet (alone, for the paper one)
+
+**Annexe**:
+A loose paper found with a Carnet papier (a lab result, a compte rendu) and numérisé as its own Document, attached to the carnet's Document so they open together.
+_Avoid_: pièce jointe, recueil
+
+**Relecture**:
+The review of numérised Documents after the Dépôt: first a triage (is the scan usable, of the right type, legible), then the validation of the facts an Extraction proposes. Pseudonymised: the reviewer never sees who the patient is from the system, though a page may show a name.
+_Avoid_: correction, contrôle
+
+**Agent de relecture**:
+A part-time agent who performs the triage of Documents from a weekly quota of tâches. Validates no clinical fact.
+
+**Tâche de relecture**:
+One Document to review, assigned to one reviewer with a due date: triage, then clinical validation by a soignant when the triage keeps it.
+
+**Extraction**:
+What a machine reads from a Document: its text and the facts it proposes (a mesure, an antécédent, an allergy, a traitement). A proposal until a soignant validates it; a validated fact enters the dossier with origine extraction.
+_Avoid_: OCR (the technique, not the result), IA (in UI)
 
 **Ordonnance**:
 A prescription issued at the end of a visite, identified by a unique numéro d'ordonnance, made of lignes.
@@ -108,7 +130,7 @@ _Avoid_: dispensation, vente
 A médecin or infirmier writing in the dossier.
 
 **Agent**:
-Any authenticated professional user: soignant, caissier, pharmacien or agent de numérisation.
+Any authenticated professional user: soignant, caissier, pharmacien, agent de numérisation or agent de relecture.
 
 **Établissement**:
 A health facility where visites happen.

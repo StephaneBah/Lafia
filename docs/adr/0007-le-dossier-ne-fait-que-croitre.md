@@ -15,12 +15,14 @@ The dossier is fed by more and more actors: soignants at each visite (F3, F4), t
   |---|---|---|
   | médecin, infirmier | cas, visites, mesures, diagnostics, ordonnances, antécédents, allergies, traitements au long cours, groupe sanguin; reports from a Document | the full dossier, with a relation de soin |
   | agent de numérisation | Documents, grouped in a Dépôt | the patient's name and birth year to check identity, and the Documents of the current Dépôt |
+  | agent de relecture | the triage verdict of a Tâche de relecture | the pages of the Documents assigned to them, pseudonymised |
+  | médecin, infirmier (relecture) | entries validated from an Extraction (origine `extraction`) | the assigned Document and its Extraction |
   | caissier | encaissements | ordonnances by numéro |
   | pharmacien, officine | délivrances | as in `SYSTEM_PROMPT.md` |
   | citoyen | nothing | their own carnet, Documents included |
   | laboratoire (designed) | results and their Documents | the demands addressed to it |
 
-- **Origine on every entry.** Every resource a service writes carries a `meta.tag` in the system `https://lafia.bj/fhir/CodeSystem/origine`: `visite`, `numerisation`, `declaration` (told by the patient), `report` (keyed in by a soignant from a Document). Every screen shows it, so a reader always knows how much to trust an entry.
+- **Origine on every entry.** Every resource a service writes carries a `meta.tag` in the system `https://lafia.bj/fhir/CodeSystem/origine`: `visite`, `numerisation`, `declaration` (told by the patient), `report` (keyed in by a soignant from a Document), `extraction` (proposed by a machine, validated by a soignant; ADR 0009). Every screen shows it, so a reader always knows how much to trust an entry.
 - **Provenance links an entry to what it came from.** A Dépôt is a FHIR `Provenance` whose targets are its Documents, with the agent de numérisation, their établissement and the identity check used. A report from a Document is a `Provenance` whose target is the new entry and whose source entity is the `DocumentReference`.
 - **Supersession, not edition.** A superseding entry points to the one it replaces (`DocumentReference.relatesTo` `replaces`; for other resources a `Provenance` with the old one as a `revision` source), and the old one moves to its standard "entered in error" or "superseded" status in a new version.
 
