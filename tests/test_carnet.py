@@ -7,6 +7,7 @@ Le carnet vécu et le carnet à payer sont ceux de l'histoire clinique de démon
 import pytest
 
 from conftest import jeton_pose
+from test_soin import page_png
 
 CARNET_VECU = "0000001204815"
 CAS_EN_COURS = "hist-a-cas-ira"
@@ -117,3 +118,43 @@ def test_un_antecedent_n_est_jamais_le_diagnostic_d_une_visite_et_chaque_ligne_d
     lignes = [ligne for o in ordonnances if o["numero"] in ("ORD-7K4-M2P", "ORD-5PW-8RB") for ligne in o["lignes"]]
     assert all(ligne["unite"] and not ligne["arret_allergie"] for ligne in lignes)
     assert "gélule" in {ligne["unite"] for ligne in lignes}
+
+
+def test_le_citoyen_voit_ses_documents_et_jamais_ceux_d_un_autre(
+    application, jeton_de, jeton_du_citoyen, jeu, connecter_citoyen
+):
+    # Un médecin ajoute au dossier un papier que le patient a apporté, pendant un cas qu'il ouvre et clôt.
+    soin = application("soin")
+    medecin = {"Authorization": f"Bearer {jeton_de('médecin')}"}
+    patient_id = soin.post("/api/soin/recherche", json={"npi": CARNET_VECU}, headers=medecin).json()["patient_id"]
+    cas = soin.post(f"/api/soin/patients/{patient_id}/cas", json={"motif": "Anciens papiers"}, headers=medecin)
+    assert cas.status_code == 201
+    page = page_png()
+    ajoute = soin.post(
+        f"/api/soin/patients/{patient_id}/documents",
+        data={"type": "resultat-analyse", "annee": "2021", "lisibilite": "partiel"},
+        files=[("pages", ("analyse.png", page, "image/png"))],
+        headers=medecin,
+    )
+    soin.post(f"/api/soin/cas/{cas.json()['cas_id']}/cloture", headers=medecin)
+    assert ajoute.status_code == 201, ajoute.text
+    document_id = ajoute.json()["document_id"]
+
+    client = application("citoyen")
+    entetes = {"Authorization": f"Bearer {jeton_du_citoyen(CARNET_VECU)}"}
+    mes_documents = client.get("/api/citoyen/documents", headers=entetes)
+    assert mes_documents.status_code == 200, mes_documents.text
+    (document,) = [d for d in mes_documents.json() if d["id"] == document_id]
+    assert (document["type"], document["annee"], document["pages"], document["lisible"]) == (
+        "resultat-analyse", "2021", 1, False
+    )
+    lue = client.get(f"/api/citoyen/documents/{document_id}/pages/1", headers=entetes)
+    assert lue.status_code == 200 and lue.content == page
+    assert CARNET_VECU not in mes_documents.text
+
+    # Un autre citoyen : ce Document n'existe pas pour lui.
+    autre = [p["npi"] for p in jeu("patients")["patient"] if p.get("reserve_aux_tests")][-1]
+    code = soin.post("/api/identite/codes-carnet", json={"npi": autre}, headers=medecin).json()["code"]
+    son_jeton = {"Authorization": f"Bearer {jeton_pose(connecter_citoyen(autre, code))}"}
+    assert client.get(f"/api/citoyen/documents/{document_id}/pages/1", headers=son_jeton).status_code == 404
+    assert document_id not in {d["id"] for d in client.get("/api/citoyen/documents", headers=son_jeton).json()}

@@ -126,6 +126,8 @@ class AccesLu(BaseModel):
     motif: str
     urgence: bool
     raison: str | None
+    depot: bool = False
+    """Un Dépôt : un agent de numérisation a ajouté des papiers au dossier."""
 
 
 class AntecedentLu(BaseModel):
@@ -397,12 +399,17 @@ def traitement_du_jour(dossier: DossierDuCitoyen, jour: date, heure: int = 0) ->
 
 def journal_des_acces(dossier: DossierDuCitoyen) -> list[AccesLu]:
     """Qui a ouvert le dossier, du plus récent au plus ancien. Les ouvertures du citoyen lui-même, qui
-    se suivent, n'en font qu'une : la plus récente."""
+    se suivent, n'en font qu'une : la plus récente ; de même les accès qui se suivent d'un même dépôt de papiers."""
     moi = f"Patient/{dossier.patient['id']}"
     lus: list[AccesLu] = []
+    precedent: Acces | None = None
     for acces in sorted(dossier.acces, key=lambda a: a.date, reverse=True):
         vous = acces.qui == moi
-        if vous and lus and lus[-1].vous:
+        meme_depot = (
+            precedent is not None and precedent.motif == acces.motif == "numerisation" and precedent.qui == acces.qui
+        )
+        precedent = acces
+        if (vous and lus and lus[-1].vous) or meme_depot:
             continue
         lus.append(_acces_lu(acces, vous, dossier))
     return lus
@@ -410,8 +417,13 @@ def journal_des_acces(dossier: DossierDuCitoyen) -> list[AccesLu]:
 
 def _acces_lu(acces: Acces, vous: bool, dossier: DossierDuCitoyen) -> AccesLu:
     urgence = acces.motif == "acces-urgence"
+    depot = acces.motif == "numerisation" and not vous
+    etablissement = dossier.noms.get(acces.etablissement or "")
     if vous:
         qui, motif = "Vous", "Vous avez ouvert votre carnet"
+    elif depot:
+        qui = _soignant(acces.qui, dossier) or "Un agent de numérisation"
+        motif = f"Vos papiers ont été numérisés à {etablissement}" if etablissement else "Vos papiers ont été numérisés"
     else:
         qui = _soignant(acces.qui, dossier) or "Un agent de santé"
         motif = {
@@ -427,11 +439,12 @@ def _acces_lu(acces: Acces, vous: bool, dossier: DossierDuCitoyen) -> AccesLu:
         vous=vous,
         qui=qui,
         role=None if vous else dossier.roles.get(acces.qui or ""),
-        etablissement=dossier.noms.get(acces.etablissement or ""),
+        etablissement=etablissement,
         service=acces.service,
         motif=motif,
         urgence=urgence,
         raison=acces.raison if urgence else None,
+        depot=depot,
     )
 
 

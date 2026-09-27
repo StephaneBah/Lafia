@@ -10,6 +10,7 @@ const ICONES_DES_SERVICES: Record<string, NomIcone> = {
   caisse: "cash-register",
   pharmacie: "pill",
   citoyen: "user",
+  numerisation: "copy",
 };
 
 function Ligne({ acces }: { acces: AccesLu }) {
@@ -18,11 +19,18 @@ function Ligne({ acces }: { acces: AccesLu }) {
       {acces.urgence ? (
         <Picto name="urgence" size={36} decorative />
       ) : (
-        <Icon name={ICONES_DES_SERVICES[acces.service ?? ""] ?? "eye"} size={32} />
+        <Icon name={acces.depot ? "copy" : (ICONES_DES_SERVICES[acces.service ?? ""] ?? "eye")} size={32} />
       )}
       <div>
         <b>{acces.etablissement && !acces.vous ? `${acces.qui} · ${acces.etablissement}` : acces.qui}</b>
         {acces.motif}
+        {acces.depot && (
+          <div>
+            <a href="/documents" className="carnet-lien">
+              Voir mes documents
+            </a>
+          </div>
+        )}
         {acces.raison && <div className="carnet-raison">{`Motif : ${acces.raison}`}</div>}
         <div className="carnet-quand">{quand(acces.date)}</div>
       </div>

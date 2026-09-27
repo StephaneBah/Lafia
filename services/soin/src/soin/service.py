@@ -5,15 +5,17 @@ corps de `POST /recherche`, et n'apparaît jamais dans une adresse. Les routes t
 travail est dans `soin.dossier`, les règles dans `soin.regles`.
 """
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 
 from commun.fhir.client import ClientFhir
+from commun.fhir.documents import OCTETS_PAR_PAGE, Page, PageRefusee
 from commun.jeton import Agent, VerificateurDeJetons
 from commun.service import client_fhir, creer_service
 from soin import dossier, modeles
 from soin.regles.acces import ROLES_ADMIS
+from soin.regles.documents import DocumentTropLourd
 from soin.regles.dossier import SaisieRefusee
 from soin.regles.relation import SansRelationDeSoin
 from soin.regles.visite import VisiteRefusee, peut_clore
@@ -42,11 +44,15 @@ def _http(erreur: Exception) -> HTTPException:
             return HTTPException(status.HTTP_404_NOT_FOUND, "aucun cas sous cet identifiant")
         case dossier.TraitementInconnu():
             return HTTPException(status.HTTP_404_NOT_FOUND, "aucun traitement sous cet identifiant")
+        case dossier.DocumentInconnu() | dossier.PageInconnue():
+            return HTTPException(status.HTTP_404_NOT_FOUND, "aucun document ou aucune page sous cet identifiant")
+        case DocumentTropLourd():
+            return HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, str(erreur))
         case SansRelationDeSoin():
             return HTTPException(status.HTTP_403_FORBIDDEN, "pas de relation de soin")
         case dossier.CasClos():
             return HTTPException(status.HTTP_409_CONFLICT, "ce cas est clos")
-        case VisiteRefusee() | SaisieRefusee():
+        case VisiteRefusee() | SaisieRefusee() | PageRefusee():
             return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(erreur))
     raise erreur
 
@@ -55,10 +61,14 @@ ERREURS = (
     dossier.PatientInconnu,
     dossier.CasInconnu,
     dossier.TraitementInconnu,
+    dossier.DocumentInconnu,
+    dossier.PageInconnue,
     SansRelationDeSoin,
     dossier.CasClos,
     VisiteRefusee,
     SaisieRefusee,
+    PageRefusee,
+    DocumentTropLourd,
 )
 
 
@@ -242,6 +252,79 @@ async def acces_d_urgence(
     except ERREURS as erreur:
         raise _http(erreur) from erreur
     return {"cas_id": cas_id, "visite_id": visite_id}
+
+
+@routes.get("/patients/{patient_id}/documents", responses=REFUS)
+async def documents(
+    patient_id: str, soignant: Agent = Depends(soignant_connecte), fhir: ClientFhir = Depends(client_fhir)
+) -> list[dict[str, Any]]:
+    """Les Documents du patient, numérisés, non vérifiés : type, année, établissement d'origine,
+    lisibilité, nombre de pages, origine. Avec une relation de soin."""
+    try:
+        return await dossier.documents(fhir, soignant, patient_id)
+    except ERREURS as erreur:
+        raise _http(erreur) from erreur
+
+
+@routes.get("/documents/{document_id}/pages/{rang}", responses=REFUS, response_class=Response)
+async def page_du_document(
+    document_id: str,
+    rang: int,
+    soignant: Agent = Depends(soignant_connecte),
+    fhir: ClientFhir = Depends(client_fhir),
+) -> Response:
+    """Les octets d'une page (à partir de 1), sous son format : JPEG, PNG ou PDF. Avec une relation de
+    soin avec le patient du Document ; lecture tracée."""
+    try:
+        page = await dossier.page_du_document(fhir, soignant, document_id, rang)
+    except ERREURS as erreur:
+        raise _http(erreur) from erreur
+    return Response(
+        content=page.octets,
+        media_type=page.format,
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+async def _pages_recues(fichiers: list[UploadFile]) -> list[Page]:
+    """Les pages reçues, lues sans dépasser d'un octet la limite d'une page : au-delà, le 413 suit."""
+    pages = []
+    for fichier in fichiers:
+        octets = await fichier.read(OCTETS_PAR_PAGE + 1)
+        pages.append(Page(format=(fichier.content_type or "").split(";")[0].strip(), octets=octets))
+    return pages
+
+
+@routes.post(
+    "/patients/{patient_id}/documents",
+    status_code=status.HTTP_201_CREATED,
+    responses={**SAISIE, 413: {"description": "Plus de 20 pages, ou une page de plus de 3 Mo."}},
+)
+async def ajouter_document(
+    patient_id: str,
+    type: Annotated[str, Form()],
+    annee: Annotated[str, Form(pattern=modeles.ANNEE)],
+    lisibilite: Annotated[str, Form()],
+    pages: Annotated[list[UploadFile], File()],
+    etablissement: Annotated[str | None, Form(max_length=200)] = None,
+    soignant: Agent = Depends(soignant_connecte),
+    fhir: ClientFhir = Depends(client_fhir),
+) -> dict[str, Any]:
+    """Un Document que le patient a apporté, numérisé pendant la visite : origine `numerisation`, auteur
+    le soignant, avec une relation de soin. Multipart : `type`, `annee`, `etablissement?`, `lisibilite`, `pages`."""
+    try:
+        return await dossier.ajouter_document(
+            fhir,
+            soignant,
+            patient_id,
+            type_=type,
+            annee=annee,
+            lisibilite=lisibilite,
+            etablissement=(etablissement or "").strip() or None,
+            pages=await _pages_recues(pages),
+        )
+    except ERREURS as erreur:
+        raise _http(erreur) from erreur
 
 
 app = creer_service(SERVICE, routes, parle_fhir=True)

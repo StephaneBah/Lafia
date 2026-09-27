@@ -24,7 +24,12 @@ function Replie({ titre, icone, children }: { titre: string; icone: "plus" | "pi
   );
 }
 
-const Patient = ({ id }: { id: string }) => <input type="hidden" name="patient_id" value={id} />;
+const Patient = ({ id, documentId }: { id: string; documentId?: string }) => (
+  <>
+    <input type="hidden" name="patient_id" value={id} />
+    {documentId && <input type="hidden" name="document_id" value={documentId} />}
+  </>
+);
 
 function Choix({ id, nom, libelle, children, requis }: { id: string; nom: string; libelle: string; children: ReactNode; requis?: boolean }) {
   return (
@@ -39,11 +44,12 @@ function Choix({ id, nom, libelle, children, requis }: { id: string; nom: string
   );
 }
 
-export function AjouterAntecedent({ patientId }: { patientId: string }) {
+/** Avec `documentId`, l'antécédent est reporté depuis ce Document : il en porte l'origine. */
+export function AjouterAntecedent({ patientId, documentId }: { patientId: string; documentId?: string }) {
   return (
-    <Replie titre="Ajouter un antécédent" icone="plus">
+    <Replie titre={documentId ? "Reporter un antécédent" : "Ajouter un antécédent"} icone="plus">
       <form action={ajouterAntecedent} className="lf-formulaire">
-        <Patient id={patientId} />
+        <Patient id={patientId} documentId={documentId} />
         <fieldset className="sn-fieldset">
           <legend className="lf-field-label">Type</legend>
           <div className="sn-radios sn-radios--ligne">
@@ -138,12 +144,21 @@ export function EnregistrerGroupeSanguin({ patientId, actuel }: { patientId: str
   );
 }
 
-export function DeclarerAllergie({ patientId, catalogue }: { patientId: string; catalogue: Catalogue | null }) {
+/** Avec `documentId`, l'allergie est reportée depuis ce Document : elle en porte l'origine. */
+export function DeclarerAllergie({
+  patientId,
+  catalogue,
+  documentId,
+}: {
+  patientId: string;
+  catalogue: Catalogue | null;
+  documentId?: string;
+}) {
   const allergies = catalogue?.allergies ?? [];
   return (
-    <Replie titre="Déclarer une allergie" icone="plus">
+    <Replie titre={documentId ? "Reporter une allergie" : "Déclarer une allergie"} icone="plus">
       <form action={declarerAllergie} className="lf-formulaire">
-        <Patient id={patientId} />
+        <Patient id={patientId} documentId={documentId} />
         <Choix id="allergie" nom="allergie" libelle="Classe de médicaments" requis>
           <option value="" disabled>
             {allergies.length ? "Choisir une classe" : "Catalogue indisponible"}

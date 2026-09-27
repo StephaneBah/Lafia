@@ -98,6 +98,12 @@ function CarnetDuCitoyen({ carnet }: { carnet: Accueil }) {
           detail="Groupe sanguin, allergies, maladies, médicaments de tous les jours"
         />
         <Tuile
+          href="/documents"
+          marque={<Icon name="copy" size={36} />}
+          titre="Mes documents"
+          detail="Vos anciens papiers, numérisés"
+        />
+        <Tuile
           href="/acces"
           marque={<Picto name="consultation" size={44} decorative />}
           titre="Qui a ouvert mon dossier"

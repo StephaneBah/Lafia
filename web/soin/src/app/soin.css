@@ -111,6 +111,23 @@
 .sn-onglet:hover { color: var(--color-text); }
 .sn-onglet:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .sn-onglet[aria-current="page"] { color: var(--color-action); border-bottom-color: var(--color-action); }
+
+/* Documents (F5) : la liste, la visionneuse, et l'origine de chaque entrée — icône et mot. */
+.sn-origine { display: inline-flex; gap: 4px; align-items: center; margin-left: 8px; font-size: 13px; font-weight: 700; color: var(--color-text-muted); }
+.sn-bloc { display: block; }
+.sn-document { display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: start; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); text-decoration: none; min-height: 44px; }
+.sn-document:hover { border-color: var(--color-border-control); }
+.sn-document:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.sn-document[aria-current="true"] { border: 2px solid var(--color-action); }
+.sn-document-etats { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.sn-document-etats .sn-origine { margin-left: 0; }
+.sn-titre-document { display: flex; gap: 8px; align-items: center; }
+.sn-visionneuse { display: grid; gap: var(--space-3); margin-top: var(--space-3); }
+.sn-pages { display: flex; flex-wrap: wrap; gap: 8px; }
+.sn-page { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border: 1px solid var(--color-border-control); border-radius: var(--radius-pill); color: var(--color-text); font-weight: 700; text-decoration: none; }
+.sn-page[aria-current="page"] { background: var(--color-action); border-color: var(--color-action); color: var(--color-on-action); }
+.sn-page:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.sn-page-image { display: block; max-width: 100%; height: auto; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-sunken); }
 .sn-espace-contenu { display: grid; gap: var(--space-4); }
 .sn-intro { margin: 0; display: flex; gap: 8px; align-items: center; font-weight: 700; }
 .sn-choix { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4); align-items: start; }

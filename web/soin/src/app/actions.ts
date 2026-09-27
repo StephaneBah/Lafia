@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { emettreCodeCarnet, lireSession, soin } from "../lib/soin";
-import { GROUPES_SANGUINS, LIENS_DE_PARENTE, MOMENTS, type Moment, type Recu } from "../lib/types";
+import { GROUPES_SANGUINS, LIENS_DE_PARENTE, MOMENTS, TYPES_DE_DOCUMENT, type Moment, type Recu } from "../lib/types";
 
 // Les formulaires de l'application : chacun appelle le service soin par la passerelle, avec la session
 // du soignant, puis mène à l'écran suivant. Le patient y est désigné par son id de ressource : le NPI
@@ -75,30 +75,80 @@ export async function accesDUrgence(donnees: FormData) {
   redirect(espace(id, "?urgence=1"));
 }
 
+/** Le Document d'où l'entrée est reportée, s'il y en a un : `?document=` au retour, sur l'onglet Documents. */
+function documentSource(donnees: FormData): string | undefined {
+  const document = texte(donnees, "document_id");
+  return ID.test(document) ? document : undefined;
+}
+
+/** Après une saisie : la synthèse, ou l'onglet Documents quand l'entrée est reportée d'un Document. */
+function retour(id: string, document: string | undefined, suite: string): string {
+  return document ? espace(id, `/documents?document=${encodeURIComponent(document)}&${suite}`) : espace(id, `?${suite}`);
+}
+
 export async function declarerAllergie(donnees: FormData) {
   const id = patientId(donnees);
+  const document = documentSource(donnees);
   const [code, ...libelle] = texte(donnees, "allergie").split("|");
-  if (!code) redirect(espace(id, "?erreur=allergie"));
-  const reponse = await soin.allergie(id, code, libelle.join("|"));
-  redirect(espace(id, reponse.statut === 201 ? "?ok=allergie" : "?erreur=allergie"));
+  if (!code) redirect(retour(id, document, "erreur=allergie"));
+  const reponse = await soin.allergie(id, code, libelle.join("|"), document);
+  redirect(retour(id, document, reponse.statut === 201 ? "ok=allergie" : "erreur=allergie"));
+}
+
+export type EtatDuDocument = { erreur?: string } | null;
+
+const TYPES = new Set<string>(TYPES_DE_DOCUMENT.map(([code]) => code));
+const FORMATS_DE_PAGE = new Set(["image/jpeg", "image/png", "application/pdf"]);
+
+/**
+ * Un Document que le patient a apporté : type, année, établissement d'origine, lisibilité et pages,
+ * déjà compressées par le navigateur (ADR 0008). Le service l'écrit, origine `numerisation`.
+ */
+export async function ajouterDocument(_: EtatDuDocument, donnees: FormData): Promise<EtatDuDocument> {
+  const id = patientId(donnees);
+  const type = texte(donnees, "type");
+  const annee = texte(donnees, "annee");
+  const lisibilite = texte(donnees, "lisibilite");
+  const etablissement = texte(donnees, "etablissement");
+  const pages = donnees.getAll("pages").filter((p): p is File => typeof p !== "string" && p.size > 0);
+  if (!TYPES.has(type)) return { erreur: "Choisissez le type du document." };
+  if (!/^(19|20)\d{2}$/.test(annee)) return { erreur: "Donnez l’année du document, sur quatre chiffres." };
+  if (lisibilite !== "lisible" && lisibilite !== "partiel") return { erreur: "Dites si le document est lisible." };
+  if (pages.length === 0 || pages.length > 20) return { erreur: "Ajoutez entre une et vingt pages." };
+  if (pages.some((p) => !FORMATS_DE_PAGE.has(p.type))) return { erreur: "Une page est une photo (JPEG, PNG) ou un PDF." };
+
+  const envoi = new FormData();
+  envoi.set("type", type);
+  envoi.set("annee", annee);
+  envoi.set("lisibilite", lisibilite);
+  if (etablissement) envoi.set("etablissement", etablissement.slice(0, 200));
+  for (const page of pages) envoi.append("pages", page, page.name);
+  const reponse = await soin.ajouterDocument(id, envoi);
+  if (reponse.statut === 413) return { erreur: "Trop lourd : au plus vingt pages de 3 Mo chacune." };
+  if (reponse.statut === 422) return { erreur: "Le service a refusé ce document : vérifiez le type et le format des pages." };
+  if (reponse.statut === 403) return { erreur: "Il faut une relation de soin avec ce patient pour ajouter un document." };
+  if (reponse.statut !== 201 || !reponse.corps) return { erreur: "Le document n’a pas été enregistré. Réessayez." };
+  redirect(espace(id, `/documents?document=${encodeURIComponent(reponse.corps.document_id)}&ok=document`));
 }
 
 export async function ajouterAntecedent(donnees: FormData) {
   const id = patientId(donnees);
+  const document = documentSource(donnees);
   const type = texte(donnees, "type");
   const libelle = texte(donnees, "libelle");
   const depuis = texte(donnees, "depuis");
   const lien = texte(donnees, "lien");
-  if (type !== "medical" && type !== "chirurgical" && type !== "familial") redirect(espace(id, "?erreur=antecedent"));
-  if (!libelle) redirect(espace(id, "?erreur=antecedent"));
-  if (type === "familial" && !LIENS_DE_PARENTE.some(([code]) => code === lien)) redirect(espace(id, "?erreur=lien"));
+  if (type !== "medical" && type !== "chirurgical" && type !== "familial") redirect(retour(id, document, "erreur=antecedent"));
+  if (!libelle) redirect(retour(id, document, "erreur=antecedent"));
+  if (type === "familial" && !LIENS_DE_PARENTE.some(([code]) => code === lien)) redirect(retour(id, document, "erreur=lien"));
   const reponse = await soin.antecedent(id, {
     type,
     libelle,
     ...(depuis && { depuis }),
     ...(type === "familial" ? { lien } : { actif: donnees.get("resolu") !== "on" }),
+    ...(document && { document_id: document }),
   });
-  redirect(espace(id, reponse.statut === 201 ? "?ok=antecedent" : "?erreur=antecedent"));
+  redirect(retour(id, document, reponse.statut === 201 ? "ok=antecedent" : "erreur=antecedent"));
 }
 
 export async function ajouterTraitement(donnees: FormData) {

@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from commun.fhir import systemes
 from commun.fhir.client import Ressource
+from commun.fhir.documents import origine_de
 from commun.fhir.dossier import id_de, maintenant, reference
 
 # Catalogues : ce qu'un soignant choisit, jamais ce qu'il tape.
@@ -479,6 +480,7 @@ def resume_allergie(allergie: Ressource) -> dict[str, Any]:
         "id": allergie.get("id"),
         "libelle": code.get("text") or next((c.get("display") for c in code.get("coding", [])), ""),
         "code_atc": next((c["code"] for c in code.get("coding", []) if c.get("system") == systemes.ATC), None),
+        "origine": origine_de(allergie),
     }
 
 
@@ -575,6 +577,7 @@ def resume_antecedent(condition: Ressource) -> dict[str, Any]:
         "libelle": condition.get("code", {}).get("text", ""),
         "depuis": condition.get("onsetString"),
         "actif": any(c.get("code") == "active" for c in condition.get("clinicalStatus", {}).get("coding", [])),
+        "origine": origine_de(condition),
     }
 
 
@@ -585,6 +588,7 @@ def resume_familial(historique: Ressource) -> dict[str, Any]:
         "id": historique.get("id"),
         "lien": LIENS_DES_CODES.get(code, lien.get("text", "")),
         "libelle": (historique.get("condition") or [{}])[0].get("code", {}).get("text", ""),
+        "origine": origine_de(historique),
     }
 
 
@@ -607,6 +611,7 @@ def resume_traitement(traitement: Ressource) -> dict[str, Any]:
         "moments": [MOMENTS_DES_TIMINGS[w] for w in quand if w in MOMENTS_DES_TIMINGS],
         "depuis": traitement.get("effectivePeriod", {}).get("start"),
         "actif": traitement_actif(traitement),
+        "origine": origine_de(traitement),
     }
 
 

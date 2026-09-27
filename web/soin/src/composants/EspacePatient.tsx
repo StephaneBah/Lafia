@@ -8,11 +8,12 @@ import { BandeauPatient } from "./Patient";
 
 export { adresseDuPatient };
 
-export type Onglet = "synthese" | "cas" | "visite";
+export type Onglet = "synthese" | "cas" | "documents" | "visite";
 
-const ONGLETS: { onglet: Onglet; libelle: string; suite: string; icone: "stethoscope" | "heartbeat" | "plus" }[] = [
+const ONGLETS: { onglet: Onglet; libelle: string; suite: string; icone: "stethoscope" | "heartbeat" | "copy" | "plus" }[] = [
   { onglet: "synthese", libelle: "Synthèse", suite: "", icone: "stethoscope" },
   { onglet: "cas", libelle: "Cas", suite: "/cas", icone: "heartbeat" },
+  { onglet: "documents", libelle: "Documents", suite: "/documents", icone: "copy" },
   { onglet: "visite", libelle: "Nouvelle visite", suite: "/visite", icone: "plus" },
 ];
 
@@ -32,7 +33,7 @@ function Connecte({ session }: { session: SessionSoignant }) {
 
 /**
  * L'espace patient : retour à la recherche, le soignant connecté, le bandeau patient persistant, puis
- * les onglets Synthèse, Cas et Nouvelle visite. Sans relation de soin, pas d'onglet : l'écran propose
+ * les onglets Synthèse, Cas, Documents et Nouvelle visite. Sans relation de soin, pas d'onglet : l'écran propose
  * d'ouvrir un cas, d'en continuer un ou de déclarer un accès d'urgence.
  */
 export function EspacePatient({

@@ -24,7 +24,19 @@ export type Patient = {
   naissance: string | null;
   age?: number | null;
 };
-export type Allergie = { id: string; libelle: string; code_atc: string | null };
+/**
+ * D'où vient une entrée du dossier (ADR 0007) : relevée en visite, numérisée, déclarée par le patient au
+ * soignant, ou reportée depuis un Document. `null` : écrite avant que l'origine ne soit notée.
+ */
+export type Origine = "visite" | "numerisation" | "declaration" | "report";
+export const LIBELLES_DES_ORIGINES: Record<Origine, string> = {
+  visite: "Relevé en visite",
+  numerisation: "Numérisé, non vérifié",
+  declaration: "Déclaré par le patient",
+  report: "Reporté depuis un document",
+};
+
+export type Allergie = { id: string; libelle: string; code_atc: string | null; origine?: Origine | null };
 export type TitreDeCas = {
   id: string;
   motif: string;
@@ -35,9 +47,50 @@ export type TitreDeCas = {
   de_mon_etablissement: boolean;
 };
 export type TypeDAntecedent = "medical" | "chirurgical";
-export type Antecedent = { id: string; type: TypeDAntecedent; libelle: string; depuis: string | null; actif: boolean };
-export type AntecedentFamilial = { id: string; lien: string; libelle: string };
-export type Traitement = { id: string; libelle: string; posologie: string; moments: Moment[]; depuis: string | null };
+export type Antecedent = {
+  id: string;
+  type: TypeDAntecedent;
+  libelle: string;
+  depuis: string | null;
+  actif: boolean;
+  origine?: Origine | null;
+};
+export type AntecedentFamilial = { id: string; lien: string; libelle: string; origine?: Origine | null };
+export type Traitement = {
+  id: string;
+  libelle: string;
+  posologie: string;
+  moments: Moment[];
+  depuis: string | null;
+  origine?: Origine | null;
+};
+
+/** Le type d'un Document, tel que le service l'attend, avec son libellé. */
+export const TYPES_DE_DOCUMENT = [
+  ["carnet", "Carnet de santé"],
+  ["compte-rendu", "Compte rendu"],
+  ["resultat-analyse", "Résultat d'analyse"],
+  ["ordonnance", "Ancienne ordonnance"],
+  ["imagerie", "Imagerie"],
+  ["certificat", "Certificat"],
+  ["autre", "Autre document"],
+] as const;
+export type TypeDeDocument = (typeof TYPES_DE_DOCUMENT)[number][0];
+
+/** Un Document du dossier (`GET /api/soin/patients/{id}/documents`) : un papier numérisé, non vérifié. */
+export type DocumentDuDossier = {
+  id: string;
+  type: TypeDeDocument | string;
+  libelle_du_type: string;
+  annee: string | null;
+  etablissement: string | null;
+  lisibilite: "lisible" | "partiel" | null;
+  pages: number;
+  /** Le format de chaque page, dans l'ordre : image/jpeg, image/png ou application/pdf. */
+  formats?: string[];
+  origine: Origine | null;
+  depose_le: string | null;
+};
 
 /**
  * Le bandeau patient (`GET /api/soin/patients/{id}`). Sans relation de soin, le service omet

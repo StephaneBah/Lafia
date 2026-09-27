@@ -3,6 +3,8 @@ et son ordonnance, note antécédents, traitements au long cours et groupe sangu
 sans relation de soin, le dossier lui reste fermé, sauf par un accès d'urgence."""
 
 import re
+import struct
+import zlib
 
 from conftest import jeton_pose
 
@@ -118,10 +120,18 @@ def test_antecedents_traitements_et_groupe_sanguin_restent_au_bandeau(applicatio
     bandeau = soin.get(f"/api/soin/patients/{patient_id}", headers=medecin).json()
     assert bandeau["groupe_sanguin"] == "O+"
     (note,) = [a for a in bandeau["antecedents"] if a["id"] == antecedent.json()["id"]]
+    # Saisi par le soignant, sans Document : une déclaration (ADR 0007).
     assert note == {
-        "id": antecedent.json()["id"], "type": "chirurgical", "libelle": "Appendicectomie", "depuis": "2015", "actif": True
+        "id": antecedent.json()["id"],
+        "type": "chirurgical",
+        "libelle": "Appendicectomie",
+        "depuis": "2015",
+        "actif": True,
+        "origine": "declaration",
     }
-    assert {"id": familial.json()["id"], "lien": "mere", "libelle": "Diabète de type 2"} in bandeau["familiaux"]
+    assert {
+        "id": familial.json()["id"], "lien": "mere", "libelle": "Diabète de type 2", "origine": "declaration"
+    } in bandeau["familiaux"]
     (suivi,) = [t for t in bandeau["traitements"] if t["id"] == traitement.json()["id"]]
     assert suivi["moments"] == ["soir"]
     assert suivi["libelle"]
@@ -223,3 +233,95 @@ def test_sans_relation_de_soin_le_dossier_reste_ferme_sauf_acces_d_urgence(
     assert soin.post(f"/api/soin/cas/{urgence.json()['cas_id']}/cloture", headers=autre).status_code == 200
     assert soin.get(f"/api/soin/patients/{patient_id}/dossier", headers=autre).status_code == 403
     assert soin.post(f"/api/soin/cas/{cas_id}/cloture", headers=medecin).status_code == 200
+
+
+def page_png() -> bytes:
+    """Une page de test : une image PNG d'un pixel blanc, générée ici plutôt que lue d'un fichier."""
+
+    def morceau(genre: bytes, donnees: bytes) -> bytes:
+        return struct.pack(">I", len(donnees)) + genre + donnees + struct.pack(">I", zlib.crc32(genre + donnees))
+
+    entete = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + morceau(b"IHDR", entete)
+        + morceau(b"IDAT", zlib.compress(b"\x00\xff\xff\xff"))
+        + morceau(b"IEND", b"")
+    )
+
+
+def test_un_document_apporte_par_le_patient_entre_au_dossier_et_une_entree_s_en_reporte(
+    application, jeton_de, comptes, compte_de, connecter
+):
+    soin = application("soin")
+    ici = compte_de("médecin")
+    medecin = _porteur(jeton_de("médecin"))
+    patient_id = _patient_id(soin, medecin)
+    cas = soin.post(f"/api/soin/patients/{patient_id}/cas", json={"motif": "Bilan, anciens papiers"}, headers=medecin)
+    assert cas.status_code == 201
+    page = page_png()
+
+    ajoute = soin.post(
+        f"/api/soin/patients/{patient_id}/documents",
+        data={"type": "compte-rendu", "annee": "2019", "etablissement": "CHU de Parakou", "lisibilite": "lisible"},
+        files=[("pages", ("page-1.png", page, "image/png"))],
+        headers=medecin,
+    )
+    assert ajoute.status_code == 201, ajoute.text
+    document_id = ajoute.json()["document_id"]
+    assert ajoute.json()["pages"] == 1
+    # Un format hors de l'ADR 0008 est refusé, et rien n'en est écrit.
+    gif = soin.post(
+        f"/api/soin/patients/{patient_id}/documents",
+        data={"type": "carnet", "annee": "2019", "lisibilite": "lisible"},
+        files=[("pages", ("page.gif", b"GIF89a", "image/gif"))],
+        headers=medecin,
+    )
+    assert gif.status_code == 422
+
+    liste = soin.get(f"/api/soin/patients/{patient_id}/documents", headers=medecin)
+    assert liste.status_code == 200, liste.text
+    (document,) = [d for d in liste.json() if d["id"] == document_id]
+    assert document["origine"] == "numerisation"
+    assert (document["type"], document["annee"], document["pages"]) == ("compte-rendu", "2019", 1)
+    assert document["etablissement"] == "CHU de Parakou"
+
+    lue = soin.get(f"/api/soin/documents/{document_id}/pages/1", headers=medecin)
+    assert lue.status_code == 200
+    assert lue.headers["content-type"].startswith("image/png")
+    assert lue.content == page
+    assert soin.get(f"/api/soin/documents/{document_id}/pages/2", headers=medecin).status_code == 404
+
+    # Reporté depuis le Document : l'antécédent porte l'origine `report`.
+    reporte = soin.post(
+        f"/api/soin/patients/{patient_id}/antecedents",
+        json={"type": "medical", "libelle": "Drépanocytose", "depuis": "2019", "document_id": document_id},
+        headers=medecin,
+    )
+    assert reporte.status_code == 201, reporte.text
+    bandeau = soin.get(f"/api/soin/patients/{patient_id}", headers=medecin).json()
+    (antecedent,) = [a for a in bandeau["antecedents"] if a["id"] == reporte.json()["id"]]
+    assert antecedent["origine"] == "report"
+    # Le Document d'un patient ne fonde aucun report au dossier d'un autre.
+    autre_patient = _patient_id(soin, medecin, "0000001204815")
+    cas_de_l_autre = soin.post(f"/api/soin/patients/{autre_patient}/cas", json={"motif": "Contrôle"}, headers=medecin)
+    assert cas_de_l_autre.status_code == 201
+    croise = soin.post(
+        f"/api/soin/patients/{autre_patient}/allergies", json={"code_atc": "J01C", "document_id": document_id}, headers=medecin
+    )
+    assert croise.status_code == 422
+    soin.post(f"/api/soin/cas/{cas_de_l_autre.json()['cas_id']}/cloture", headers=medecin)
+
+    # Un médecin d'un autre établissement, sans relation de soin : ni la liste, ni les pages.
+    ailleurs = next(
+        c for c in comptes
+        if c.role == "médecin" and not c.reserve_aux_tests and c.etablissement not in (ici.etablissement, "chu-mel")
+    )
+    autre = _porteur(jeton_pose(connecter(ailleurs)))
+    for reste in soin.get(f"/api/soin/patients/{patient_id}", headers=autre).json()["cas"]:
+        if reste.get("de_mon_etablissement"):
+            soin.post(f"/api/soin/cas/{reste['id']}/cloture", headers=autre)
+    assert soin.get(f"/api/soin/patients/{patient_id}/documents", headers=autre).status_code == 403
+    assert soin.get(f"/api/soin/documents/{document_id}/pages/1", headers=autre).status_code == 403
+
+    soin.post(f"/api/soin/cas/{cas.json()['cas_id']}/cloture", headers=medecin)
