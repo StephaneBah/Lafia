@@ -1,6 +1,7 @@
-"""Histoire clinique de démonstration (F3.6) : de quoi montrer un carnet vécu, une caisse et une pharmacie.
+"""Histoire clinique de démonstration (F3.6, F4.4) : de quoi montrer un carnet vécu, une caisse et une pharmacie.
 
-Les ressources suivent le contrat FHIR de docs/specs/F3-v1-complete.md. Leurs identifiants sont fixes
+Les ressources suivent le contrat FHIR de docs/specs/F3-v1-complete.md et de
+docs/specs/F4-dossier-approfondi.md. Leurs identifiants sont fixes
 (`hist-…`) : rejouer le chargement les remet dans l'état du jeu, en nouvelle version. Leurs dates sont
 relatives à l'instant du chargement, pour qu'un traitement soit toujours en cours le jour de la démo.
 
@@ -12,11 +13,13 @@ Les numéros à montrer (citoyens de citoyens.toml, patients de patients.toml) :
   - Cas en cours, il y a trois jours, CNHU-HKM : fièvre et toux, IRA provisoire, ordonnance
     ORD-7K4-M2P payée (REC-4TB-6WN) : paracétamol remis, amoxicilline remise en partie (7 sur 14) ;
     traitement en cours aujourd'hui.
-  - Allergie AINS (ATC M01A). Journal d'accès : soignants, caisse, pharmacie, et un accès d'urgence
+  - Allergie AINS (ATC M01A). Groupe sanguin O+. Antécédents : hypertension depuis 2019 (active),
+    appendicectomie en 2015, mère diabétique ; traitement au long cours : amlodipine 5 mg le matin.
+    Journal d'accès : soignants, caisse, pharmacie, et un accès d'urgence
     au CHUD Borgou-Alibori, avec son motif.
 - patient-007, NPI 0000001763547, code carnet W6N-2JD : cas en cours d'hier au CNHU-HKM, ordonnance
   ORD-3HX-9KT non payée, avec de l'ibuprofène alors qu'une allergie AINS est connue : la caisse encaisse,
-  la pharmacie est arrêtée par l'allergie.
+  la pharmacie est arrêtée par l'allergie. Groupe sanguin A+, asthme depuis l'enfance.
 - patient-013, NPI 0000002316294, code carnet B8F-5ZE : rien de clinique, le carnet vide.
 """
 
@@ -32,7 +35,6 @@ SNOMED = "http://snomed.info/sct"
 CATEGORIE_D_OBSERVATION = "http://terminology.hl7.org/CodeSystem/observation-category"
 CLASSE_DE_VISITE = "http://terminology.hl7.org/CodeSystem/v3-ActCode"
 STATUT_CLINIQUE = "http://terminology.hl7.org/CodeSystem/condition-clinical"
-STATUT_DE_VERIFICATION = "http://terminology.hl7.org/CodeSystem/condition-ver-status"
 MOMENTS_FHIR = {"matin": "MORN", "midi": "NOON", "soir": "EVE", "nuit": "NIGHT"}
 
 
@@ -127,7 +129,8 @@ class _Histoire:
         self._ajouter({
             "resourceType": "Condition", "id": id_,
             "clinicalStatus": {"coding": [{"system": STATUT_CLINIQUE, "code": "resolved" if gueri else "active"}]},
-            "verificationStatus": {"coding": [{"system": STATUT_DE_VERIFICATION,
+            "category": [{"coding": [{"system": systemes.CATEGORIE_DE_CONDITION, "code": "encounter-diagnosis"}]}],
+            "verificationStatus": {"coding": [{"system": systemes.VERIFICATION,
                                                "code": "confirmed" if confirme else "provisional"}]},
             "code": {"coding": [{"system": systemes.DIAGNOSTIC, "code": code, "display": libelle},
                                 {"system": systemes.CIM_10, "code": cim10}], "text": libelle},
@@ -135,6 +138,61 @@ class _Histoire:
             "subject": _ref("Patient", patient),
             "encounter": _ref("Encounter", visite),
             "recorder": _ref("Practitioner", soignant),
+        })
+
+    def antecedent(self, id_: str, patient: str, soignant: str, type_: str, libelle: str, depuis: str,
+                   actif: bool, quand: datetime) -> None:
+        """Un antécédent médical ou chirurgical : une Condition de la liste des problèmes, sans visite."""
+        self._ajouter({
+            "resourceType": "Condition", "id": id_,
+            "category": [{"coding": [{"system": systemes.CATEGORIE_DE_CONDITION, "code": "problem-list-item"}]},
+                         {"coding": [{"system": systemes.TYPE_D_ANTECEDENT, "code": type_}]}],
+            "clinicalStatus": {"coding": [{"system": STATUT_CLINIQUE, "code": "active" if actif else "resolved"}]},
+            "code": {"text": libelle},
+            "onsetString": depuis,
+            "subject": _ref("Patient", patient),
+            "recorder": _ref("Practitioner", soignant),
+            "recordedDate": _instant(quand),
+        })
+
+    def familial(self, id_: str, patient: str, lien: str, lien_en_mots: str, libelle: str, quand: datetime) -> None:
+        """Un antécédent familial : la maladie d'un parent, par son lien au patient (v3 RoleCode)."""
+        self._ajouter({
+            "resourceType": "FamilyMemberHistory", "id": id_, "status": "completed",
+            "patient": _ref("Patient", patient),
+            "date": _instant(quand),
+            "relationship": {"coding": [{"system": systemes.LIEN_DE_PARENTE, "code": lien}], "text": lien_en_mots},
+            "condition": [{"code": {"text": libelle}}],
+        })
+
+    def traitement_au_long_cours(self, id_: str, patient: str, soignant: str, produit: str, posologie: str,
+                                 moments: list[str], debut: datetime) -> None:
+        """Un traitement au long cours : codé au catalogue quand le produit y est, toujours en texte."""
+        connu = next((t.produit for (_, code), t in self._tarifs.items() if code == produit), None)
+        medicament: dict[str, Any] = {"text": connu.libelle if connu else produit}
+        if connu:
+            medicament["coding"] = [{"system": systemes.CATALOGUE, "code": produit, "display": connu.libelle}]
+            if connu.atc:
+                medicament["coding"].append({"system": systemes.ATC, "code": connu.atc})
+        self._ajouter({
+            "resourceType": "MedicationStatement", "id": id_, "status": "active",
+            "subject": _ref("Patient", patient),
+            "medicationCodeableConcept": medicament,
+            "effectivePeriod": {"start": _instant(debut)},
+            "dateAsserted": _instant(debut),
+            "informationSource": _ref("Practitioner", soignant),
+            "dosage": [{"text": posologie, "timing": {"repeat": {"when": [MOMENTS_FHIR[m] for m in moments]}}}],
+        })
+
+    def groupe_sanguin(self, id_: str, patient: str, soignant: str, valeur: str, quand: datetime) -> None:
+        self._ajouter({
+            "resourceType": "Observation", "id": id_, "status": "final",
+            "category": [{"coding": [{"system": CATEGORIE_D_OBSERVATION, "code": "laboratory"}]}],
+            "code": {"coding": [{"system": systemes.LOINC, "code": "882-1"}], "text": "Groupe sanguin"},
+            "subject": _ref("Patient", patient),
+            "effectiveDateTime": _instant(quand),
+            "performer": [_ref("Practitioner", soignant)],
+            "valueCodeableConcept": {"text": valeur},
         })
 
     def allergie(self, id_: str, patient: str, soignant: str) -> None:
@@ -266,8 +324,14 @@ def _patient_a(h: _Histoire) -> None:
     h.acces("hist-a-acces-palu-3", p, remis, pharmacien, calavi, "pharmacie", "numero-d-ordonnance")
     h.acces("hist-a-acces-palu-4", p, controle, infirmier, calavi, "soin", "relation-de-soin", "update")
 
-    # Allergie connue depuis ce premier cas.
+    # Allergie connue depuis ce premier cas, et ce qui dure au-delà des cas, dit ce jour-là.
     h.allergie("hist-a-allergie-ains", p, medecin)
+    h.groupe_sanguin("hist-a-groupe-sanguin", p, medecin, "O+", debut)
+    h.antecedent("hist-a-antecedent-hta", p, medecin, "medical", "Hypertension artérielle", "2019", True, debut)
+    h.antecedent("hist-a-antecedent-appendicectomie", p, medecin, "chirurgical", "Appendicectomie", "2015", False, debut)
+    h.familial("hist-a-familial-mere-diabete", p, "MTH", "Mère", "Diabète", debut)
+    h.traitement_au_long_cours("hist-a-traitement-amlodipine", p, medecin, "MED-AMLODIPINE-5",
+                               "1 comprimé le matin", ["matin"], h.il_y_a(6 * 365))
 
     # Accès d'urgence, il y a trois semaines, au CHUD Borgou-Alibori.
     h.acces("hist-a-acces-urgence", p, h.il_y_a(21, 19, 48), "agent-11", "chud-borgou-alibori", "soin",
@@ -310,6 +374,8 @@ def _patient_b(h: _Histoire) -> None:
     p, cnhu, medecin, infirmier = "patient-007", "cnhu-hkm", "agent-02", "agent-03"
     visite = h.il_y_a(1, 15, 10)
     h.allergie("hist-b-allergie-ains", p, medecin)
+    h.groupe_sanguin("hist-b-groupe-sanguin", p, medecin, "A+", visite)
+    h.antecedent("hist-b-antecedent-asthme", p, medecin, "medical", "Asthme", "depuis l'enfance", True, visite)
     h.cas("hist-b-cas-douleurs", p, cnhu, medecin, "Douleurs du genou", visite)
     h.visite("hist-b-visite-1", p, "hist-b-cas-douleurs", cnhu, medecin, "consultation",
              "Douleur du genou droit après une chute", visite)

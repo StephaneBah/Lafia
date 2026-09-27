@@ -73,3 +73,41 @@ def test_un_citoyen_ne_lit_pas_le_cas_d_un_autre_et_un_agent_n_ouvre_aucun_carne
     agent = client.get("/api/citoyen/carnet", headers={"Authorization": f"Bearer {jeton_de('médecin')}"})
 
     assert (cas_d_un_autre.status_code, agent.status_code) == (404, 403)
+
+
+CARNET_VIDE = "0000002316294"
+
+
+def test_ma_sante_dit_le_groupe_sanguin_les_antecedents_et_les_traitements_au_long_cours(
+    application, jeton_du_citoyen
+):
+    client = application("citoyen")
+
+    vecu = client.get("/api/citoyen/ma-sante", headers={"Authorization": f"Bearer {jeton_du_citoyen(CARNET_VECU)}"})
+    vide = client.get("/api/citoyen/ma-sante", headers={"Authorization": f"Bearer {jeton_du_citoyen(CARNET_VIDE)}"})
+
+    assert (vecu.status_code, vide.status_code) == (200, 200)
+    sante = vecu.json()
+    assert sante["groupe_sanguin"] == "O+"
+    assert any("Hypertension" in a["libelle"] and a["actif"] for a in sante["antecedents"])
+    assert {"lien": "Votre mère", "libelle": "Diabète"} in sante["familiaux"]
+    assert any("Amlodipine" in t["libelle"] and t["moments"] == ["matin"] for t in sante["traitements"])
+    assert CARNET_VECU not in vecu.text
+    assert vide.json() == {"groupe_sanguin": None, "allergies": [], "antecedents": [], "familiaux": [], "traitements": []}
+
+
+def test_un_antecedent_n_est_jamais_le_diagnostic_d_une_visite_et_chaque_ligne_dit_son_unite(
+    application, jeton_du_citoyen
+):
+    client = application("citoyen")
+    entetes = {"Authorization": f"Bearer {jeton_du_citoyen(CARNET_VECU)}"}
+
+    cas = [client.get(f"/api/citoyen/cas/{c['id']}", headers=entetes).json() for c in
+           client.get("/api/citoyen/cas", headers=entetes).json()]
+    ordonnances = client.get("/api/citoyen/ordonnances", headers=entetes).json()
+
+    diagnostics = [d for c in cas for v in c["visites_lues"] for d in v["diagnostics"]]
+    assert diagnostics and not any("Hypertension" in d or "Appendicectomie" in d for d in diagnostics)
+    lignes = [ligne for o in ordonnances if o["numero"] in ("ORD-7K4-M2P", "ORD-5PW-8RB") for ligne in o["lignes"]]
+    assert all(ligne["unite"] and not ligne["arret_allergie"] for ligne in lignes)
+    assert "gélule" in {ligne["unite"] for ligne in lignes}

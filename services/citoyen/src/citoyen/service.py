@@ -84,7 +84,7 @@ async def un_cas(id_: str, dossier: DossierDuCitoyen = Depends(dossier_du_citoye
 @routes.get("/ordonnances", responses={**REFUS, **CARNET_INTROUVABLE})
 async def ordonnances(dossier: DossierDuCitoyen = Depends(dossier_du_citoyen)) -> list[carnet.OrdonnanceLue]:
     """Les ordonnances, la plus récente d'abord, chaque ligne à payer, payée, à retirer, retirée en
-    partie ou retirée."""
+    partie ou retirée, avec son unité ; `arret_allergie` quand le pharmacien l'a arrêtée pour une allergie."""
     return carnet.ordonnances(dossier)
 
 
@@ -93,6 +93,13 @@ async def traitement(dossier: DossierDuCitoyen = Depends(dossier_du_citoyen)) ->
     """Ce qu'il y a à prendre aujourd'hui, par moment : matin, midi, soir, nuit."""
     maintenant = datetime.now(carnet.FUSEAU)
     return carnet.traitement_du_jour(dossier, maintenant.date(), maintenant.hour)
+
+
+@routes.get("/ma-sante", responses={**REFUS, **CARNET_INTROUVABLE})
+async def ma_sante(dossier: DossierDuCitoyen = Depends(dossier_du_citoyen)) -> carnet.MaSante:
+    """Ce qui dure au-delà de chaque cas : groupe sanguin, allergies, antécédents médicaux, chirurgicaux
+    et familiaux, traitements au long cours. En lecture seule : seul un soignant les écrit."""
+    return carnet.ma_sante(dossier)
 
 
 @routes.get("/acces", responses={**REFUS, **CARNET_INTROUVABLE})

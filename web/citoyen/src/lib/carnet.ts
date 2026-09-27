@@ -48,13 +48,16 @@ export type LigneLue = {
   jours: number | null;
   quantite: number | null;
   remis: number;
-  unite: string | null;
+  unite: string;
+  /** Payée, jamais remise : le pharmacien l'a arrêtée à cause d'une allergie déclarée. */
+  arret_allergie: boolean;
 };
 
 export type OrdonnanceLue = {
   numero: string;
   date: string;
   etablissement: string | null;
+  prescripteur: string | null;
   statut: StatutDeLigne;
   message: string;
   lignes: LigneLue[];
@@ -86,6 +89,18 @@ export type Accueil = {
   prises_au_prochain_moment: number;
   dernier_acces: AccesLu | null;
   allergies: string[];
+};
+
+export type AntecedentLu = { type: "medical" | "chirurgical"; libelle: string; depuis: string | null; actif: boolean };
+export type AntecedentFamilialLu = { lien: string; libelle: string };
+export type TraitementLu = { libelle: string; posologie: string | null; moments: Moment[]; depuis: string | null };
+
+export type MaSante = {
+  groupe_sanguin: string | null;
+  allergies: string[];
+  antecedents: AntecedentLu[];
+  familiaux: AntecedentFamilialLu[];
+  traitements: TraitementLu[];
 };
 
 /** Ce que le service a répondu : le carnet, ou pourquoi il n'est pas là. */

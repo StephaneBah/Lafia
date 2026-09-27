@@ -1,7 +1,7 @@
-"""Le dossier d'un patient tel que son carnet le lit : les ressources du contrat F3, traduites en choses.
+"""Le dossier d'un patient tel que son carnet le lit : les ressources des contrats F3 et F4, traduites en choses.
 
-Le service citoyen lit ici ce que soin, caisse et pharmacie écrivent (docs/specs/F3-v1-complete.md,
-contrat FHIR) ; ses règles (`citoyen.regles`) en font les écrans du carnet. Rien n'est écrit ici, hors
+Le service citoyen lit ici ce que soin, caisse et pharmacie écrivent (docs/specs/F3-v1-complete.md et
+docs/specs/F4-dossier-approfondi.md, contrat FHIR) ; ses règles (`citoyen.regles`) en font les écrans du carnet. Rien n'est écrit ici, hors
 de l'`AuditEvent` que chaque lecture laisse (`commun.fhir.dossier.tracer`).
 """
 
@@ -15,6 +15,17 @@ from commun.fhir.client import ClientFhir, Ressource
 from commun.fhir.dossier import id_de
 
 MOMENTS = {"MORN": "matin", "NOON": "midi", "EVE": "soir", "NIGHT": "nuit"}
+
+# Les codes LOINC que le carnet reconnaît.
+TEMPERATURE = "8310-5"
+SYSTOLIQUE = "8480-6"
+DIASTOLIQUE = "8462-4"
+GROUPE_SANGUIN = "882-1"
+
+STATUT_CLINIQUE = "http://terminology.hl7.org/CodeSystem/condition-clinical"
+LIENS_DE_PARENTE = {
+    "MTH": "mere", "FTH": "pere", "SIB": "fratrie", "CHILD": "enfant", "GRMTH": "grand-parent", "GRFTH": "grand-parent",
+}
 
 
 @dataclass(frozen=True)
@@ -75,6 +86,33 @@ class Ligne:
     unite: str | None
     etablissement: str | None
     prescripteur: str | None
+    atc: str | None = None
+
+
+@dataclass(frozen=True)
+class Antecedent:
+    type: str
+    """`medical` ou `chirurgical`."""
+    libelle: str
+    depuis: str | None
+    actif: bool
+    date: str
+
+
+@dataclass(frozen=True)
+class AntecedentFamilial:
+    lien: str
+    """`mere`, `pere`, `fratrie`, `enfant`, `grand-parent`, ou `parent` quand le lien n'est pas codé."""
+    libelle: str
+
+
+@dataclass(frozen=True)
+class TraitementAuLongCours:
+    libelle: str
+    posologie: str | None
+    moments: tuple[str, ...]
+    depuis: str | None
+    actif: bool
 
 
 @dataclass(frozen=True)
@@ -101,6 +139,12 @@ class DossierDuCitoyen:
     remis: dict[str, float] = field(default_factory=dict)
     """La quantité remise de chaque ligne : la somme de ses délivrances."""
     allergies: list[str] = field(default_factory=list)
+    allergies_atc: list[str] = field(default_factory=list)
+    """Le code ATC de chaque allergie codée : `M01A`, pour dire qu'une ligne a été arrêtée par elle."""
+    antecedents: list[Antecedent] = field(default_factory=list)
+    familiaux: list[AntecedentFamilial] = field(default_factory=list)
+    traitements: list[TraitementAuLongCours] = field(default_factory=list)
+    groupe_sanguin: str | None = None
     acces: list[Acces] = field(default_factory=list)
     noms: dict[str, str] = field(default_factory=dict)
     """Le nom de chaque soignant (`Practitioner/…`) et établissement (`Organization/…`) cité."""
@@ -161,7 +205,7 @@ def _mesure(r: Ressource) -> Mesure:
         return Mesure(**base, valeur=q.get("value"), unite=q.get("unit") or q.get("code"))
     if "component" in r:
         valeurs = {_code(c.get("code"), systemes.LOINC): c.get("valueQuantity", {}).get("value") for c in r["component"]}
-        return Mesure(**base, systolique=valeurs.get("8480-6"), diastolique=valeurs.get("8462-4"))
+        return Mesure(**base, systolique=valeurs.get(SYSTOLIQUE), diastolique=valeurs.get(DIASTOLIQUE))
     return Mesure(**base, resultat=_texte(r.get("valueCodeableConcept")))
 
 
@@ -170,10 +214,60 @@ def _diagnostic(r: Ressource) -> Diagnostic:
     return Diagnostic(
         visite=id_de(r.get("encounter")),
         libelle=_texte(code) or _code(code, systemes.DIAGNOSTIC) or "Diagnostic",
-        confirme=_code(r.get("verificationStatus"), "http://terminology.hl7.org/CodeSystem/condition-ver-status") == "confirmed",
-        gueri=_code(r.get("clinicalStatus"), "http://terminology.hl7.org/CodeSystem/condition-clinical") in ("resolved", "inactive"),
+        confirme=_code(r.get("verificationStatus"), systemes.VERIFICATION) == "confirmed",
+        gueri=_code(r.get("clinicalStatus"), STATUT_CLINIQUE) in ("resolved", "inactive"),
         note=((r.get("note") or [{}])[0]).get("text"),
     )
+
+
+def _categories(r: Ressource, systeme: str) -> set[str]:
+    return {c for categorie in r.get("category", []) if (c := _code(categorie, systeme))}
+
+
+def est_un_antecedent(r: Ressource) -> bool:
+    """Une Condition sans visite, ou de la liste des problèmes, est un antécédent : jamais le
+    diagnostic d'une visite."""
+    return "encounter" not in r or "problem-list-item" in _categories(r, systemes.CATEGORIE_DE_CONDITION)
+
+
+def _antecedent(r: Ressource) -> Antecedent:
+    types = _categories(r, systemes.TYPE_D_ANTECEDENT)
+    return Antecedent(
+        type="chirurgical" if "chirurgical" in types else "medical",
+        libelle=_texte(r.get("code")) or "Antécédent",
+        depuis=r.get("onsetString") or (r.get("onsetDateTime") or "")[:4] or None,
+        actif=_code(r.get("clinicalStatus"), STATUT_CLINIQUE) not in ("resolved", "inactive", "remission"),
+        date=r.get("recordedDate", ""),
+    )
+
+
+def _familial(r: Ressource) -> AntecedentFamilial:
+    lien = _code(r.get("relationship"), systemes.LIEN_DE_PARENTE)
+    return AntecedentFamilial(
+        lien=LIENS_DE_PARENTE.get(lien or "", "parent"),
+        libelle=_texte(((r.get("condition") or [{}])[0]).get("code")) or "Maladie",
+    )
+
+
+def _traitement(r: Ressource) -> TraitementAuLongCours:
+    posologie = (r.get("dosage") or [{}])[0]
+    repetition = posologie.get("timing", {}).get("repeat", {})
+    return TraitementAuLongCours(
+        libelle=_texte(r.get("medicationCodeableConcept")) or "Médicament",
+        posologie=posologie.get("text"),
+        moments=tuple(MOMENTS[m] for m in repetition.get("when", []) if m in MOMENTS),
+        depuis=r.get("effectivePeriod", {}).get("start") or r.get("dateAsserted"),
+        actif=r.get("status") in (None, "active", "intended"),
+    )
+
+
+def _groupe_sanguin(observations: list[Ressource]) -> str | None:
+    """Le dernier groupe sanguin relevé : le plus récent l'emporte."""
+    releves = [r for r in observations if _code(r.get("code"), systemes.LOINC) == GROUPE_SANGUIN]
+    if not releves:
+        return None
+    dernier = max(releves, key=lambda r: r.get("effectiveDateTime") or r.get("issued") or "")
+    return _texte(dernier.get("valueCodeableConcept"))
 
 
 def _ligne(r: Ressource) -> Ligne:
@@ -198,6 +292,7 @@ def _ligne(r: Ressource) -> Ligne:
         unite=quantite.get("unit") or dose.get("unit"),
         etablissement=(r.get("dispenseRequest", {}).get("performer") or {}).get("reference"),
         prescripteur=(r.get("requester") or {}).get("reference"),
+        atc=_code(medicament, systemes.ATC),
     )
 
 
@@ -246,9 +341,10 @@ async def _noms(fhir: ClientFhir, references: set[str]) -> tuple[dict[str, str],
 
 async def lire_dossier(fhir: ClientFhir, patient: Ressource) -> DossierDuCitoyen:
     """Tout ce que le carnet montre du dossier de `patient` : cas, visites, mesures, diagnostics,
-    lignes d'ordonnance avec leur paiement et leur remise, allergies, et qui a ouvert le dossier."""
+    lignes d'ordonnance avec leur paiement et leur remise, allergies, antécédents, traitements au long
+    cours, groupe sanguin, et qui a ouvert le dossier."""
     ref = f"Patient/{patient['id']}"
-    cas, visites, mesures, diagnostics, lignes, allergies, acces = await asyncio.gather(
+    cas, visites, observations, conditions, lignes, allergies, acces, familiaux, traitements = await asyncio.gather(
         fhir.chercher("EpisodeOfCare", {"patient": ref}),
         fhir.chercher("Encounter", {"patient": ref}),
         fhir.chercher("Observation", {"patient": ref}),
@@ -256,15 +352,22 @@ async def lire_dossier(fhir: ClientFhir, patient: Ressource) -> DossierDuCitoyen
         fhir.chercher("MedicationRequest", {"patient": ref}),
         fhir.chercher("AllergyIntolerance", {"patient": ref}),
         fhir.chercher("AuditEvent", {"entity": ref}),
+        fhir.chercher("FamilyMemberHistory", {"patient": ref}),
+        fhir.chercher("MedicationStatement", {"subject": ref}),
     )
     dossier = DossierDuCitoyen(
         patient=patient,
         cas=[_cas(r) for r in cas],
         visites=[_visite(r) for r in visites],
-        mesures=[_mesure(r) for r in mesures],
-        diagnostics=[_diagnostic(r) for r in diagnostics],
+        mesures=[_mesure(r) for r in observations if _code(r.get("code"), systemes.LOINC) != GROUPE_SANGUIN],
+        diagnostics=[_diagnostic(r) for r in conditions if not est_un_antecedent(r)],
         lignes=[_ligne(r) for r in lignes],
         allergies=[_texte(r.get("code")) or "Allergie" for r in allergies],
+        allergies_atc=[c for r in allergies if (c := _code(r.get("code"), systemes.ATC))],
+        antecedents=[_antecedent(r) for r in conditions if est_un_antecedent(r)],
+        familiaux=[_familial(r) for r in familiaux if r.get("status") != "entered-in-error"],
+        traitements=[_traitement(r) for r in traitements if r.get("status") != "entered-in-error"],
+        groupe_sanguin=_groupe_sanguin(observations),
         acces=[_acces(r) for r in acces],
     )
 
@@ -298,6 +401,7 @@ async def lire_dossier(fhir: ClientFhir, patient: Ressource) -> DossierDuCitoyen
         *(v.etablissement for v in dossier.visites),
         *(v.soignant for v in dossier.visites),
         *(ligne.etablissement for ligne in dossier.lignes),
+        *(ligne.prescripteur for ligne in dossier.lignes),
         *(a.qui for a in dossier.acces),
         *(a.etablissement for a in dossier.acces),
     }

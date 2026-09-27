@@ -1,5 +1,5 @@
 """Ce que le carnet dit au citoyen, en mots simples : ses cas, son ordonnance, son traitement du jour,
-qui a ouvert son dossier. Des règles pures sur le dossier lu (`commun.fhir.citoyen`), sans FHIR.
+sa santé (groupe sanguin, allergies, antécédents, traitements au long cours), qui a ouvert son dossier. Des règles pures sur le dossier lu (`commun.fhir.citoyen`), sans FHIR.
 
 Rien de ce que le carnet rend ne porte le NPI.
 """
@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from commun.fhir.citoyen import Acces, Cas, DossierDuCitoyen, Ligne, Mesure, Visite, instant
+from commun.fhir.citoyen import TEMPERATURE, Acces, Cas, DossierDuCitoyen, Ligne, Mesure, Visite, instant
 
 # L'heure du Bénin : un jour de traitement commence à minuit, à Cotonou.
 FUSEAU = timezone(timedelta(hours=1))
@@ -17,6 +17,7 @@ FUSEAU = timezone(timedelta(hours=1))
 StatutDeLigne = Literal["apayer", "paye", "aretirer", "partiel", "retire"]
 Moment = Literal["matin", "midi", "soir", "nuit"]
 ORDRE_DES_MOMENTS: tuple[Moment, ...] = ("matin", "midi", "soir", "nuit")
+UNITE_PAR_DEFAUT = "comprimé"
 
 TYPES_DE_VISITE = {
     "consultation": "Consultation",
@@ -84,13 +85,16 @@ class LigneLue(BaseModel):
     jours: int | None
     quantite: float | None
     remis: float
-    unite: str | None
+    unite: str
+    arret_allergie: bool = False
+    """Payée, jamais remise, et le patient a une allergie qui la couvre : le pharmacien l'a arrêtée."""
 
 
 class OrdonnanceLue(BaseModel):
     numero: str
     date: str
     etablissement: str | None
+    prescripteur: str | None
     statut: StatutDeLigne
     message: str
     lignes: list[LigneLue]
@@ -122,6 +126,34 @@ class AccesLu(BaseModel):
     motif: str
     urgence: bool
     raison: str | None
+
+
+class AntecedentLu(BaseModel):
+    type: Literal["medical", "chirurgical"]
+    libelle: str
+    depuis: str | None
+    actif: bool
+
+
+class AntecedentFamilialLu(BaseModel):
+    lien: str
+    """Le parent en mots : « Votre mère »."""
+    libelle: str
+
+
+class TraitementLu(BaseModel):
+    libelle: str
+    posologie: str | None
+    moments: list[Moment]
+    depuis: str | None
+
+
+class MaSante(BaseModel):
+    groupe_sanguin: str | None
+    allergies: list[str]
+    antecedents: list[AntecedentLu]
+    familiaux: list[AntecedentFamilialLu]
+    traitements: list[TraitementLu]
 
 
 class Accueil(BaseModel):
@@ -197,7 +229,7 @@ def mesure_lue(mesure: Mesure) -> MesureLue:
     if mesure.valeur is None:
         return MesureLue(libelle=mesure.libelle, valeur="—")
     valeur = f"{_nombre(mesure.valeur)} {mesure.unite or ''}".strip()
-    if mesure.loinc == "8310-5":
+    if mesure.loinc == TEMPERATURE:
         fievre = mesure.valeur >= 38
         return MesureLue(libelle="Température", valeur=valeur + (" : fièvre" if fievre else ""), alerte=fievre)
     return MesureLue(libelle=mesure.libelle, valeur=valeur)
@@ -251,6 +283,14 @@ def detail_du_cas(dossier: DossierDuCitoyen, id_: str) -> DetailDeCas | None:
     return DetailDeCas(**_resume(cas, dossier).model_dump(), visites_lues=[_visite_lue(v, dossier) for v in visites])
 
 
+def arretee_par_une_allergie(ligne: Ligne, dossier: DossierDuCitoyen) -> bool:
+    """Une ligne payée, jamais remise, dont le médicament tombe sous une allergie du patient (son code
+    ATC commence par celui de l'allergie) : le pharmacien ne la remet pas."""
+    if not ligne.atc or statut_de_ligne(ligne, dossier) != "aretirer":
+        return False
+    return any(ligne.atc.upper().startswith(allergie.upper()) for allergie in dossier.allergies_atc)
+
+
 def ordonnances(dossier: DossierDuCitoyen) -> list[OrdonnanceLue]:
     """Les ordonnances, de la plus récente à la plus ancienne, chaque ligne avec son état."""
     par_numero: dict[str, list[Ligne]] = {}
@@ -268,7 +308,8 @@ def ordonnances(dossier: DossierDuCitoyen) -> list[OrdonnanceLue]:
                 jours=ligne.jours,
                 quantite=ligne.quantite,
                 remis=dossier.remis.get(ligne.id, 0),
-                unite=ligne.unite,
+                unite=ligne.unite or UNITE_PAR_DEFAUT,
+                arret_allergie=arretee_par_une_allergie(ligne, dossier),
             )
             for ligne in sorted(lignes, key=lambda ligne: ligne.produit)
         ]
@@ -278,12 +319,59 @@ def ordonnances(dossier: DossierDuCitoyen) -> list[OrdonnanceLue]:
                 numero=numero,
                 date=min(ligne.date for ligne in lignes),
                 etablissement=dossier.noms.get(lignes[0].etablissement or ""),
+                prescripteur=_soignant(lignes[0].prescripteur, dossier),
                 statut=statut,
                 message=MESSAGES_D_ORDONNANCE[statut],
                 lignes=lignes_lues,
             )
         )
     return sorted(lues, key=lambda o: o.date, reverse=True)
+
+
+def _soignant(reference: str | None, dossier: DossierDuCitoyen) -> str | None:
+    """Le nom d'un soignant cité, « Dr » devant quand il est médecin."""
+    nom = dossier.noms.get(reference or "")
+    if nom and dossier.roles.get(reference or "") == "médecin":
+        return f"Dr {nom}"
+    return nom
+
+
+LIENS_EN_MOTS = {
+    "mere": "Votre mère",
+    "pere": "Votre père",
+    "fratrie": "Un frère ou une sœur",
+    "enfant": "Un de vos enfants",
+    "grand-parent": "Un grand-parent",
+}
+
+
+def ma_sante(dossier: DossierDuCitoyen) -> MaSante:
+    """Ce qui dure au-delà de chaque cas : groupe sanguin, allergies, antécédents (actifs d'abord),
+    maladies de la famille, traitements au long cours en cours."""
+    antecedents = sorted(dossier.antecedents, key=lambda a: (not a.actif, a.type != "medical", a.libelle))
+    return MaSante(
+        groupe_sanguin=dossier.groupe_sanguin,
+        allergies=dossier.allergies,
+        antecedents=[
+            AntecedentLu(type="chirurgical" if a.type == "chirurgical" else "medical", libelle=a.libelle,
+                         depuis=a.depuis, actif=a.actif)
+            for a in antecedents
+        ],
+        familiaux=[
+            AntecedentFamilialLu(lien=LIENS_EN_MOTS.get(f.lien, "Un parent"), libelle=f.libelle)
+            for f in dossier.familiaux
+        ],
+        traitements=[
+            TraitementLu(
+                libelle=t.libelle,
+                posologie=t.posologie,
+                moments=[m for m in ORDRE_DES_MOMENTS if m in t.moments],
+                depuis=(t.depuis or "")[:4] or None,
+            )
+            for t in dossier.traitements
+            if t.actif
+        ],
+    )
 
 
 def traitement_du_jour(dossier: DossierDuCitoyen, jour: date, heure: int = 0) -> TraitementDuJour:
@@ -325,9 +413,7 @@ def _acces_lu(acces: Acces, vous: bool, dossier: DossierDuCitoyen) -> AccesLu:
     if vous:
         qui, motif = "Vous", "Vous avez ouvert votre carnet"
     else:
-        qui = dossier.noms.get(acces.qui or "", "Un agent de santé")
-        if dossier.roles.get(acces.qui or "") == "médecin":
-            qui = f"Dr {qui}"
+        qui = _soignant(acces.qui, dossier) or "Un agent de santé"
         motif = {
             "relation-de-soin": "Pour vous soigner",
             "acces-urgence": "Accès d'urgence",
