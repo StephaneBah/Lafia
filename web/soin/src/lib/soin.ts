@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 
-import type { Catalogue, Dossier, Fiche, SessionSoignant } from "./types";
+import type { Bandeau, Catalogue, Dossier, Moment, SessionSoignant } from "./types";
 
 // Le service soin et identite, joints par la passerelle depuis le serveur de l'application, avec le
 // jeton de session du soignant : l'application ne lit jamais le jeton, elle le transmet.
@@ -16,7 +16,7 @@ function passerelle(): string {
 
 export type Reponse<T> = { statut: number; corps: T | null };
 
-async function appeler<T>(methode: "GET" | "POST", chemin: string, corps?: unknown): Promise<Reponse<T>> {
+async function appeler<T>(methode: "GET" | "POST" | "PUT", chemin: string, corps?: unknown): Promise<Reponse<T>> {
   const jeton = (await cookies()).get(COOKIE_DE_SESSION)?.value;
   if (!jeton) return { statut: 401, corps: null };
   const enTetes: Record<string, string> = { Cookie: `${COOKIE_DE_SESSION}=${jeton}` };
@@ -44,18 +44,29 @@ async function appeler<T>(methode: "GET" | "POST", chemin: string, corps?: unkno
   }
 }
 
+const patient = (id: string) => `/api/soin/patients/${encodeURIComponent(id)}`;
+
+// Le patient est désigné par son id de ressource Patient : le NPI ne part qu'une fois, dans le corps
+// de la recherche, et n'entre jamais dans une adresse ni un journal.
 export const soin = {
   catalogue: () => appeler<Catalogue>("GET", "/api/soin/catalogue"),
-  fiche: (npi: string) => appeler<Fiche>("GET", `/api/soin/patients/${npi}`),
-  dossier: (npi: string) => appeler<Dossier>("GET", `/api/soin/patients/${npi}/dossier`),
-  ouvrirCas: (npi: string, motif: string) => appeler<{ cas_id: string }>("POST", `/api/soin/patients/${npi}/cas`, { motif }),
+  rechercher: (npi: string) => appeler<{ patient_id: string }>("POST", "/api/soin/recherche", { npi }),
+  bandeau: (id: string) => appeler<Bandeau>("GET", patient(id)),
+  dossier: (id: string) => appeler<Dossier>("GET", `${patient(id)}/dossier`),
+  ouvrirCas: (id: string, motif: string) => appeler<{ cas_id: string }>("POST", `${patient(id)}/cas`, { motif }),
   enregistrerVisite: (casId: string, visite: unknown) =>
     appeler<{ visite_id: string; numero_ordonnance: string | null; detail?: unknown }>("POST", `/api/soin/cas/${encodeURIComponent(casId)}/visites`, visite),
   clore: (casId: string) => appeler<unknown>("POST", `/api/soin/cas/${encodeURIComponent(casId)}/cloture`),
-  urgence: (npi: string, raison: string) =>
-    appeler<{ cas_id: string; visite_id: string }>("POST", `/api/soin/patients/${npi}/acces-urgence`, { raison }),
-  allergie: (npi: string, code_atc: string, libelle: string) =>
-    appeler<unknown>("POST", `/api/soin/patients/${npi}/allergies`, { code_atc, libelle }),
+  urgence: (id: string, raison: string) => appeler<{ cas_id: string; visite_id: string }>("POST", `${patient(id)}/acces-urgence`, { raison }),
+  allergie: (id: string, code_atc: string, libelle: string) => appeler<unknown>("POST", `${patient(id)}/allergies`, { code_atc, libelle }),
+  antecedent: (
+    id: string,
+    antecedent: { type: "medical" | "chirurgical" | "familial"; libelle: string; depuis?: string; lien?: string; actif?: boolean },
+  ) => appeler<{ id: string }>("POST", `${patient(id)}/antecedents`, antecedent),
+  traitement: (id: string, traitement: { produit?: string; libelle?: string; posologie: string; moments: Moment[] }) =>
+    appeler<{ id: string }>("POST", `${patient(id)}/traitements`, traitement),
+  arreterTraitement: (traitementId: string) => appeler<unknown>("POST", `/api/soin/traitements/${encodeURIComponent(traitementId)}/arret`),
+  groupeSanguin: (id: string, valeur: string) => appeler<unknown>("PUT", `${patient(id)}/groupe-sanguin`, { valeur }),
 };
 
 /** Le soignant connecté, qu'identite lit du jeton ; `null` sans session valide. */
