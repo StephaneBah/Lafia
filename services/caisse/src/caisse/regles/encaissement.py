@@ -134,7 +134,9 @@ async def lire_ordonnance(fhir: ClientFhir, caissier: Agent, saisie: str) -> Ord
     premiere = lignes[0]
     patient = dossier.id_de(premiere.get("subject")) or ""
     prescripteur = dossier.id_de(premiere.get("requester"))
+    # Réglée : payée à cette caisse, ou vendue en officine.
     payees = fhir_caisse.lignes_payees(await fhir_caisse.encaissements(fhir, numero))
+    payees |= await fhir_caisse.lignes_vendues_en_officine(fhir, lignes)
     tarifees = [await _tarifer(fhir, caissier.etablissement, ligne, payees) for ligne in lignes]
     nom, prenoms = fhir_caisse.nom_affiche(await fhir.lire("Patient", patient))
     nom_prescripteur, prenoms_prescripteur = fhir_caisse.nom_affiche(
@@ -165,6 +167,7 @@ async def encaisser(fhir: ClientFhir, caissier: Agent, saisie: str, ids: list[st
     if not demandees or any(id_ not in lignes for id_ in demandees):
         raise LigneInconnue(numero)
     payees = fhir_caisse.lignes_payees(await fhir_caisse.encaissements(fhir, numero))
+    payees |= await fhir_caisse.lignes_vendues_en_officine(fhir, list(lignes.values()))
     if payees & set(demandees):
         raise LigneDejaPayee(numero)
     tarifees = [await _tarifer(fhir, caissier.etablissement, lignes[id_], payees) for id_ in demandees]

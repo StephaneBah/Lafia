@@ -28,7 +28,7 @@ Today the stack runs fourteen containers, defined in `docker-compose.yml`, and a
 
 Two different APIs are in play, and keeping them apart explains most of the design.
 
-**The service API** is what an application's server calls, through the gateway. Its routes use Lafia's vocabulary and are shaped for one actor: `/api/soin/sante` today, later `/api/soin/patients?npi=…` or `POST /api/soin/cas`. A service is where Lafia's rules live: who is asking, with which role, whether a relation de soin exists, and which access gets written to the audit trail.
+**The service API** is what an application's server calls, through the gateway. Its routes use Lafia's vocabulary and are shaped for one actor: `POST /api/soin/recherche` with an NPI in its body returns a patient id; every other soin route, such as `GET /api/soin/patients/{patient_id}` or `POST /api/soin/patients/{patient_id}/cas`, names the patient by that id. The NPI never travels in an address, so it never lands in a browser history or a log; services run with uvicorn's access log off for the same reason. A service is where Lafia's rules live: who is asking, with which role, whether a relation de soin exists, and which access gets written to the audit trail.
 
 **The FHIR API** is the noyau's. It is the international HL7 FHIR standard: `GET /fhir/metadata`, `GET /fhir/Patient?identifier=…`, `POST /fhir/EpisodeOfCare`. It is generic and knows nothing about roles or Lafia's rules, so only services may call it.
 

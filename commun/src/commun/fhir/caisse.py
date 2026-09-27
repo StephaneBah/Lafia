@@ -137,3 +137,18 @@ def invoice(
         ],
         "totalGross": {"value": sum(montant for _, _, montant in lignes), "currency": DEVISE},
     }
+
+
+async def lignes_vendues_en_officine(fhir: ClientFhir, lignes: list[Ressource]) -> set[str]:
+    """Les lignes qu'une officine a déjà vendues : une délivrance sans encaissement ici. La caisse ne les
+    encaisse plus, le patient les a réglées dans l'officine."""
+    if not lignes:
+        return set()
+    delivrances = await fhir.chercher(
+        "MedicationDispense", {"prescription": ",".join(f"MedicationRequest/{ligne['id']}" for ligne in lignes)}
+    )
+    vendues: set[str] = set()
+    for delivrance in delivrances:
+        if not any(p.get("actor", {}).get("reference", "").startswith("Practitioner/") for p in delivrance.get("performer", [])):
+            vendues.update(ref["reference"].rsplit("/", 1)[-1] for ref in delivrance.get("authorizingPrescription", []))
+    return vendues

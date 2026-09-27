@@ -171,6 +171,11 @@ class Guichet:
         journal.info("code carnet émis à la demande de %s, à %s", soignant.sub, soignant.etablissement)
         return code
 
+    async def code_encore_valide(self, npi: str, code: str) -> bool:
+        """Si `code` est encore le code carnet de `npi` : un code du jeu de démonstration cesse de l'être
+        dès qu'un soignant en émet un nouveau (ADR 0005)."""
+        return await verifier(await self._base.empreinte_du_code(npi), normaliser(code))
+
     async def _essayer(
         self, adresse: str, cle: Cle | None, essai_reussi: Callable[[], Awaitable[bool]]
     ) -> Refus | None:
