@@ -1,20 +1,16 @@
-import { Alert, Button, Icon } from "@lafia/design";
+import { MENTION_PATRIMONIALE, RenduDeTranscription, lireTranscription } from "@lafia/commun/transcription";
+import { Alert, Button, formatDate, Icon } from "@lafia/design";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
-import {
-  estDeDemonstration,
-  iconeDuType,
-  libelleDeLisibilite,
-  libelleDuType,
-  libelleDuVerdict,
-  pluriel,
-} from "../../../libelles";
+import { adresseDeLaPage, descriptionDuDocument, iconeDuType, libelleDuDocument, pluriel } from "../../../libelles";
 import { estSoignant, lireTache, type TacheDetaillee } from "../../../relecture";
 import { Bureau, Refus, relecteurOuAccueil } from "../../Bureau";
 import { EtatDeTache } from "../../EtatDeTache";
-import { Pages } from "./Pages";
-import { Trier } from "./Trier";
+import { Atelier } from "./Atelier";
+import { Contexte } from "./Contexte";
+import { Controler } from "./Controler";
+import { Feuilles } from "./Feuilles";
 import { Valider } from "./Valider";
 
 type Parametres = {
@@ -22,44 +18,47 @@ type Parametres = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/** Ce que l'agent de numérisation a déclaré du Document : son type, son année, ses pages. */
+const TITRES = {
+  relecture: "Relire un document",
+  controle: "Contrôler une transcription",
+  validation: "Valider une extraction",
+} as const;
+
+const FAITS: Record<string, string> = {
+  confirmee: "Transcription confirmée : elle part au Contrôle.",
+  close: "Relecture close sans Transcription.",
+  acceptee: "Transcription acceptée : elle est relue.",
+  renvoyee: "Transcription renvoyée à son relecteur.",
+  validation: "Validation enregistrée.",
+};
+
+/** Ce que l'agent de numérisation a déclaré du Document, et l'échéance de la tâche. */
 function Declare({ tache }: { tache: TacheDetaillee }) {
   const { document } = tache;
-  const lisibilite = libelleDeLisibilite(document.lisibilite);
   return (
     <dl className="rel-declare">
-      <dt>Type déclaré</dt>
+      <dt>Document</dt>
       <dd className="rel-declare-type">
         <Icon name={iconeDuType(document.type)} size={20} />
-        <span>{libelleDuType(document.type)}</span>
+        <span>{libelleDuDocument(document)}</span>
       </dd>
       <dt>Année déclarée</dt>
-      <dd className="rel-chiffres">{document.annee}</dd>
+      <dd className="rel-chiffres">{document.annee ?? "inconnue"}</dd>
       <dt>Pages</dt>
       <dd>{pluriel(document.pages, "page")}</dd>
-      {lisibilite && (
+      {tache.echeance && (
         <>
-          <dt>Lisibilité notée au dépôt</dt>
-          <dd>{lisibilite}</dd>
+          <dt>À rendre avant le</dt>
+          <dd>{formatDate(tache.echeance)}</dd>
         </>
       )}
     </dl>
   );
 }
 
-/** Le rappel du pseudonymat : le système ne dit pas qui est le patient ; une page, parfois, si. */
-function Pseudonymat() {
-  return (
-    <p className="rel-pseudonymat">
-      <Icon name="shield-check" size={22} />
-      <span>Vous ne voyez pas qui est le patient. Si la page montre un nom, n'en faites rien.</span>
-    </p>
-  );
-}
-
 /**
- * Une tâche de relecture : ses pages en grand, et à côté, selon l'étape, le verdict du triage ou les
- * propositions de l'Extraction à valider. Aucune identité de patient n'arrive jusqu'ici.
+ * Une tâche : ses pages à gauche, et à droite, selon l'étape, la Transcription à relire, à contrôler, ou
+ * les propositions de l'Extraction à valider. Aucune identité de patient n'arrive jusqu'ici.
  */
 export default async function LaTache({ params, searchParams }: Parametres) {
   await connection();
@@ -73,16 +72,15 @@ export default async function LaTache({ params, searchParams }: Parametres) {
     if (lue.statut === 401) redirect("/connexion");
     return (
       <Bureau relecteur={relecteur} titre="Tâche de relecture" retour>
-        <Refus statut={lue.statut} ici={ici} />
+        <Refus statut={lue.statut === 409 ? 404 : lue.statut} ici={ici} />
       </Bureau>
     );
   }
   const tache = lue.corps;
-  const triage = tache.etape === "triage";
-  const description = `${libelleDuType(tache.document.type)}, ${tache.document.annee}`;
+  const description = descriptionDuDocument(tache.document);
 
-  // Une étape que ce rôle ne fait pas : le triage aux agents de relecture, la validation aux soignants.
-  if (triage === estSoignant(relecteur)) {
+  // Une étape que ce rôle ne fait pas : Relecture et Contrôle aux agents de relecture, validation aux soignants.
+  if ((tache.etape === "validation") !== estSoignant(relecteur)) {
     return (
       <Bureau relecteur={relecteur} titre="Tâche de relecture" retour>
         <Refus statut={403} ici={ici} />
@@ -90,21 +88,22 @@ export default async function LaTache({ params, searchParams }: Parametres) {
     );
   }
 
-  const titre = triage ? "Trier un document" : "Valider une extraction";
+  const titre = TITRES[tache.etape];
+  const precedente = typeof fait === "string" && FAITS[fait];
 
-  if (tache.verdict) {
+  if (tache.statut === "terminee") {
     return (
       <Bureau relecteur={relecteur} titre={titre} retour>
         <Alert
           tone="succes"
-          title={triage ? `Cette tâche est triée : ${libelleDuVerdict(tache.verdict)}.` : "Cette extraction est validée."}
+          title="Cette tâche est faite."
           actions={
             <Button href="/" size="pro" icon="list">
               Revenir à ma semaine
             </Button>
           }
         >
-          Une tâche faite ne se refait pas. Si vous pensez vous être trompé, signalez-le à votre responsable.
+          Une tâche faite ne se refait pas ici. Si vous pensez vous être trompé, signalez-le à votre responsable.
         </Alert>
       </Bureau>
     );
@@ -112,15 +111,9 @@ export default async function LaTache({ params, searchParams }: Parametres) {
 
   return (
     <Bureau relecteur={relecteur} titre={titre} retour large>
-      {fait && (
-        <Alert tone="succes" title="Tâche précédente enregistrée.">
-          Voici la suivante.
-        </Alert>
-      )}
-      {!triage && estDeDemonstration(tache.modele) && (
-        <Alert tone="attention" title={`Extraction de démonstration — modèle ${tache.modele!.nom} ${tache.modele!.version}`}>
-          Ces propositions ne viennent pas d'une vraie lecture de la page : elles servent à montrer le travail. Comparez
-          chacune avec la page avant de l'accepter.
+      {precedente && (
+        <Alert tone="succes" title={precedente}>
+          Voici la tâche suivante.
         </Alert>
       )}
 
@@ -129,40 +122,66 @@ export default async function LaTache({ params, searchParams }: Parametres) {
         <Declare tache={tache} />
       </div>
 
-      <div className={triage ? "rel-plan rel-plan--triage" : "rel-plan rel-plan--validation"}>
-        <Pages tache={tache.id} pages={tache.document.pages} description={description} />
+      {tache.etape === "relecture" &&
+        (tache.markdown === null ? (
+          <Alert tone="attention" title="La machine n'a pas encore lu ce Document.">
+            Rechargez la page dans un instant : la lecture se fait à la première ouverture.
+          </Alert>
+        ) : (
+          <Atelier
+            tache={tache.id}
+            document={tache.document}
+            description={description}
+            markdown={tache.markdown}
+            version={tache.version}
+            modele={tache.modele}
+            texte={tache.texte}
+            notes={tache.notes_de_controle}
+            renvoyee={tache.renvoyee}
+          />
+        ))}
 
-        <div className="rel-cote">
-          <Pseudonymat />
-          {triage ? (
-            <section className="rel-carte" aria-labelledby="verdict">
-              <h2 className="lf-app-sous-titre-fort" id="verdict">
-                Votre verdict
-              </h2>
-              <Trier tache={tache.id} typeDeclare={tache.document.type} anneeDeclaree={String(tache.document.annee)} />
-            </section>
-          ) : (
-            <section className="rel-carte" aria-labelledby="propositions">
-              <h2 className="lf-app-sous-titre-fort" id="propositions">
-                Ce que la machine propose
-              </h2>
-              <p className="rel-meta">
-                {tache.modele
-                  ? `Lu par le modèle ${tache.modele.nom}, version ${tache.modele.version}. `
-                  : ""}
-                Seul ce que vous acceptez ou corrigez entre dans le dossier, avec l'origine « extraction ».
-              </p>
-              {tache.texte && (
-                <details className="rel-texte">
-                  <summary>Texte lu par la machine</summary>
-                  <pre>{tache.texte}</pre>
-                </details>
-              )}
-              <Valider tache={tache.id} propositions={tache.propositions ?? []} />
-            </section>
-          )}
+      {tache.etape === "controle" && (
+        <Controler
+          tache={tache.id}
+          document={tache.document}
+          description={description}
+          markdown={tache.markdown ?? ""}
+          resume={tache.resume}
+          modele={tache.modele}
+          texte={tache.texte}
+        />
+      )}
+
+      {tache.etape === "validation" && (
+        <div className="rel-atelier">
+          <Feuilles tache={tache.id} pages={tache.document.pages} formats={tache.document.formats} description={description} />
+          <section className="rel-panneau" aria-labelledby="propositions">
+            <Contexte modele={tache.modele} notes={[]} texte={tache.texte} consigne="validation" />
+            {tache.markdown && (
+              <details className="rel-texte rel-transcription-relue">
+                <summary>La Transcription relue de ce Document</summary>
+                <p className="lf-mention-patrimoniale">
+                  <Icon name="info" size={20} />
+                  <span>{MENTION_PATRIMONIALE}</span>
+                </p>
+                <RenduDeTranscription
+                  transcription={lireTranscription(tache.markdown, tache.document.pages)}
+                  urlDePage={(n) => adresseDeLaPage(tache.id, n)}
+                />
+              </details>
+            )}
+            <h2 className="lf-app-sous-titre-fort" id="propositions">
+              Ce que la machine propose
+            </h2>
+            <p className="rel-meta">
+              {tache.modele ? `Lu par le modèle ${tache.modele.nom}, version ${tache.modele.version}. ` : ""}
+              Seul ce que vous acceptez ou corrigez entre dans le dossier, avec l'origine « extraction ».
+            </p>
+            <Valider tache={tache.id} propositions={tache.propositions ?? []} />
+          </section>
         </div>
-      </div>
+      )}
     </Bureau>
   );
 }

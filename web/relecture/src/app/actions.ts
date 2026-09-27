@@ -1,44 +1,67 @@
 "use server";
 
+// Ce que les écrans du navigateur demandent au service relecture, par le serveur de l'application : le
+// cookie de session reste ici, jamais lu par le navigateur. Chaque action rend un objet simple : ce qui
+// est enregistré, ou le statut du refus, que l'écran dit en mots.
 import { redirect } from "next/navigation";
 
-import { ANNEE_MIN, TYPES_DE_DOCUMENT, VERDICTS } from "../libelles";
-import { tacheSuivante, trier, valider, type Decision, type Verdict } from "../relecture";
+import {
+  confirmer,
+  controler,
+  declarerInutilisable,
+  enregistrer,
+  tacheSuivante,
+  valider,
+  type Decision,
+} from "../relecture";
 
-/** Pourquoi le verdict n'est pas parti ; ce qui a été choisi reste à l'écran. */
-export type RefusDuTriage = { erreur: "annee" | "type" | "verdict" | "service" | "indisponible" } | null;
+/** Un refus : le statut du service (0 : injoignable, 401 : session à renouveler). */
+export type Refus = { ok: false; statut: number };
 
-/** Où mène une tâche faite : la suivante de la semaine, ou « Ma semaine » quand il n'y en a plus. */
-async function allerALaSuivante(tache: string, fait: string): Promise<never> {
-  const suivante = await tacheSuivante(tache);
-  redirect(suivante ? `/taches/${encodeURIComponent(suivante)}?fait=${fait}` : `/?fait=${fait}`);
+export type IssueDEnregistrement = { ok: true; version: string } | Refus;
+
+/** Le brouillon du relecteur, à la version qu'il a lue. 409 : enregistré ailleurs depuis ; 422 : trop long. */
+export async function enregistrerLeBrouillon(tache: string, markdown: string, version: string): Promise<IssueDEnregistrement> {
+  const reponse = await enregistrer(tache, markdown, version);
+  if (!reponse.ok) return { ok: false, statut: reponse.statut };
+  return { ok: true, version: reponse.corps.version };
 }
 
-/** Le verdict de triage d'une tâche, puis tout de suite la tâche suivante. */
-export async function trierLaTache(_precedent: RefusDuTriage, formulaire: FormData): Promise<RefusDuTriage> {
-  const tache = String(formulaire.get("tache") ?? "");
-  const verdict = String(formulaire.get("verdict") ?? "");
-  const type = String(formulaire.get("type") ?? "");
-  const annee = String(formulaire.get("annee") ?? "").trim();
+/** Où mener après une tâche faite : la suivante de la semaine, ou `null` pour « Ma semaine ». */
+export type Suite = { ok: true; suivante: string | null };
 
-  if (!VERDICTS.some((v) => v.code === verdict)) return { erreur: "verdict" };
-  if (verdict === "mauvais-type" && !TYPES_DE_DOCUMENT.some((t) => t.code === type)) return { erreur: "type" };
-  if (annee && (!/^\d{4}$/.test(annee) || Number(annee) < ANNEE_MIN || Number(annee) > new Date().getFullYear())) {
-    return { erreur: "annee" };
-  }
+export type IssueDeConfirmation =
+  | Suite
+  | (Refus & { erreurs?: string[]; nonVerifies?: number[]; message?: string });
 
-  const reponse = await trier(tache, {
-    verdict: verdict as Verdict,
-    ...(verdict === "mauvais-type" ? { type } : {}),
-    ...(annee ? { annee: Number(annee) } : {}),
-  });
+/** La double confirmation : les volets cochés et le résumé des changements. */
+export async function confirmerLaTranscription(tache: string, voletsVerifies: number[], resume: string): Promise<IssueDeConfirmation> {
+  const reponse = await confirmer(tache, voletsVerifies, resume.trim());
   if (!reponse.ok) {
-    if (reponse.statut === 401) redirect("/connexion");
-    if (reponse.statut === 422) return { erreur: "verdict" };
-    if (reponse.statut === 0 || reponse.statut >= 500) return { erreur: "service" };
-    return { erreur: "indisponible" };
+    const detail = reponse.detail as { erreurs?: string[]; volets_non_verifies?: number[]; message?: string } | string | undefined;
+    if (detail && typeof detail === "object") {
+      return { ok: false, statut: reponse.statut, erreurs: detail.erreurs, nonVerifies: detail.volets_non_verifies, message: detail.message };
+    }
+    return { ok: false, statut: reponse.statut, message: typeof detail === "string" ? detail : undefined };
   }
-  return allerALaSuivante(tache, "triage");
+  return { ok: true, suivante: await tacheSuivante(tache) };
+}
+
+/** Le Contrôle : accepter la Transcription, ou la renvoyer au relecteur avec une note. */
+export async function controlerLaTranscription(tache: string, decision: "accepter" | "renvoyer", note: string): Promise<Suite | Refus> {
+  const propre = note.trim();
+  if (decision === "renvoyer" && !propre) return { ok: false, statut: 422 };
+  const reponse = await controler(tache, decision, propre || undefined);
+  if (!reponse.ok) return { ok: false, statut: reponse.statut };
+  return { ok: true, suivante: await tacheSuivante(tache) };
+}
+
+/** Un Document qui n'est pas médical, ou déjà numérisé : la Relecture est close sans Transcription. */
+export async function declarerLeDocumentInutilisable(tache: string, raison: "non-medical" | "doublon"): Promise<Suite | Refus> {
+  if (raison !== "non-medical" && raison !== "doublon") return { ok: false, statut: 422 };
+  const reponse = await declarerInutilisable(tache, raison);
+  if (!reponse.ok) return { ok: false, statut: reponse.statut };
+  return { ok: true, suivante: await tacheSuivante(tache) };
 }
 
 /** Ce que rend la validation : la tâche suivante quand tout est parti, ou pourquoi rien n'est parti. */
@@ -50,7 +73,7 @@ export type IssueDeLaValidation =
 const DECISIONS = new Set(["accepter", "corriger", "rejeter"]);
 
 /**
- * Toutes les décisions de la tâche, envoyées ensemble. Le service écrit au dossier ce qui est accepté
+ * Toutes les décisions du soignant, envoyées ensemble. Le service écrit au dossier ce qui est accepté
  * ou corrigé, avec origine extraction et sa Provenance ; le rejeté reste dans la tâche.
  */
 export async function validerLaTache(_precedent: IssueDeLaValidation, formulaire: FormData): Promise<IssueDeLaValidation> {

@@ -98,8 +98,8 @@ export function Refus({ statut, ici }: { statut: number; ici: string }) {
           </Button>
         }
       >
-        Chaque tâche est confiée à un seul relecteur. Le triage revient aux agents de relecture, la validation aux
-        médecins et aux infirmiers.
+        Chaque tâche est confiée à une seule personne. La Relecture et le Contrôle reviennent aux agents de relecture
+        (jamais le Contrôle de sa propre Relecture), la validation aux médecins et aux infirmiers.
       </Alert>
     );
   }
@@ -113,7 +113,7 @@ export function Refus({ statut, ici }: { statut: number; ici: string }) {
         </Button>
       }
     >
-      Elle a pu être faite par un autre relecteur, ou revenir au lot commun à la fin de la semaine.
+      Elle a pu être faite par quelqu'un d'autre, changer d'étape, ou revenir au lot commun à la fin de la semaine.
     </Alert>
   );
 }
