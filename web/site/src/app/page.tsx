@@ -114,6 +114,11 @@ const SERVICES: Record<Acteur, { illustration: NomIllustration; pourQui: string;
     pourQui: "Pour les agents de numérisation",
     description: "Numériser les anciens papiers médicaux d'un citoyen, qui repart avec eux.",
   },
+  relecture: {
+    illustration: "probleme-registres",
+    pourQui: "Pour les agents de relecture et les soignants",
+    description: "Trier les documents numérisés sans savoir de qui ils sont, puis valider ce que la lecture en propose.",
+  },
 };
 
 const DEMAIN: Array<{ illustration: NomIllustration; icone: "video-camera" | "chart-line" | "microphone" | "test-tube"; titre: string; accroche: string; texte: string }> = [

@@ -406,7 +406,10 @@ def journal_des_acces(dossier: DossierDuCitoyen) -> list[AccesLu]:
     for acces in sorted(dossier.acces, key=lambda a: a.date, reverse=True):
         vous = acces.qui == moi
         meme_depot = (
-            precedent is not None and precedent.motif == acces.motif == "numerisation" and precedent.qui == acces.qui
+            precedent is not None
+            and precedent.motif == acces.motif
+            and acces.motif in ("numerisation", "relecture")
+            and precedent.qui == acces.qui
         )
         precedent = acces
         if (vous and lus and lus[-1].vous) or meme_depot:
@@ -419,6 +422,21 @@ def _acces_lu(acces: Acces, vous: bool, dossier: DossierDuCitoyen) -> AccesLu:
     urgence = acces.motif == "acces-urgence"
     depot = acces.motif == "numerisation" and not vous
     etablissement = dossier.noms.get(acces.etablissement or "")
+    # La relecture est pseudonymisée dans les deux sens : le citoyen sait que ses papiers ont été relus,
+    # pas par qui ni où (docs/specs/F6-relecture-et-extraction.md).
+    if acces.motif == "relecture" and not vous:
+        return AccesLu(
+            date=acces.date,
+            vous=False,
+            qui="Un relecteur",
+            role=None,
+            etablissement=None,
+            service=acces.service,
+            motif="Vos papiers ont été relus, sans votre nom",
+            urgence=False,
+            raison=None,
+            depot=False,
+        )
     if vous:
         qui, motif = "Vous", "Vous avez ouvert votre carnet"
     elif depot:

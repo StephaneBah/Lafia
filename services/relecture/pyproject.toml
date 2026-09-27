@@ -1,0 +1,19 @@
+[project]
+name = "lafia-relecture"
+version = "0.1.0"
+description = "Service relecture : les Tâches de relecture des Documents, du triage à la validation par un soignant (F6, ADR 0009)."
+requires-python = ">=3.11"
+dependencies = [
+    "lafia-commun",
+    "fastapi>=0.141,<0.142",
+    "uvicorn>=0.54,<0.55",
+    # Le seul appel d'un service à un autre : relecture joint extraction sur le réseau interne (ADR 0009).
+    "httpx>=0.28,<0.29",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/relecture"]

@@ -1,4 +1,7 @@
-"""Un rôle, une application (ADR 0004) : identite ne connecte un rôle que sur l'application qui le sert.
+"""Chaque application connecte ses rôles (ADR 0004) : identite ne connecte un rôle que sur une application qui le sert.
+
+Un rôle a son application ; seuls le médecin et l'infirmier en ont une seconde, relecture, où ils valident
+les propositions d'une Extraction (F6).
 
 L'application est celle de l'hôte de la requête, `<application>.<domaine>`, que la requête arrive par
 l'entrée publique de la passerelle ou par son entrée interne (`:8080`).
@@ -17,6 +20,7 @@ class Application(StrEnum):
     PHARMACIE = "pharmacie"
     CITOYEN = "citoyen"
     NUMERISATION = "numerisation"
+    RELECTURE = "relecture"
 
 
 ROLES_PAR_APPLICATION: dict[Application, frozenset[Role]] = {
@@ -25,6 +29,8 @@ ROLES_PAR_APPLICATION: dict[Application, frozenset[Role]] = {
     Application.PHARMACIE: frozenset({Role.PHARMACIEN, Role.OFFICINE}),
     Application.CITOYEN: frozenset({Role.CITOYEN}),
     Application.NUMERISATION: frozenset({Role.AGENT_DE_NUMERISATION}),
+    # Le triage par les agents de relecture, la validation par les soignants : une même application (F6).
+    Application.RELECTURE: frozenset({Role.AGENT_DE_RELECTURE, Role.MEDECIN, Role.INFIRMIER}),
 }
 
 

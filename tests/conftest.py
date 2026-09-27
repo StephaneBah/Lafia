@@ -64,7 +64,7 @@ REVENDICATIONS_CITOYEN = {"sub": "citoyen-test-1", "npi": "0000000001"}
 COOKIE_DE_SESSION = "__Host-session"
 COOKIE_DE_RENOUVELLEMENT = "__Host-renouvellement"
 
-# Un rôle, une application : où chaque rôle se connecte (ADR 0004).
+# Un rôle, son application : où chaque rôle se connecte d'abord (ADR 0004).
 APPLICATION_DU_ROLE = {
     "médecin": "soin",
     "infirmier": "soin",
@@ -73,6 +73,12 @@ APPLICATION_DU_ROLE = {
     "officine": "pharmacie",
     "citoyen": "citoyen",
     "agent de numérisation": "numerisation",
+    "agent de relecture": "relecture",
+}
+# Toutes les applications où un rôle se connecte : les soignants valident aussi sur relecture (F6).
+APPLICATIONS_DU_ROLE = {
+    role: {application, *({"relecture"} if role in ("médecin", "infirmier") else set())}
+    for role, application in APPLICATION_DU_ROLE.items()
 }
 
 
@@ -259,6 +265,11 @@ class Compte(NamedTuple):
     @property
     def application(self) -> str:
         return APPLICATION_DU_ROLE[self.role]
+
+    @property
+    def applications(self) -> set[str]:
+        """Toutes les applications où ce compte se connecte, et dont la page de connexion le liste."""
+        return APPLICATIONS_DU_ROLE[self.role]
 
 
 class CitoyenDeDemonstration(NamedTuple):

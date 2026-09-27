@@ -108,13 +108,120 @@ def avec_extraction(tache: Ressource, extraction: Extraction, texte_document: st
             brouillon["extension"].append({"url": f"{systemes.LAFIA}/StructureDefinition/extrait", "valueString": proposition.extrait})
         contenues.append(brouillon)
     suivante["contained"] = contenues
+    # Les entrées déjà portées (une correction du triage) restent ; chaque proposition est citée par une
+    # entrée `#p1` : une ressource contenue que rien ne cite n'est pas conforme (dom-3), et le noyau la perdrait.
     suivante["input"] = [
+        *[i for i in tache.get("input", []) if i.get("type", {}).get("text") not in (_MODELE, _PROPOSITION)],
         {
-            "type": {"text": "Modèle de lecture"},
+            "type": {"text": _MODELE},
             "valueString": f"{extraction.modele.nom}:{extraction.modele.version}",
-        }
+        },
+        *[{"type": {"text": _PROPOSITION}, "valueReference": {"reference": f"#{c['id']}"}} for c in contenues],
     ]
     suivante["output"] = [{"type": {"text": "Texte lu"}, "valueReference": reference("DocumentReference", texte_document)}]
+    return suivante
+
+
+_MODELE = "Modèle de lecture"
+_PROPOSITION = "Proposition"
+_TYPE_CORRIGE = "Type corrigé"
+_ANNEE_CORRIGEE = "Année corrigée"
+
+
+def avec_corrections(tache: Ressource, *, type_: str | None, annee: str | None) -> Ressource:
+    """La Tâche portant ce que le triage a corrigé du Document, type ou année. Le Document, lui, ne change
+    pas (ADR 0007) : la correction vit dans la Tâche, et la relecture la lit de là."""
+    suivante = copy.deepcopy(tache)
+    entrees = [i for i in tache.get("input", []) if i.get("type", {}).get("text") not in (_TYPE_CORRIGE, _ANNEE_CORRIGEE)]
+    if type_:
+        entrees.append({"type": {"text": _TYPE_CORRIGE}, "valueCode": type_})
+    if annee:
+        entrees.append({"type": {"text": _ANNEE_CORRIGEE}, "valueString": annee})
+    if entrees:
+        suivante["input"] = entrees
+    return suivante
+
+
+def corrections_de(tache: Ressource) -> tuple[str | None, str | None]:
+    """Le type et l'année que le triage a corrigés, ou None."""
+    entrees = {i.get("type", {}).get("text"): i for i in tache.get("input", [])}
+    return entrees.get(_TYPE_CORRIGE, {}).get("valueCode"), entrees.get(_ANNEE_CORRIGEE, {}).get("valueString")
+
+
+def reassignee(tache: Ressource, relecteur: str, jour: date) -> Ressource:
+    """Une Tâche de triage restée ouverte une semaine passée, rendue au pool puis assignée à `relecteur`
+    pour la semaine de `jour`."""
+    suivante = copy.deepcopy(tache)
+    etiquettes = [e for e in tache.get("meta", {}).get("tag", []) if e.get("system") != systemes.SEMAINE_DE_RELECTURE]
+    suivante["meta"] = {"tag": [*etiquettes, etiquette_de_semaine(semaine(jour))]}
+    suivante["owner"] = reference("Practitioner", relecteur)
+    suivante["restriction"] = {"period": {"end": fin_de_semaine(jour)}}
+    return suivante
+
+
+def semaine_de(tache: Ressource) -> str | None:
+    """La semaine d'une Tâche : la plus récente de ses étiquettes, le noyau gardant celles d'avant quand
+    une Tâche réassignée en reçoit une nouvelle."""
+    semaines = [
+        str(e.get("code")) for e in tache.get("meta", {}).get("tag", []) if e.get("system") == systemes.SEMAINE_DE_RELECTURE
+    ]
+    return max(semaines) if semaines else None
+
+
+def prise(tache: Ressource, soignant: str) -> Ressource:
+    """La Tâche de validation qu'un soignant prend : elle est à lui, en cours."""
+    suivante = copy.deepcopy(tache)
+    suivante["owner"] = reference("Practitioner", soignant)
+    suivante["status"] = "in-progress"
+    return suivante
+
+
+def verdict_de(tache: Ressource) -> str | None:
+    return next((c.get("code") for c in tache.get("businessStatus", {}).get("coding", [])), None)
+
+
+def echeance_de(tache: Ressource) -> str | None:
+    return tache.get("restriction", {}).get("period", {}).get("end")
+
+
+def texte_de(tache: Ressource) -> str | None:
+    """Le Document de texte lu par l'Extraction, en sortie de la Tâche."""
+    return next(
+        (id_de(o.get("valueReference")) for o in tache.get("output", []) if o.get("type", {}).get("text") == "Texte lu"),
+        None,
+    )
+
+
+def brouillon_de(tache: Ressource, proposition: str) -> Ressource | None:
+    """La proposition `proposition` (`p1`) de la Tâche, telle que le modèle l'a rendue."""
+    return next((copy.deepcopy(r) for r in tache.get("contained", []) if r.get("id") == proposition), None)
+
+
+def apres_validation(
+    tache: Ressource, decisions: dict[str, Decision], soignant: str, entrees: list[dict[str, str]]
+) -> Ressource:
+    """La Tâche close par la validation : chaque proposition garde la décision du soignant (les rejetées
+    restent là, pour mesurer le modèle), les entrées écrites au dossier s'ajoutent aux sorties."""
+    suivante = copy.deepcopy(tache)
+    for contenue in suivante.get("contained", []):
+        contenue.setdefault("extension", []).append(
+            {"url": f"{systemes.LAFIA}/StructureDefinition/decision", "valueCode": decisions.get(contenue.get("id", ""), "rejeter")}
+        )
+    suivante["status"] = "completed"
+    suivante["output"] = [
+        *tache.get("output", []),
+        *[{"type": {"text": "Entrée validée"}, "valueReference": ref} for ref in entrees],
+    ]
+    retenues = sum(1 for d in decisions.values() if d != "rejeter")
+    rejetees = len(tache.get("contained", [])) - retenues
+    suivante["note"] = [
+        *tache.get("note", []),
+        {
+            "authorReference": reference("Practitioner", soignant),
+            "time": maintenant(),
+            "text": f"Validation : {retenues} retenue(s), {rejetees} rejetée(s)",
+        },
+    ]
     return suivante
 
 
@@ -222,10 +329,15 @@ def entree_validee(brouillon: Ressource, *, patient: str, soignant: str, valeur_
         entree["subject"] = sujet
         entree["recorder"] = auteur
         entree["recordedDate"] = maintenant()
+        if valeur_corrigee is not None:
+            # Le libellé corrigé ne répond plus aux codes proposés : il reste seul.
+            entree["code"] = {"text": valeur_corrigee}
     elif type_ == "AllergyIntolerance":
         entree["patient"] = sujet
         entree["recorder"] = auteur
         entree["recordedDate"] = maintenant()
+        if valeur_corrigee is not None:
+            entree["code"] = {"text": valeur_corrigee}
     elif type_ == "MedicationStatement":
         entree["subject"] = sujet
         entree["informationSource"] = auteur

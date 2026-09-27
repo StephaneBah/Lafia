@@ -7,13 +7,15 @@
 # Le mot de passe s'écrit ${VAR-défaut} : absent, il prend la valeur locale ; laissé vide
 # dans un .env copié sans être rempli, il reste vide et la base refuse de démarrer.
 #
-# Trois réseaux rendent les invariants physiques :
+# Quatre réseaux rendent les invariants physiques :
 # - passerelle : Caddy, les services et les applications. Caddy est le seul conteneur qui publie des ports.
 # - noyau : HAPI, sa base, le chargement du jeu de démonstration, et les services qui parlent FHIR
 #   (pas identite). Réseau interne, sans sortie. Les applications n'y sont jamais : elles ne peuvent
 #   pas joindre le noyau, même par erreur.
 # - identite : identite et sa base, rien d'autre. Réseau interne : aucune application, aucun service
 #   qui parle FHIR ne joint les comptes.
+# - extraction : extraction et relecture, rien d'autre. Réseau interne : seul relecture joint le modèle
+#   de lecture (ADR 0009), qui ne joint ni le noyau, ni la passerelle, ni l'internet.
 #
 # Remise à zéro complète, noyau et comptes vidés puis rechargés du seul jeu de démonstration :
 #   docker compose down -v && docker compose up -d --build --wait
@@ -38,7 +40,7 @@ x-service-fhir: &service-fhir
     # son arrêt pour une panne.
     chargement:
       condition: service_completed_successfully
-  environment:
+  environment: &environnement-fhir
     NOYAU_URL: http://noyau:8080/fhir
     JETON_CLE_PUBLIQUE: ${JETON_CLE_PUBLIQUE:-}
     LAFIA_DOMAINE: ${LAFIA_DOMAINE:-localhost}
@@ -80,6 +82,7 @@ services:
           - pharmacie.${LAFIA_DOMAINE:-localhost}
           - citoyen.${LAFIA_DOMAINE:-localhost}
           - numerisation.${LAFIA_DOMAINE:-localhost}
+          - relecture.${LAFIA_DOMAINE:-localhost}
     mem_limit: 128m
 
   base-noyau:
@@ -190,6 +193,40 @@ services:
         SERVICE: numerisation
     image: lafia/numerisation
 
+  # Les Tâches de relecture : le triage des agents de relecture, la validation des soignants. En plus des
+  # deux réseaux d'un service FHIR, il est sur le réseau extraction : le seul appel d'un service à un
+  # autre, vers le modèle de lecture (ADR 0009).
+  relecture:
+    <<: *service-fhir
+    build:
+      context: services
+      additional_contexts: *bibliotheques
+      args:
+        SERVICE: relecture
+    image: lafia/relecture
+    environment:
+      <<: *environnement-fhir
+      EXTRACTION_URL: http://extraction:8000/api/extraction
+      QUOTA_DE_RELECTURE: ${QUOTA_DE_RELECTURE:-10}
+    networks:
+      - passerelle
+      - noyau
+      - extraction
+
+  # Le modèle de lecture, aujourd'hui l'Extraction de démonstration. Interne : sur le seul réseau
+  # extraction, sans route de la passerelle ni application ; il ne garde rien et ne joint rien.
+  extraction:
+    build:
+      context: services
+      additional_contexts: *bibliotheques
+      args:
+        SERVICE: extraction
+    image: lafia/extraction
+    restart: unless-stopped
+    networks:
+      - extraction
+    mem_limit: 256m
+
   # Identite ne parle jamais FHIR : hors du réseau noyau, il ne peut pas le joindre. Il signe les jetons
   # de la clé privée JETON_CLE_PRIVEE ; vide, sur localhost seulement, il prend la clé de développement ;
   # sur tout autre domaine, il refuse de démarrer. Il lit ses comptes dans donnees/, construit dans son image.
@@ -285,6 +322,16 @@ services:
     environment:
       PASSERELLE_URL: http://numerisation.${LAFIA_DOMAINE:-localhost}:8080
 
+  application-relecture:
+    <<: *application
+    build:
+      context: web
+      args:
+        APPLICATION: relecture
+    image: lafia/application-relecture
+    environment:
+      PASSERELLE_URL: http://relecture.${LAFIA_DOMAINE:-localhost}:8080
+
   # Le site produit, sur le domaine lui-même. Il n'appelle aucun service : il ne reçoit que le domaine,
   # pour ses liens vers chaque application.
   application-site:
@@ -302,6 +349,8 @@ networks:
   noyau:
     internal: true
   identite:
+    internal: true
+  extraction:
     internal: true
 
 volumes:

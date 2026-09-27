@@ -1,0 +1,16 @@
+import "@lafia/design/styles.css";
+
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+
+export const metadata: Metadata = {
+  title: "Lafia · Relecture",
+};
+
+export default function MiseEnPage({ children }: { children: ReactNode }) {
+  return (
+    <html lang="fr">
+      <body className="lf-pro">{children}</body>
+    </html>
+  );
+}
