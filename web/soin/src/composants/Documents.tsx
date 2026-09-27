@@ -44,6 +44,27 @@ export function NonVerifie() {
   );
 }
 
+/** Le Document a une Transcription relue (ADR 0010) : un texte recopié, pas une donnée clinique vérifiée. */
+export function TranscriptionRelue() {
+  return (
+    <span className="lf-badge lf-badge--pro lf-tone-retire">
+      <Icon name="list" size={16} />
+      <span>Transcription relue</span>
+    </span>
+  );
+}
+
+/** La note de l'agent quand le papier était abîmé avant d'être numérisé (F6.5). */
+export function PapierAbime({ note }: { note?: string | null }) {
+  if (!note) return null;
+  return (
+    <span className="sn-origine sn-papier-abime">
+      <Icon name="warning" size={16} />
+      {`Papier abîmé à l’origine : ${note}`}
+    </span>
+  );
+}
+
 export function IconeDuType({ type, size = 24 }: { type: string; size?: number }) {
   return <Icon name={ICONES_DES_TYPES[type] ?? "copy"} size={size} />;
 }
@@ -87,6 +108,7 @@ export function ListeDesDocuments({
               <span className="sn-meta sn-bloc">{details(d)}</span>
               <span className="sn-document-etats">
                 <NonVerifie />
+                {d.transcription && <TranscriptionRelue />}
                 {d.lisibilite === "partiel" ? (
                   <span className="sn-origine">
                     <Icon name="warning" size={16} />
@@ -99,6 +121,7 @@ export function ListeDesDocuments({
                   </span>
                 )}
               </span>
+              <PapierAbime note={d.papier_abime} />
             </span>
           </a>
         </li>
@@ -117,7 +140,7 @@ export function Visionneuse({ document, page }: { document: DocumentDuDossier; p
   const source = `/documents/${encodeURIComponent(document.id)}/pages/${rang}`;
   const vers = (n: number) => `?document=${encodeURIComponent(document.id)}&page=${n}`;
   return (
-    <div className="sn-visionneuse">
+    <div className="sn-visionneuse" id="visionneuse">
       <nav className="sn-pages" aria-label="Pages du document">
         {Array.from({ length: document.pages }, (_, i) => i + 1).map((n) => (
           <a key={n} href={vers(n)} className="sn-page" aria-current={n === rang ? "page" : undefined}>

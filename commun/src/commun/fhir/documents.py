@@ -245,6 +245,8 @@ class DocumentVu(BaseModel):
     depose_le: str | None
     papier_abime: str | None = None
     """La note de l'agent quand le papier, abîmé en lui-même, a passé outre un contrôle de la capture."""
+    transcription: bool = False
+    """Le Document a une Transcription relue (ADR 0010), que soin et le carnet montrent à côté de ses pages."""
 
 
 def formats_des_pages(ressource: Ressource) -> list[str]:
@@ -252,7 +254,7 @@ def formats_des_pages(ressource: Ressource) -> list[str]:
     return [c.get("attachment", {}).get("contentType", "") for c in ressource.get("content", [])]
 
 
-def document_vu(ressource: Ressource) -> DocumentVu:
+def document_vu(ressource: Ressource, *, transcription: bool = False) -> DocumentVu:
     codage = next(iter(ressource.get("type", {}).get("coding", [])), {})
     extensions = ressource.get("extension", [])
     lisibilite = next((e.get("valueCode") for e in extensions if e.get("url") == systemes.LISIBILITE), None)
@@ -269,13 +271,16 @@ def document_vu(ressource: Ressource) -> DocumentVu:
         origine=origine_de(ressource),
         depose_le=ressource.get("date"),
         papier_abime=papier_abime,
+        transcription=transcription,
     )
 
 
 async def documents_du_patient(fhir: ClientFhir, patient: str) -> list[Ressource]:
-    """Les Documents courants du patient, du plus récent au plus ancien."""
+    """Les Documents courants du patient, du plus récent au plus ancien. Une lecture tirée d'un Document
+    (origine `extraction` : une Transcription, ADR 0010) n'en est pas un : elle se lit avec son scan."""
     trouves = await fhir.chercher("DocumentReference", {"subject": f"Patient/{patient}", "status": "current"})
-    return sorted(trouves, key=lambda d: d.get("date", ""), reverse=True)
+    documents = [d for d in trouves if origine_de(d) != "extraction"]
+    return sorted(documents, key=lambda d: d.get("date", ""), reverse=True)
 
 
 async def documents_du_depot(fhir: ClientFhir, depot: str) -> list[Ressource]:

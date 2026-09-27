@@ -13,6 +13,7 @@ from citoyen.regles import carnet, documents
 from citoyen.regles.acces import SessionCitoyen, session_du_citoyen
 from commun.fhir import documents as fhir_documents
 from commun.fhir import dossier as dossier_fhir
+from commun.fhir import transcriptions as fhir_transcriptions
 from commun.fhir.citoyen import DossierDuCitoyen, lire_dossier
 from commun.fhir.client import ClientFhir, Ressource
 from commun.jeton import Citoyen, VerificateurDeJetons
@@ -140,8 +141,46 @@ async def mes_documents(
     """Mes documents : les papiers numérisés, du plus récent au plus ancien, avec leur type, leur année
     et leur nombre de pages. Numérisés, non vérifiés."""
     trouves = await fhir_documents.documents_du_patient(fhir, patient["id"])
+    relues = await fhir_transcriptions.transcriptions_relues_du_patient(fhir, patient["id"])
     await _tracer_lecture(fhir, patient["id"])
-    return [fhir_documents.document_vu(d) for d in trouves]
+    return [fhir_documents.document_vu(d, transcription=d["id"] in relues) for d in trouves]
+
+
+@routes.get(
+    "/documents/{document_id}/transcription",
+    responses={**REFUS, 404: {"description": "Pas un document de ce citoyen, ou pas encore relu."}},
+)
+async def transcription_de_mon_document(
+    document_id: str,
+    patient: Ressource = Depends(patient_du_citoyen),
+    fhir: ClientFhir = Depends(client_fhir),
+) -> documents.MaTranscription:
+    """Le texte relu d'un de mes documents (ADR 0010) : il recopie un ancien papier ; le papier fait foi."""
+    document = await fhir.lire("DocumentReference", document_id)
+    if document is None or not documents.est_du_citoyen(document, patient["id"]):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="document introuvable")
+    relue = await fhir_transcriptions.transcription_relue(fhir, document_id)
+    lue = await fhir_transcriptions.lire_transcription(fhir, document, relue) if relue else None
+    if relue is None or lue is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="pas encore relu")
+    await _tracer_lecture(fhir, patient["id"], dossier_fhir.reference("DocumentReference", relue["id"]))
+    return documents.MaTranscription(markdown=lue.markdown, relue_le=lue.relue_le, pages=lue.pages)
+
+
+@routes.get("/par-etablissement", responses={**REFUS, **CARNET_INTROUVABLE})
+async def par_etablissement(
+    patient: Ressource = Depends(patient_du_citoyen), fhir: ClientFhir = Depends(client_fhir)
+) -> list[documents.Etablissement]:
+    """Mes anciens papiers relus, par établissement : chaque volet de chaque Transcription relue, en ordre
+    de date, avec le Document dont il vient. Vide tant qu'aucun papier n'est relu."""
+    relues = await fhir_transcriptions.transcriptions_relues_du_patient(fhir, patient["id"])
+    lues = [
+        (scan, markdown)
+        for scan, relue in sorted(relues.items())
+        if (markdown := await fhir_transcriptions.markdown_de(fhir, relue)) is not None
+    ]
+    await _tracer_lecture(fhir, patient["id"])
+    return documents.par_etablissement(lues)
 
 
 @routes.get(

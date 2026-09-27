@@ -17,18 +17,23 @@ Les numéros à montrer (citoyens de citoyens.toml, patients de patients.toml) :
     appendicectomie en 2015, mère diabétique ; traitement au long cours : amlodipine 5 mg le matin.
     Journal d'accès : soignants, caisse, pharmacie, et un accès d'urgence
     au CHUD Borgou-Alibori, avec son motif.
+  - Un ancien carnet papier numérisé (4 pages, 2015-2019), relu et contrôlé : sa Transcription (ADR 0010)
+    en quatre volets, au CS Kpanroun et au CHD Ouémé, qu'on lit dans soin et dans « Par établissement ».
 - patient-007, NPI 0000001763547, code carnet W6N-2JD : cas en cours d'hier au CNHU-HKM, ordonnance
   ORD-3HX-9KT non payée, avec de l'ibuprofène alors qu'une allergie AINS est connue : la caisse encaisse,
   la pharmacie est arrêtée par l'allergie. Groupe sanguin A+, asthme depuis l'enfance.
 - patient-013, NPI 0000002316294, code carnet B8F-5ZE : rien de clinique, le carnet vide.
 """
 
+import base64
+import struct
+import zlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import donnees
 from commun.fhir import systemes
-from commun.fhir.documents import avec_origine
+from commun.fhir.documents import Page, avec_origine, binary, document_reference
 from commun.fhir.client import Ressource
 from commun.fhir.ressources import DEVISE
 
@@ -37,6 +42,9 @@ CATEGORIE_D_OBSERVATION = "http://terminology.hl7.org/CodeSystem/observation-cat
 CLASSE_DE_VISITE = "http://terminology.hl7.org/CodeSystem/v3-ActCode"
 STATUT_CLINIQUE = "http://terminology.hl7.org/CodeSystem/condition-clinical"
 MOMENTS_FHIR = {"matin": "MORN", "midi": "NOON", "soir": "EVE", "nuit": "NIGHT"}
+# ADR 0010 : une Transcription est du Markdown ; l'issue d'une Tâche de relecture se dit dans ce système.
+FORMAT_DE_TRANSCRIPTION = "text/markdown; charset=utf-8"
+ISSUE_DE_RELECTURE = f"{systemes.LAFIA}/CodeSystem/issue-de-relecture"
 
 
 def _ref(type_: str, id_: str) -> dict[str, str]:
@@ -290,6 +298,69 @@ class _Histoire:
             "entity": [{"what": _ref("Patient", patient)}],
         })
 
+    def document_transcrit(self, id_: str, patient: str, *, numerise: datetime, relu: datetime,
+                           agent: str, relecteur: str, controleur: str, markdown: str,
+                           pages: list[bytes], **document: Any) -> None:
+        """Un Document numérisé, ses pages, et sa Transcription relue (ADR 0010) : le Markdown dans un
+        Binary, la version finale qui `transforms` le scan, la Relecture et le Contrôle en Provenance, et
+        la Tâche de relecture close, pour que la relecture ne la redonne à personne."""
+        pages_ecrites = []
+        for rang, octets in enumerate(pages, start=1):
+            page = Page(format="image/png", octets=octets)
+            self._ajouter({**binary(page, patient), "id": f"{id_}-page-{rang}"})
+            pages_ecrites.append((f"{id_}-page-{rang}", page))
+        scan = document_reference(patient=patient, auteur=agent, pages=pages_ecrites, depot=None, **document)
+        self._ajouter({**scan, "id": id_, "date": _instant(numerise)})
+
+        transcription = f"{id_}-transcription"
+        self._ajouter({
+            "resourceType": "Binary", "id": f"{transcription}-texte",
+            "contentType": FORMAT_DE_TRANSCRIPTION,
+            "securityContext": _ref("Patient", patient),
+            "data": base64.b64encode(markdown.encode()).decode(),
+        })
+        self._ajouter(avec_origine({
+            "resourceType": "DocumentReference", "id": transcription,
+            "status": "current", "docStatus": "final",
+            "type": {"coding": [{"system": systemes.TYPE_DE_DOCUMENT, "code": "transcription",
+                                 "display": "Transcription"}], "text": "Transcription"},
+            "subject": _ref("Patient", patient),
+            "date": _instant(relu),
+            "author": [_ref("Practitioner", relecteur), _ref("Practitioner", controleur)],
+            "relatesTo": [{"code": "transforms", "target": _ref("DocumentReference", id_)}],
+            "context": {"period": {"start": document["annee"]}},
+            "content": [{"attachment": {"contentType": FORMAT_DE_TRANSCRIPTION, "url": f"Binary/{transcription}-texte",
+                                        "size": len(markdown.encode()), "title": "Transcription"}}],
+        }, "extraction"))
+        for activite, libelle, qui, role, quand in (
+            ("relecture", "Relecture", relecteur, "Relu par", relu - timedelta(days=2)),
+            ("controle", "Contrôle", controleur, "Contrôlé par", relu),
+        ):
+            self._ajouter({
+                "resourceType": "Provenance", "id": f"{transcription}-{activite}",
+                "target": [_ref("DocumentReference", transcription)],
+                "recorded": _instant(quand),
+                "activity": {"coding": [{"system": systemes.RELECTURE, "code": activite, "display": libelle}],
+                             "text": libelle},
+                "agent": [{"type": {"text": role}, "who": _ref("Practitioner", qui)}],
+                "entity": [{"role": "source", "what": _ref("DocumentReference", id_)}],
+            })
+        annee, numero, _ = relu.isocalendar()
+        self._ajouter({
+            "resourceType": "Task", "id": f"{id_}-relecture",
+            "meta": {"tag": [{"system": systemes.SEMAINE_DE_RELECTURE, "code": f"{annee}-W{numero:02d}"}]},
+            "status": "completed", "intent": "order",
+            "code": {"coding": [{"system": systemes.RELECTURE, "code": "relecture", "display": "Relecture"}]},
+            "businessStatus": {"coding": [{"system": ISSUE_DE_RELECTURE, "code": "relue", "display": "Relue"}]},
+            "focus": _ref("DocumentReference", id_),
+            "for": _ref("Patient", patient),
+            "owner": _ref("Practitioner", relecteur),
+            "authoredOn": _instant(numerise),
+            "executionPeriod": {"start": _instant(numerise), "end": _instant(relu)},
+            "output": [{"type": {"text": "Transcription"},
+                        "valueReference": _ref("DocumentReference", transcription)}],
+        })
+
 
 def _patient_a(h: _Histoire) -> None:
     """patient-001 : un cas terminé, un cas en cours, une allergie, un journal d'accès."""
@@ -338,6 +409,16 @@ def _patient_a(h: _Histoire) -> None:
     h.acces("hist-a-acces-urgence", p, h.il_y_a(21, 19, 48), "agent-11", "chud-borgou-alibori", "soin",
             "acces-urgence", raison="Patient inconscient après un accident de moto, amené par les pompiers.")
 
+    # Un ancien carnet papier, déposé au CNHU-HKM il y a trois semaines, relu hors du Littoral puis contrôlé.
+    h.document_transcrit(
+        "hist-a-carnet-papier", p,
+        numerise=h.il_y_a(24, 11, 5), relu=h.il_y_a(10, 16, 20),
+        agent="agent-23", relecteur="agent-25", controleur="agent-26",
+        markdown=CARNET_PAPIER_TRANSCRIT, pages=[_page_de_carnet(n) for n in range(1, 5)],
+        type_="carnet", annee="2015", lisibilite="partiel", etablissement_d_origine="CS Kpanroun",
+        papier_abime="Coin inférieur de la page 3 déchiré avant le dépôt : la fin du tableau manque.",
+    )
+
     # Cas en cours : fièvre et toux, il y a trois jours, au CNHU-HKM.
     cnhu, medecin, infirmier, caissier, pharmacien = "cnhu-hkm", "agent-01", "agent-03", "agent-04", "agent-05"
     visite = h.il_y_a(3, 10, 30)
@@ -369,6 +450,64 @@ def _patient_a(h: _Histoire) -> None:
     h.acces("hist-a-acces-ira-2", p, paye, caissier, cnhu, "caisse", "numero-d-ordonnance")
     h.acces("hist-a-acces-ira-3", p, remis, pharmacien, cnhu, "pharmacie", "numero-d-ordonnance")
 
+
+# Le carnet papier de patient-001, tel que les agents de relecture l'ont recopié (ADR 0010) : l'appendicectomie
+# de 2015 et l'hypertension de 2019 que son dossier connaît déjà.
+CARNET_PAPIER_TRANSCRIT = """---
+etablissements: CS Kpanroun; CHD Ouémé
+periode: 2015-2019
+---
+
+## consultation · 2015-06-02 · CS Kpanroun · p. 1
+Motif : douleurs du ventre à droite depuis la veille, vomissements.
+T° 38,4. Défense en fosse iliaque droite.
+Conclusion : **suspicion d'appendicite** ; orientée au CHD Ouémé.
+
+![Tampon et signature du centre](page:1)
+
+## hospitalisation · 2015-06-03 · CHD Ouémé · p. 2
+Entrée en chirurgie le 3 juin 2015.
+- Appendicectomie le jour même, sous anesthésie générale.
+- Suites simples ; sortie le 6 juin.
+
+*Contrôle à quinze jours au centre de santé.*
+
+## analyse · 2015-06-03 · CHD Ouémé · p. 3
+| Examen | Résultat | Unité |
+|---|---|---|
+| Globules blancs | 14 200 | /mm³ |
+| Hémoglobine | 12,1 | g/dL |
+| Goutte épaisse | négative | |
+
+![Feuille de résultats, haut de la page](page:3#0,0,1000,450)
+
+## consultation · 2019-03-14 · CS Kpanroun · p. 4
+Motif : maux de tête.
+TA 160/95 à deux reprises.
+Conclusion : hypertension artérielle ; amlodipine 5 mg le matin, revoir dans un mois.
+"""
+
+
+def _page_de_carnet(numero: int, largeur: int = 120, hauteur: int = 170) -> bytes:
+    """Une page de carnet de démonstration : un PNG en niveaux de gris, papier clair et lignes d'écriture,
+    généré ici (quelques centaines d'octets) plutôt que lu d'un fichier."""
+
+    def morceau(genre: bytes, donnees: bytes) -> bytes:
+        return struct.pack(">I", len(donnees)) + genre + donnees + struct.pack(">I", zlib.crc32(genre + donnees))
+
+    lignes = []
+    for y in range(hauteur):
+        ecrite = 12 <= y < hauteur - 12 and y % 9 in (0, 1) and (y // 9) % (numero + 2) != 0
+        fin = largeur - 12 - (y * 7 + numero * 13) % 40
+        rangee = bytes(90 if ecrite and 10 <= x < fin else 244 for x in range(largeur))
+        lignes.append(b"\x00" + rangee)
+    entete = struct.pack(">IIBBBBB", largeur, hauteur, 8, 0, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + morceau(b"IHDR", entete)
+        + morceau(b"IDAT", zlib.compress(b"".join(lignes), 9))
+        + morceau(b"IEND", b"")
+    )
 
 def _patient_b(h: _Histoire) -> None:
     """patient-007 : un cas en cours, une ordonnance à payer qui porte un AINS, une allergie AINS."""

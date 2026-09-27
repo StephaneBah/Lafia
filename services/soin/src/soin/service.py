@@ -53,6 +53,8 @@ def _http(erreur: Exception) -> HTTPException:
             return HTTPException(status.HTTP_404_NOT_FOUND, "aucun traitement sous cet identifiant")
         case dossier.DocumentInconnu() | dossier.PageInconnue():
             return HTTPException(status.HTTP_404_NOT_FOUND, "aucun document ou aucune page sous cet identifiant")
+        case dossier.TranscriptionInconnue():
+            return HTTPException(status.HTTP_404_NOT_FOUND, "ce document n'a pas de transcription relue")
         case DocumentTropLourd():
             return HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, str(erreur))
         case SansRelationDeSoin():
@@ -70,6 +72,7 @@ ERREURS = (
     dossier.TraitementInconnu,
     dossier.DocumentInconnu,
     dossier.PageInconnue,
+    dossier.TranscriptionInconnue,
     SansRelationDeSoin,
     dossier.CasClos,
     VisiteRefusee,
@@ -290,6 +293,20 @@ async def page_du_document(
         media_type=page.format,
         headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
     )
+
+
+@routes.get("/documents/{document_id}/transcription", responses=REFUS)
+async def transcription_du_document(
+    document_id: str, soignant: Agent = Depends(soignant_connecte), fhir: ClientFhir = Depends(client_fhir)
+) -> modeles.TranscriptionDuDocument:
+    """La Transcription relue d'un Document ancien (ADR 0010) : son Markdown, quand elle a été relue, et le
+    nombre de pages du Document vers lesquelles ses images pointent. Pas une donnée clinique vérifiée.
+    Avec une relation de soin ; lecture tracée. 404 tant qu'elle n'est pas relue."""
+    try:
+        lue = await dossier.transcription_du_document(fhir, soignant, document_id)
+    except ERREURS as erreur:
+        raise _http(erreur) from erreur
+    return modeles.TranscriptionDuDocument(markdown=lue.markdown, relue_le=lue.relue_le, pages=lue.pages)
 
 
 @routes.post(

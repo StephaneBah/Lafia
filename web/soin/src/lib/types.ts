@@ -90,7 +90,14 @@ export type DocumentDuDossier = {
   formats: string[];
   origine: Origine | null;
   depose_le: string | null;
+  /** La note de l'agent quand le papier, abîmé en lui-même, a passé outre la capture (F6.5). */
+  papier_abime?: string | null;
+  /** Le Document a une Transcription relue (ADR 0010). */
+  transcription?: boolean;
 };
+
+/** La Transcription relue d'un Document (`GET /api/soin/documents/{id}/transcription`). */
+export type TranscriptionDuDocument = { markdown: string; relue_le: string | null; pages: number };
 
 /**
  * Le bandeau patient (`GET /api/soin/patients/{id}`). Sans relation de soin, le service omet
