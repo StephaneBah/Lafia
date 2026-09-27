@@ -476,9 +476,12 @@ def test_l_application_citoyen_liste_ses_citoyens_de_demonstration_sans_ceux_res
     reponse = application("citoyen").get("/api/identite/comptes-de-demonstration")
 
     assert reponse.status_code == 200
-    assert reponse.json() == [
-        {"npi": c.npi, "code": c.code, "role": "citoyen"} for c in citoyens if not c.reserve_aux_tests
-    ]
+    # Un citoyen dont un soignant a remplacé le code pendant une démonstration n'est plus listé (ADR 0005) :
+    # la liste est tirée du jeu, jamais d'un NPI réservé, et chacun s'y connecte (test précédent).
+    publics = [{"npi": c.npi, "code": c.code, "role": "citoyen"} for c in citoyens if not c.reserve_aux_tests]
+    listes = reponse.json()
+    assert listes
+    assert all(citoyen in publics for citoyen in listes)
 
 
 def _cle_privee_neuve() -> str:
