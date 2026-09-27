@@ -109,3 +109,4 @@ Each row is a feature, not a ticket, worked in dependency order. One session gri
 | F1 | Socle: Compose, noyau, gateway and subdomains, `commun/`, web workspace, Azure deploy | none | 1 |
 | F2 | Identité (agents, officines, code carnet) and synthetic dataset with tarifs | F1 | 1 |
 | F3 | v1 complète: soin with relation de soin and accès d'urgence, caisse, pharmacie, citoyen carnet, audit (`docs/specs/F3-v1-complete.md`) | F0, F2 | 2 |
+| F4 | Dossier approfondi (antécédents, traitements au long cours, groupe sanguin), espace patient in soin, carnet aéré (`docs/specs/F4-dossier-approfondi.md`) | F3 | 2 |
