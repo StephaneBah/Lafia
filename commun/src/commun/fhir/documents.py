@@ -14,7 +14,7 @@ from commun.fhir import systemes
 from commun.fhir.client import ClientFhir, Ressource
 from commun.fhir.dossier import id_de, maintenant, reference
 
-Origine = Literal["visite", "numerisation", "declaration", "report"]
+Origine = Literal["visite", "numerisation", "declaration", "report", "extraction"]
 
 TYPES_DE_DOCUMENT = {
     "carnet": "Carnet de santé",

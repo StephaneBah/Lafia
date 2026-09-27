@@ -102,3 +102,16 @@ DEPOT = f"{LAFIA}/identifiant/depot"
 
 LISIBILITE = f"{LAFIA}/StructureDefinition/lisibilite"
 """Extension d'un DocumentReference : lisible ou partiel."""
+
+# F6 : la Relecture et l'Extraction (docs/specs/F6-relecture-et-extraction.md, ADR 0009).
+RELECTURE = f"{LAFIA}/CodeSystem/relecture"
+"""L'étape d'une Tâche de relecture (`Task.code`) : `triage`, puis `validation`."""
+
+VERDICT_DE_TRIAGE = f"{LAFIA}/CodeSystem/verdict-de-triage"
+"""utilisable, illisible, non-medical, mauvais-type, doublon."""
+
+SEMAINE_DE_RELECTURE = f"{LAFIA}/identifiant/semaine-de-relecture"
+"""La semaine d'une Tâche (`meta.tag`) : `2026-W39`."""
+
+MODELE_DE_LECTURE = f"{LAFIA}/identifiant/modele-de-lecture"
+"""Un modèle d'Extraction, en Device : `demonstration:0`."""
