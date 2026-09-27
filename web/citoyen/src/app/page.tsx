@@ -92,6 +92,12 @@ function CarnetDuCitoyen({ carnet }: { carnet: Accueil }) {
           detail={ordonnance ? `${ordonnance.numero} · ${quand(ordonnance.date, false)}` : "Aucune ordonnance"}
         />
         <Tuile
+          href="/ma-sante"
+          marque={<Icon name="shield-check" size={36} />}
+          titre="Ma santé"
+          detail="Groupe sanguin, allergies, maladies, médicaments de tous les jours"
+        />
+        <Tuile
           href="/acces"
           marque={<Picto name="consultation" size={44} decorative />}
           titre="Qui a ouvert mon dossier"

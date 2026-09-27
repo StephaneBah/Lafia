@@ -56,7 +56,7 @@ export default async function UnCas({ params }: { params: Promise<{ id: string }
                 </ul>
               )}
               {visite.diagnostics.map((diagnostic) => (
-                <span key={diagnostic}>{diagnostic}</span>
+                <span key={diagnostic} className="carnet-diagnostic">{diagnostic}</span>
               ))}
               {visite.ordonnance && (
                 <a href="/ordonnance">{`Ordonnance ${visite.ordonnance}`}</a>

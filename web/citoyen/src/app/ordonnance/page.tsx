@@ -10,7 +10,7 @@ function quantite(ligne: LigneLue): string | null {
   if (ligne.quantite == null) return null;
   const tout = doses(ligne.quantite, ligne.unite);
   if (ligne.arret_allergie) return `${tout} prescrits, pas remis.`;
-  if (ligne.statut === "partiel") return `${doses(ligne.remis, ligne.unite)} remis sur ${ligne.quantite}.`;
+  if (ligne.statut === "partiel") return `${doses(ligne.remis, ligne.unite)} remis sur ${String(ligne.quantite).replace(".", ",")}.`;
   if (ligne.statut === "aretirer") return `${tout} à retirer à la pharmacie.`;
   return `${tout} en tout.`;
 }
@@ -19,27 +19,27 @@ function quantite(ligne: LigneLue): string | null {
 function Medicament({ ligne }: { ligne: LigneLue }) {
   const medicament = ligne.moments.length > 0 || ligne.jours != null;
   return (
-    <li className="carnet-med">
-      <span className="carnet-med-picto" aria-hidden="true">
-        {medicament ? <Picto name="comprime" size={56} decorative /> : <Picto name="consultation" size={56} decorative />}
-      </span>
-      <div className="carnet-med-corps">
+    <li className={ligne.arret_allergie ? "carnet-med is-arretee" : "carnet-med"}>
+      <div className="carnet-med-tete">
+        <span className="carnet-med-picto" aria-hidden="true">
+          <Picto name={medicament ? "comprime" : "consultation"} size={56} decorative />
+        </span>
         <p className="carnet-med-nom">{ligne.produit}</p>
-        {ligne.arret_allergie ? (
-          <StatusBadge status="allergie" label="Pas remis : allergie" />
-        ) : (
-          <StatusBadge status={ligne.statut} />
-        )}
-        {ligne.moments.length > 0 && <Posology moments={ligne.moments} size={44} />}
-        {medicament && (
-          <p className="carnet-med-prise">
-            {doses(ligne.par_prise, ligne.unite)}
-            {ligne.moments.length > 1 ? " à chaque prise" : ""}
-            {ligne.jours ? `, pendant ${ligne.jours} ${ligne.jours > 1 ? "jours" : "jour"}` : ""}
-          </p>
-        )}
-        {quantite(ligne) && <p className="carnet-doux">{quantite(ligne)}</p>}
       </div>
+      {ligne.arret_allergie ? (
+        <StatusBadge status="allergie" label="Pas remis : allergie" />
+      ) : (
+        <StatusBadge status={ligne.statut} />
+      )}
+      {ligne.moments.length > 0 && <Posology moments={ligne.moments} size={44} />}
+      {medicament && (
+        <p className="carnet-med-prise">
+          {doses(ligne.par_prise, ligne.unite)}
+          {ligne.moments.length > 1 ? " à chaque prise" : ""}
+          {ligne.jours ? `, pendant ${ligne.jours} ${ligne.jours > 1 ? "jours" : "jour"}` : ""}
+        </p>
+      )}
+      {quantite(ligne) && <p className="carnet-doux">{quantite(ligne)}</p>}
     </li>
   );
 }

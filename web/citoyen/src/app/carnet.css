@@ -28,13 +28,48 @@
 .carnet-tuile .carnet-aller { margin-left: auto; color: var(--color-action); transform: scaleX(-1); flex: none; }
 .carnet-tuile-marque { flex: none; display: grid; place-items: center; width: 48px; }
 
-/* Ordonnance */
-.carnet-ord-tete { display: grid; gap: 4px; padding: var(--space-4); background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
-.carnet-ord-tete .lf-badge { justify-self: start; }
-.carnet-ord-numero { font: 700 26px/32px var(--font-mono); letter-spacing: .06em; }
-.carnet-lignes { border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card); background: var(--color-surface); }
-.carnet-lignes .lf-line--citoyen { padding: var(--space-4); }
-.carnet-autres { display: grid; gap: var(--space-2); }
+/* Ordonnance : une carte pour l'ordonnance en cours, une rangée aérée par médicament. Les anciennes,
+   fermées, sous « Anciennes ordonnances ». Aucune rangée ne descend sous 16 px de marge intérieure. */
+.carnet-ord { display: grid; gap: var(--space-5); padding: var(--space-4); background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.carnet-ord-tete { display: grid; gap: var(--space-2); }
+.carnet-ord-quand { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: 18px; line-height: 26px; }
+.carnet-ord-quand:first-child { font-weight: 700; }
+.carnet-ord-quand .lf-icon, .carnet-ord-quand svg { flex: none; }
+.carnet-ord-numero { font: 700 20px/28px var(--font-mono); letter-spacing: .06em; color: var(--color-text-muted); }
+.carnet-ord-etat { display: grid; gap: var(--space-3); justify-items: start; padding-top: var(--space-4); border-top: 1px solid var(--color-border); }
+.carnet-meds { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+.carnet-med { display: grid; gap: var(--space-3); justify-items: start; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
+.carnet-med > * { min-width: 0; max-width: 100%; }
+.carnet-med.is-arretee { box-shadow: inset 0 0 0 2px var(--status-danger-fg); }
+.carnet-med-tete { display: flex; align-items: center; gap: var(--space-3); }
+.carnet-med-picto { flex: none; display: grid; place-items: center; width: 56px; height: 56px; }
+.carnet-med-nom { margin: 0; font-weight: 800; font-size: 22px; line-height: 28px; overflow-wrap: anywhere; }
+.carnet-med-prise { margin: 0; font-weight: 700; font-size: 18px; line-height: 26px; }
+.carnet-anciennes { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+.carnet-ancienne { background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.carnet-ancienne > summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); cursor: pointer; list-style: none; border-radius: var(--radius-lg); }
+.carnet-ancienne > summary::-webkit-details-marker { display: none; }
+.carnet-ancienne > summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.carnet-ancienne-titre { flex: 1 1 160px; display: grid; font-weight: 700; font-size: 18px; line-height: 24px; }
+.carnet-ancienne-titre small { font-weight: 400; font-size: 16px; line-height: 22px; color: var(--color-text-muted); }
+.carnet-ancienne-fleche { flex: none; transition: transform var(--motion-standard, 200ms) var(--ease-standard, ease); }
+.carnet-ancienne[open] .carnet-ancienne-fleche { transform: rotate(180deg); }
+.carnet-ancienne-corps { display: grid; gap: var(--space-4); padding: 0 var(--space-4) var(--space-4); }
+@media (min-width: 480px) { .carnet-ord { padding: var(--space-5); } .carnet-med { padding: var(--space-4) var(--space-5); } }
+
+/* Ma santé */
+.carnet-groupe { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4) var(--space-5); background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); font-size: 18px; line-height: 24px; }
+.carnet-groupe > span { display: grid; gap: var(--space-1); }
+.carnet-groupe b { font-weight: 800; font-size: 32px; line-height: 38px; }
+.carnet-rubrique { display: grid; gap: var(--space-3); padding: var(--space-4); background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.carnet-rubrique-titre { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-weight: 800; font-size: 22px; line-height: 28px; }
+.carnet-rubrique-liste { display: grid; margin: 0; padding: 0; list-style: none; }
+.carnet-element { display: grid; gap: var(--space-2); justify-items: start; padding-block: var(--space-4); border-top: 1px solid var(--color-border); font-size: 18px; line-height: 26px; }
+.carnet-element:first-child { border-top: 0; padding-top: var(--space-2); }
+.carnet-element:last-child { padding-bottom: 0; }
+.carnet-element-nom { font-weight: 700; font-size: 20px; line-height: 26px; overflow-wrap: anywhere; }
+.carnet-element-etat { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 700; }
+@media (min-width: 480px) { .carnet-rubrique { padding: var(--space-5); } }
 
 /* Traitement */
 .carnet-soleil { position: relative; height: 56px; border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-card); overflow: hidden; }
@@ -56,10 +91,14 @@
 
 /* Cas */
 .carnet-cas-tete { display: grid; gap: var(--space-2); justify-items: start; }
-.carnet-mesures { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; padding: 0; list-style: none; }
-.carnet-mesures li { padding: 4px 10px; border-radius: 999px; background: var(--color-surface-soft, #f1f3f9); font-size: 16px; }
+.carnet-mesures { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+.carnet-mesures li { padding: 6px 14px; border-radius: var(--radius-pill); background: var(--color-surface-soft, #f1f3f9); font-size: 17px; line-height: 24px; }
 .carnet-mesures li.is-alerte { font-weight: 700; box-shadow: inset 0 0 0 2px var(--status-danger-fg); }
-.carnet-visite-texte { display: grid; gap: 4px; font-size: 17px; line-height: 24px; }
+.carnet-visite-texte { display: grid; gap: var(--space-3); margin-top: var(--space-2); font-size: 18px; line-height: 26px; }
+.carnet-visite-texte a { display: inline-flex; align-items: center; min-height: 48px; font-weight: 700; color: var(--color-link); }
+.carnet-diagnostic { font-weight: 700; }
+.carnet-cas-tete { margin-bottom: var(--space-2); }
+.carnet-tuile .lf-badge { margin-top: var(--space-2); }
 
 /* Qui a ouvert mon dossier */
 .carnet-journal { display: grid; gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
