@@ -225,10 +225,18 @@ async def codes_carnet(
 @routes.get("/comptes-de-demonstration")
 async def comptes_de_demonstration(
     application: Application = Depends(application_de_la_requete),
+    guichet: Guichet = Depends(guichet_ouvert),
 ) -> list[CompteDeDemonstration | CitoyenDeDemonstration]:
     """Les comptes de démonstration des rôles que l'application connecte, et leurs mots de passe,
     publics : tout le jeu est synthétique. Jamais ceux réservés aux tests."""
-    return demonstration.comptes_de_demonstration(application)
+    # Un citoyen dont un soignant a remplacé le code n'est plus listé : son code public ne l'ouvre plus.
+    comptes = demonstration.comptes_de_demonstration(application)
+    return [
+        compte
+        for compte in comptes
+        if not isinstance(compte, demonstration.CitoyenDeDemonstration)
+        or await guichet.code_encore_valide(compte.npi, compte.code)
+    ]
 
 
 app = creer_service(SERVICE, routes, parle_fhir=False, cycle_de_vie=cycle_de_vie)

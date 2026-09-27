@@ -9,7 +9,6 @@ import pytest
 from conftest import jeton_pose
 
 CARNET_VECU = "0000001204815"
-CARNET_A_PAYER = "0000001763547"
 CAS_EN_COURS = "hist-a-cas-ira"
 
 
@@ -63,12 +62,19 @@ def test_chaque_lecture_du_carnet_laisse_un_acces_au_nom_du_patient(application,
 
 
 def test_un_citoyen_ne_lit_pas_le_cas_d_un_autre_et_un_agent_n_ouvre_aucun_carnet(
-    application, jeton_du_citoyen, jeton_de
+    application, jeton_de, jeu, connecter_citoyen
 ):
     client = application("citoyen")
+    # Un autre citoyen : un patient réservé aux tests, à qui un médecin émet un code. Les codes publics du
+    # jeu, eux, peuvent avoir été remplacés par un soignant pendant une démonstration.
+    autre = [p["npi"] for p in jeu("patients")["patient"] if p.get("reserve_aux_tests")][-1]
+    code = application("soin").post(
+        "/api/identite/codes-carnet", json={"npi": autre}, headers={"Authorization": f"Bearer {jeton_de('médecin')}"}
+    ).json()["code"]
 
     cas_d_un_autre = client.get(
-        f"/api/citoyen/cas/{CAS_EN_COURS}", headers={"Authorization": f"Bearer {jeton_du_citoyen(CARNET_A_PAYER)}"}
+        f"/api/citoyen/cas/{CAS_EN_COURS}",
+        headers={"Authorization": f"Bearer {jeton_pose(connecter_citoyen(autre, code))}"},
     )
     agent = client.get("/api/citoyen/carnet", headers={"Authorization": f"Bearer {jeton_de('médecin')}"})
 
