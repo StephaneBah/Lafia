@@ -2,7 +2,7 @@
   "name": "@lafia/numerisation",
   "version": "0.1.0",
   "private": true,
-  "description": "Application numerisation : le guichet des agents de numérisation, apparié au service numerisation.",
+  "description": "Application numérisation : le bureau des agents de numérisation, apparié au service numerisation.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
