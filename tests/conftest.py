@@ -72,6 +72,7 @@ APPLICATION_DU_ROLE = {
     "pharmacien": "pharmacie",
     "officine": "pharmacie",
     "citoyen": "citoyen",
+    "agent de numérisation": "numerisation",
 }
 
 

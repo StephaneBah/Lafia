@@ -1,8 +1,8 @@
-# Agents du jeu de démonstration : soignants, caissiers et pharmaciens. Personnes synthétiques.
+# Agents du jeu de démonstration : soignants, caissiers, pharmaciens et agents de numérisation. Personnes synthétiques.
 #
 # id      identifiant fixe du Practitioner dans le noyau ; c'est aussi le `sub` des jetons de l'agent.
 #         Il ne dit rien de la personne : les journaux le citent.
-# role    médecin, infirmier, caissier ou pharmacien.
+# role    médecin, infirmier, caissier, pharmacien ou agent de numérisation.
 # compte  un compte par établissement où l'agent travaille : un jeton ne porte qu'un établissement.
 #         Identifiants et mots de passe publics, listés sur la page de connexion de chaque application.
 #         `reserve_aux_tests` : compte que la suite verrouille exprès ; jamais listé.
@@ -173,6 +173,22 @@ nom = "HOUNNOU"
 prenoms = ["Prisca"]
 role = "pharmacien"
 compte = [{ identifiant = "pharmacien.kpanroun", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" }]
+
+# Agents de numérisation : un guichet de la Reprise au CNHU, un autre au centre de santé de Kpanroun.
+
+[[agent]]
+id = "agent-23"
+nom = "AGBODJAN"
+prenoms = ["Rosine"]
+role = "agent de numérisation"
+compte = [{ identifiant = "numerisation.cnhu", mot_de_passe = "lafia-demo", etablissement = "cnhu-hkm" }]
+
+[[agent]]
+id = "agent-24"
+nom = "ZINSOU"
+prenoms = ["Hervé", "Dossou"]
+role = "agent de numérisation"
+compte = [{ identifiant = "numerisation.kpanroun", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" }]
 
 # Réservés à la suite de tests, qui les verrouille exprès : jamais listés sur une page de connexion.
 

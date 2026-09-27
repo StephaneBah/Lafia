@@ -33,4 +33,8 @@ export const COMPTES_DU_SITE: Record<Acteur, { comptes: CompteAffiche[]; note: s
     comptes: [agent("pharmacien.cnhu"), agent("officine.zogbo")],
     note: "Pharmacien du CNHU, et une officine de ville : la Pharmacie Baobab de Zogbo.",
   },
+  numerisation: {
+    comptes: [agent("numerisation.cnhu")],
+    note: "Agent de numérisation au guichet de la Reprise du CNHU Hubert Koutoukou Maga, Cotonou.",
+  },
 };

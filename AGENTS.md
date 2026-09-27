@@ -14,11 +14,11 @@ Read `SYSTEM_PROMPT.md` before any grilling, spec, ticket or implementation: it 
 
 ```
 commun/          shared library: service skeleton, FHIR client, token verification, audit
-services/<name>/ identite, soin, caisse, pharmacie, citoyen
+services/<name>/ identite, soin, caisse, pharmacie, citoyen, numerisation
 donnees/         synthetic dataset and its loader
 web/commun/      shared application code: reaching its service through the gateway, status page (workspace package)
 web/design/      design system: tokens, fonts, pictograms, illustrations, components (workspace package)
-web/<acteur>/    one Next.js application per actor: citoyen, soin, caisse, pharmacie
+web/<acteur>/    one Next.js application per actor: citoyen, soin, caisse, pharmacie, numerisation
 web/site/        product site on the domain itself: the vision, a door to each application; calls no service
 tests/           black-box suite against the running stack, through the gateway
 deploiement/     preparing the Azure VM once, deploying main to it

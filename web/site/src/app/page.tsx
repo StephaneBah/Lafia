@@ -109,6 +109,11 @@ const SERVICES: Record<Acteur, { illustration: NomIllustration; pourQui: string;
     pourQui: "Pour les pharmacies et les officines",
     description: "Remettre les lignes payées, voir les allergies avant de remettre.",
   },
+  numerisation: {
+    illustration: "probleme-carnet",
+    pourQui: "Pour les agents de numérisation",
+    description: "Numériser les anciens papiers médicaux d'un citoyen, qui repart avec eux.",
+  },
 };
 
 const DEMAIN: Array<{ illustration: NomIllustration; icone: "video-camera" | "chart-line" | "microphone" | "test-tube"; titre: string; accroche: string; texte: string }> = [

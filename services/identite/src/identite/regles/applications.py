@@ -16,6 +16,7 @@ class Application(StrEnum):
     CAISSE = "caisse"
     PHARMACIE = "pharmacie"
     CITOYEN = "citoyen"
+    NUMERISATION = "numerisation"
 
 
 ROLES_PAR_APPLICATION: dict[Application, frozenset[Role]] = {
@@ -23,6 +24,7 @@ ROLES_PAR_APPLICATION: dict[Application, frozenset[Role]] = {
     Application.CAISSE: frozenset({Role.CAISSIER}),
     Application.PHARMACIE: frozenset({Role.PHARMACIEN, Role.OFFICINE}),
     Application.CITOYEN: frozenset({Role.CITOYEN}),
+    Application.NUMERISATION: frozenset({Role.AGENT_DE_NUMERISATION}),
 }
 
 

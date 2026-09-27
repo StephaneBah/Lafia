@@ -34,6 +34,7 @@ Four actors run on the foundation today:
 | **caisse** | caissiers | Open an ordonnance by its numéro, collect payment without re-typing a line |
 | **pharmacie** | pharmaciens, officines | Hand over the paid lines, stop on an allergy, record a partial délivrance |
 | **citoyen** | citoyens | A carnet that reads in pictures, and the journal of who opened the dossier |
+| **numerisation** | agents de numérisation | At a desk, turn a citoyen's paper medical past into Documents of their dossier, after checking an identity document |
 | **identite** | everyone | Sign-in, signed session tokens, the code carnet printed on each reçu |
 
 Tomorrow's services join the same way: one service that speaks FHIR to the noyau, one application, one line in the gateway. No data is copied, no database is added, no existing code changes.
@@ -64,7 +65,7 @@ Requires Docker with Compose v2. From a clean clone:
 docker compose up -d --build --wait
 ```
 
-The first start takes a few minutes while HAPI creates its schema. The product site is then served on `https://localhost`, with a door to each application and its demo accounts, and each application on its own subdomain: `https://soin.localhost`, `https://caisse.localhost`, `https://pharmacie.localhost`, `https://citoyen.localhost`. On soin, caisse and pharmacie, `/connexion` lists the demo accounts with their mots de passe. On each subdomain, `/api/<actor>/sante` reports the state of the service and the noyau, `/api/<actor>/docs` is the service's OpenAPI documentation, and `/api/identite/sante` reaches identite. Any other `/api/*` path answers 404: `caisse.localhost` has no route to soin's service.
+The first start takes a few minutes while HAPI creates its schema. The product site is then served on `https://localhost`, with a door to each application and its demo accounts, and each application on its own subdomain: `https://soin.localhost`, `https://caisse.localhost`, `https://pharmacie.localhost`, `https://citoyen.localhost`, `https://numerisation.localhost`. On soin, caisse, pharmacie and numerisation, `/connexion` lists the demo accounts with their mots de passe. On each subdomain, `/api/<actor>/sante` reports the state of the service and the noyau, `/api/<actor>/docs` is the service's OpenAPI documentation, and `/api/identite/sante` reaches identite. Any other `/api/*` path answers 404: `caisse.localhost` has no route to soin's service.
 
 Locally, the gateway signs `*.localhost` certificates with Caddy's internal authority, so a browser warns until you trust its root, found in the `passerelle` container at `/data/caddy/pki/authorities/local/root.crt`.
 
@@ -76,7 +77,7 @@ docker compose down -v && docker compose up -d --build --wait
 
 ## Deploy
 
-The live stack runs on an Azure VM and serves the product site on `https://lafia.stephanebah.page` and the applications on `https://soin.lafia.stephanebah.page`, `https://caisse.…`, `https://pharmacie.…` and `https://citoyen.…`. A DNS record for the domain and a wildcard for its subdomains point at the VM; its firewall opens 80 and 443, and SSH to the operator only.
+The live stack runs on an Azure VM and serves the product site on `https://lafia.stephanebah.page` and the applications on `https://soin.lafia.stephanebah.page`, `https://caisse.…`, `https://pharmacie.…`, `https://citoyen.…` and `https://numerisation.…`. A DNS record for the domain and a wildcard for its subdomains point at the VM; its firewall opens 80 and 443, and SSH to the operator only.
 
 Each deploy of the current `main`, from your machine:
 
@@ -128,12 +129,12 @@ Caddyfile            gateway: one subdomain per actor, one `import acteur <name>
 docker-compose.yml   the stack: gateway, noyau, dataset loader, services, identite's database, applications
 deploiement/         preparing the VM once, deploying main to it
 commun/              shared library, built into each service image: service skeleton, token contract and verification, FHIR client and translation
-services/<name>/     one FastAPI service per domain: soin, caisse, pharmacie, citoyen, identite
+services/<name>/     one FastAPI service per domain: soin, caisse, pharmacie, citoyen, numerisation, identite
 services/Dockerfile  one image per service, commun included
 donnees/             the synthetic dataset, in Lafia's vocabulary, and the loader that writes it into the noyau; identite reads its accounts from it
 web/commun/          shared application code, built into each application: service and identite through the gateway, sign-in page, token renewal
 web/design/          design system, built into each application
-web/<acteur>/        one Next.js application per actor: soin, caisse, pharmacie, citoyen
+web/<acteur>/        one Next.js application per actor: soin, caisse, pharmacie, citoyen, numerisation
 web/site/            the product site, on the domain itself; calls no service
 tests/               black-box suite through the gateway, one table of actors, network isolation and dataset checks
 docs/                how it works (architecture.md), deploying (deploiement.md), specs, ADRs, design
