@@ -537,6 +537,7 @@ async def ajouter_document(
     lisibilite: str,
     etablissement: str | None,
     pages: list[Page],
+    papier_abime: str | None = None,
 ) -> dict[str, Any]:
     """Un Document que le patient a apporté, numérisé pendant la visite : origine `numerisation`,
     auteur le soignant. Avec une relation de soin. Tracé. `commun.fhir.documents.valider_document` le juge,
@@ -552,6 +553,7 @@ async def ajouter_document(
         pages=pages,
         lisibilite=lisibilite,
         etablissement_d_origine=etablissement,
+        papier_abime=papier_abime,
     )
     await _tracer(fhir, soignant, patient_id, "create", motif, ressource=reference("DocumentReference", ecrit["id"]))
     return {"document_id": ecrit["id"], "pages": len(pages)}

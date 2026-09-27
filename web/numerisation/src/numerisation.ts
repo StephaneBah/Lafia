@@ -20,7 +20,14 @@ export type Agent = {
 /** Ce que l'agent compare avec la pièce présentée : jamais le NPI, qu'il vient de taper. */
 export type Patient = { nom: string; prenoms: string; annee_de_naissance: number | string };
 
-export type DocumentDuDepot = { id: string; type: string; annee: string | number; pages: number };
+export type DocumentDuDepot = {
+  id: string;
+  type: string;
+  annee: string | number;
+  pages: number;
+  /** La note de l'agent quand le papier, abîmé en lui-même, a passé outre le contrôle de la capture. */
+  papier_abime?: string | null;
+};
 
 export type Depot = { patient: Patient; documents: DocumentDuDepot[] };
 

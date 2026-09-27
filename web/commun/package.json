@@ -9,10 +9,12 @@
     "./renouvellement": "./src/renouvellement.ts",
     "./televersement": "./src/televersement.ts",
     "./pages": "./src/pages.ts",
-    "./transcription": "./src/transcription.tsx"
+    "./transcription": "./src/transcription.tsx",
+    "./qualite": "./src/qualite.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test test/qualite.test.ts"
   },
   "dependencies": {
     "@lafia/design": "*"

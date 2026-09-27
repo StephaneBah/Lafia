@@ -69,6 +69,7 @@ export default async function LeDepot({ params, searchParams }: ParametresDuDepo
                     <span>{libelleDuType(document.type)}</span>
                   </p>
                   <p className="num-meta">{`${document.annee} · ${pluriel(document.pages, "page")}`}</p>
+                  {document.papier_abime && <p className="num-meta">{`Papier abîmé : ${document.papier_abime}`}</p>}
                 </div>
               </li>
             ))}

@@ -55,6 +55,8 @@ SIGNATURES = {
 OCTETS_PAR_PAGE = 3 * 1024 * 1024
 PAGES_PAR_DOCUMENT = 20
 PREMIERE_ANNEE = 1900
+# F6.5 : la note d'un papier abîmé en lui-même, seule manière de garder une page que la capture refuse.
+NOTE_DE_PAPIER_ABIME_MAX = 300
 
 
 def etiquette_d_origine(origine: Origine | Literal["reprise"]) -> dict[str, str]:
@@ -102,13 +104,18 @@ def format_reconnu(octets: bytes) -> str | None:
     return next((format_ for format_, signature in SIGNATURES.items() if octets.startswith(signature)), None)
 
 
-def valider_document(*, type_: str, annee: str, lisibilite: str, pages: list[Page]) -> None:
+def valider_document(
+    *, type_: str, annee: str, lisibilite: str, pages: list[Page], papier_abime: str | None = None
+) -> None:
     """La seule validation d'un Document téléversé, par numerisation comme par soin (ADR 0008).
 
     `DocumentTropLourd` (413) au-delà de 20 pages ou d'une page de 3 Mo ; `DocumentRefuse` (422) pour
     un type ou une lisibilité inconnus, une année qui n'est pas passée sur quatre chiffres, aucune page,
-    ou une page dont le contenu n'est ni JPEG, ni PNG, ni PDF, ou n'est pas le format qu'elle déclare.
+    une page dont le contenu n'est ni JPEG, ni PNG, ni PDF, ou n'est pas le format qu'elle déclare, ou une
+    note de papier abîmé de plus de 300 caractères.
     """
+    if papier_abime is not None and len(papier_abime) > NOTE_DE_PAPIER_ABIME_MAX:
+        raise DocumentRefuse(f"la note de papier abîmé tient en {NOTE_DE_PAPIER_ABIME_MAX} caractères")
     if type_ not in TYPES_DE_DOCUMENT or lisibilite not in LISIBILITES:
         raise DocumentRefuse("type ou lisibilité inconnus")
     if not (len(annee) == 4 and annee.isascii() and annee.isdigit() and PREMIERE_ANNEE <= int(annee) <= date.today().year):
@@ -144,8 +151,10 @@ def document_reference(
     lisibilite: str,
     etablissement_d_origine: str | None,
     depot: str | None,
+    papier_abime: str | None = None,
 ) -> Ressource:
-    """Un Document numérisé : `pages` sont les (identifiant du Binary, page) déjà écrits, dans l'ordre."""
+    """Un Document numérisé : `pages` sont les (identifiant du Binary, page) déjà écrits, dans l'ordre.
+    `papier_abime` : la note de l'agent quand le papier, abîmé en lui-même, a passé outre la capture."""
     ressource: Ressource = {
         "resourceType": "DocumentReference",
         "status": "current",
@@ -176,6 +185,8 @@ def document_reference(
     }
     if etablissement_d_origine:
         ressource["description"] = etablissement_d_origine
+    if papier_abime:
+        ressource["extension"].append({"url": systemes.PAPIER_ABIME, "valueString": papier_abime})
     avec_origine(ressource, "numerisation")
     if depot:
         ressource["meta"]["tag"].append(etiquette_de_depot(depot))
@@ -193,10 +204,12 @@ async def ecrire_document(
     lisibilite: str,
     etablissement_d_origine: str | None = None,
     depot: str | None = None,
+    papier_abime: str | None = None,
 ) -> Ressource:
     """Valide le Document (`valider_document`), écrit ses pages puis le Document qui les liste ; rend le
-    DocumentReference écrit. Rien n'est écrit d'un Document refusé."""
-    valider_document(type_=type_, annee=annee, lisibilite=lisibilite, pages=pages)
+    DocumentReference écrit. Rien n'est écrit d'un Document refusé. `papier_abime`, vide ou blanc, ne s'écrit pas."""
+    papier_abime = (papier_abime or "").strip() or None
+    valider_document(type_=type_, annee=annee, lisibilite=lisibilite, pages=pages, papier_abime=papier_abime)
     ecrites = [(await fhir.creer(binary(page, patient)))["id"] for page in pages]
     return await fhir.creer(
         document_reference(
@@ -208,6 +221,7 @@ async def ecrire_document(
             lisibilite=lisibilite,
             etablissement_d_origine=etablissement_d_origine,
             depot=depot,
+            papier_abime=papier_abime,
         )
     )
 
@@ -229,6 +243,8 @@ class DocumentVu(BaseModel):
     """Le format de chaque page, dans l'ordre : une image se montre, un PDF s'ouvre."""
     origine: str | None
     depose_le: str | None
+    papier_abime: str | None = None
+    """La note de l'agent quand le papier, abîmé en lui-même, a passé outre un contrôle de la capture."""
 
 
 def formats_des_pages(ressource: Ressource) -> list[str]:
@@ -238,9 +254,9 @@ def formats_des_pages(ressource: Ressource) -> list[str]:
 
 def document_vu(ressource: Ressource) -> DocumentVu:
     codage = next(iter(ressource.get("type", {}).get("coding", [])), {})
-    lisibilite = next(
-        (e.get("valueCode") for e in ressource.get("extension", []) if e.get("url") == systemes.LISIBILITE), None
-    )
+    extensions = ressource.get("extension", [])
+    lisibilite = next((e.get("valueCode") for e in extensions if e.get("url") == systemes.LISIBILITE), None)
+    papier_abime = next((e.get("valueString") for e in extensions if e.get("url") == systemes.PAPIER_ABIME), None)
     return DocumentVu(
         id=ressource["id"],
         type=codage.get("code", "autre"),
@@ -252,6 +268,7 @@ def document_vu(ressource: Ressource) -> DocumentVu:
         formats=formats_des_pages(ressource),
         origine=origine_de(ressource),
         depose_le=ressource.get("date"),
+        papier_abime=papier_abime,
     )
 
 

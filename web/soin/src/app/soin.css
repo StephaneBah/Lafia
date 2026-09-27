@@ -126,6 +126,13 @@
 .sn-pages { display: flex; flex-wrap: wrap; gap: 8px; }
 .sn-page-apercu { display: grid; gap: 4px; justify-items: start; padding: 8px; border: 1px solid var(--color-border); border-radius: 8px; list-style: none; }
 .sn-page-apercu img { display: block; max-width: 96px; height: auto; background: #fff; }
+.sn-page-apercu--refusee { border: 2px solid var(--status-danger-fg); background: var(--status-danger-bg); }
+.sn-page-problemes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-width: 220px; color: var(--status-danger-fg); font-size: 14px; line-height: 18px; font-weight: 700; }
+.sn-page-problemes li { display: flex; gap: 4px; align-items: flex-start; }
+.sn-page-problemes svg { flex: none; margin-top: 1px; }
+.sn-abime { display: grid; gap: 8px; justify-items: start; margin-block: 8px; }
+.sn-abime .lf-field { width: 100%; }
+.sn-note { min-height: 88px; padding: 8px 12px; resize: vertical; }
 .sn-page { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border: 1px solid var(--color-border-control); border-radius: var(--radius-pill); color: var(--color-text); font-weight: 700; text-decoration: none; }
 .sn-page[aria-current="page"] { background: var(--color-action); border-color: var(--color-action); color: var(--color-on-action); }
 .sn-page:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }

@@ -10,7 +10,14 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 
 from commun.fhir.client import ClientFhir
-from commun.fhir.documents import DocumentRefuse, DocumentTropLourd, DocumentVu, Lisibilite, TypeDeDocument
+from commun.fhir.documents import (
+    NOTE_DE_PAPIER_ABIME_MAX,
+    DocumentRefuse,
+    DocumentTropLourd,
+    DocumentVu,
+    Lisibilite,
+    TypeDeDocument,
+)
 from commun.jeton import Agent, VerificateurDeJetons
 from commun.service import client_fhir, creer_service
 from commun.televersement import pages_televersees
@@ -291,7 +298,7 @@ async def page_du_document(
     responses={
         **SAISIE,
         413: {"description": "Plus de 20 pages, ou une page de plus de 3 Mo."},
-        422: {"description": "Type, année (quatre chiffres, passée) ou lisibilité refusés, ou page ni JPEG, ni PNG, ni PDF, ou autre que son format déclaré."},
+        422: {"description": "Type, année (quatre chiffres, passée) ou lisibilité refusés, ou page ni JPEG, ni PNG, ni PDF, ou autre que son format déclaré, ou note de papier abîmé de plus de 300 caractères."},
     },
 )
 async def ajouter_document(
@@ -301,11 +308,13 @@ async def ajouter_document(
     lisibilite: Annotated[Lisibilite, Form()],
     pages: Annotated[list[UploadFile], File()],
     etablissement: Annotated[str | None, Form(max_length=200)] = None,
+    papier_abime: Annotated[str | None, Form(max_length=NOTE_DE_PAPIER_ABIME_MAX)] = None,
     soignant: Agent = Depends(soignant_connecte),
     fhir: ClientFhir = Depends(client_fhir),
 ) -> dict[str, Any]:
     """Un Document que le patient a apporté, numérisé pendant la visite : origine `numerisation`, auteur
-    le soignant, avec une relation de soin. Multipart : `type`, `annee`, `etablissement?`, `lisibilite`, `pages`."""
+    le soignant, avec une relation de soin. Multipart : `type`, `annee`, `etablissement?`, `lisibilite`, `pages`,
+    `papier_abime?` (la note du soignant quand le papier, abîmé en lui-même, a passé outre la capture)."""
     try:
         return await dossier.ajouter_document(
             fhir,
@@ -316,6 +325,7 @@ async def ajouter_document(
             lisibilite=lisibilite,
             etablissement=(etablissement or "").strip() or None,
             pages=await pages_televersees(pages),
+            papier_abime=papier_abime,
         )
     except ERREURS as erreur:
         raise _http(erreur) from erreur

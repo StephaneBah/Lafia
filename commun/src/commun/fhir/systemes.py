@@ -103,6 +103,10 @@ DEPOT = f"{LAFIA}/identifiant/depot"
 LISIBILITE = f"{LAFIA}/StructureDefinition/lisibilite"
 """Extension d'un DocumentReference : lisible ou partiel."""
 
+PAPIER_ABIME = f"{LAFIA}/StructureDefinition/papier-abime"
+"""Extension d'un DocumentReference (valueString) : la note de l'agent quand un papier abîmé en lui-même
+a passé outre un contrôle de la capture (F6.5)."""
+
 # F6 : la Relecture et l'Extraction (docs/specs/F6-relecture-et-extraction.md, ADR 0009).
 RELECTURE = f"{LAFIA}/CodeSystem/relecture"
 """L'étape d'une Tâche de relecture (`Task.code`) : `triage`, puis `validation`."""

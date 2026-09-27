@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from pydantic import BaseModel
 
 from commun.fhir.client import ClientFhir
-from commun.fhir.documents import Lisibilite, PieceDIdentite, TypeDeDocument
+from commun.fhir.documents import NOTE_DE_PAPIER_ABIME_MAX, Lisibilite, PieceDIdentite, TypeDeDocument
 from commun.jeton import Agent, VerificateurDeJetons
 from commun.service import client_fhir, creer_service
 from commun.televersement import pages_televersees
@@ -94,7 +94,7 @@ async def ouvrir(
     responses={
         **REFUS_DU_DEPOT,
         413: {"description": "Plus de 20 pages, ou une page de plus de 3 Mo."},
-        422: {"description": "Type, année, lisibilité ou format de page refusés (JPEG, PNG ou PDF)."},
+        422: {"description": "Type, année, lisibilité ou format de page refusés (JPEG, PNG ou PDF), ou note de papier abîmé de plus de 300 caractères."},
     },
 )
 async def ajouter_document(
@@ -103,12 +103,18 @@ async def ajouter_document(
     annee: str = Form(description="L'année du papier : 2019."),
     lisibilite: Lisibilite = Form(description="lisible ou partiel"),
     etablissement: str | None = Form(None, description="L'établissement d'origine, tel qu'écrit sur le papier."),
+    papier_abime: str | None = Form(
+        None,
+        max_length=NOTE_DE_PAPIER_ABIME_MAX,
+        description="Le papier est abîmé en lui-même : pourquoi une page a passé outre le contrôle de la capture.",
+    ),
     pages: list[UploadFile] = File(default=[], description="Les pages, dans l'ordre."),
     pages_en_tableau: list[UploadFile] = File(default=[], alias="pages[]", description="Les pages, sous le nom pages[]."),
     agent: Agent = Depends(agent_connecte),
     fhir: ClientFhir = Depends(client_fhir),
 ) -> DocumentAjoute:
-    """Numérise un Document dans le Dépôt : ses pages, son type, son année, son établissement d'origine, sa lisibilité."""
+    """Numérise un Document dans le Dépôt : ses pages, son type, son année, son établissement d'origine, sa lisibilité,
+    et la note de l'agent quand le papier, abîmé en lui-même, a passé outre le contrôle de la capture."""
     try:
         return await regles.ajouter_document(
             fhir,
@@ -119,6 +125,7 @@ async def ajouter_document(
             etablissement_d_origine=etablissement,
             lisibilite=lisibilite,
             pages=await pages_televersees([*pages, *pages_en_tableau]),
+            papier_abime=papier_abime,
         )
     except ERREURS_DU_DEPOT as erreur:
         raise _refus_du_depot(erreur) from erreur

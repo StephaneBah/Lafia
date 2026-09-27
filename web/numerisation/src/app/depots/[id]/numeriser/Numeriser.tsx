@@ -2,26 +2,35 @@
 
 // Étape 3 : un papier devient un Document. Son type, son année, l'établissement d'où il vient, sa
 // lisibilité, puis ses pages, photographiées une à une ou choisies en fichiers, compressées ici avant
-// l'envoi. L'envoi va droit au service numerisation, par la passerelle du même domaine : le cookie de
+// l'envoi. Chaque image est jugée avant d'être gardée (@lafia/commun/qualite, F6.5) : netteté,
+// lumière, contraste, reflet, cadrage, résolution. Une page qui échoue se reprend ; seul un papier
+// abîmé en lui-même la fait garder, sur une note de l'agent envoyée avec le Document. Avant
+// d'enregistrer, l'agent dit combien de pages compte le papier, et remet les pages dans son ordre. L'envoi va droit au service numerisation, par la passerelle du même domaine : le cookie de
 // session l'accompagne, et le NPI n'y figure pas, le dépôt sait de qui il s'agit.
 import { Alert, Button, Icon, TextInput } from "@lafia/design";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
+import { luminositeDuFlux, verifierFichier, verifierImage, type Probleme } from "@lafia/commun/qualite";
 import { compresser, enKo, PageRefusee, PAGES_MAX, preparerFichier, TYPES_ACCEPTES } from "@lafia/commun/televersement";
 import { adresseDuDepot, LISIBILITES, TYPES_DE_DOCUMENT } from "../../../../libelles";
 
-type Page = { cle: string; blob: Blob; pdf: boolean; apercu: string | null };
-type Champ = "type" | "annee" | "lisibilite" | "pages";
+type Page = { cle: string; blob: Blob; pdf: boolean; apercu: string | null; problemes: Probleme[] };
+type Prise = { blob: Blob; problemes: Probleme[] };
+type Champ = "type" | "annee" | "lisibilite" | "pages" | "abime" | "nombre" | "ecart";
+
+const ORDRE_DES_CHAMPS: Champ[] = ["type", "annee", "lisibilite", "pages", "abime", "nombre", "ecart"];
+const NOTE_MAX = 300;
+const INTERVALLE_DE_VISEE_MS = 700;
 type Camera = "fermee" | "ouverture" | "ouverte";
 
 const DELAI_D_ENVOI_MS = 60_000;
 
 let compteur = 0;
-function nouvellePage(blob: Blob): Page {
+function nouvellePage({ blob, problemes }: Prise): Page {
   const pdf = blob.type === "application/pdf";
   compteur += 1;
-  return { cle: `page-${compteur}`, blob, pdf, apercu: pdf ? null : URL.createObjectURL(blob) };
+  return { cle: `page-${compteur}`, blob, pdf, apercu: pdf ? null : URL.createObjectURL(blob), problemes };
 }
 
 function liberer(page: Page) {
@@ -46,7 +55,14 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
   const [envoi, setEnvoi] = useState(false);
   const [echec, setEchec] = useState<{ titre: string; texte: ReactNode; ton: "attention" | "danger" } | null>(null);
 
+  const [abime, setAbime] = useState(false);
+  const [note, setNote] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [ecart, setEcart] = useState("");
+  const [annonce, setAnnonce] = useState("");
+
   const [camera, setCamera] = useState<Camera>("fermee");
+  const [visee, setVisee] = useState<Probleme | null>(null);
   const [remplacee, setRemplacee] = useState<number | null>(null);
   const video = useRef<HTMLVideoElement>(null);
   const flux = useRef<MediaStream | null>(null);
@@ -67,17 +83,32 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
     if (camera !== "ouverte" || !video.current || !flux.current) return;
     video.current.srcObject = flux.current;
     video.current.play().catch(() => undefined);
+    // Pendant la visée : trop sombre se voit avant de photographier.
+    const minuterie = window.setInterval(() => {
+      const constat = video.current ? luminositeDuFlux(video.current) : null;
+      setVisee((avant) => (avant?.code === constat?.code ? avant : constat));
+    }, INTERVALLE_DE_VISEE_MS);
+    return () => {
+      window.clearInterval(minuterie);
+      setVisee(null);
+    };
   }, [camera]);
 
-  /** Ajoute des pages en fin de document, ou remplace la page `indice` par la première. */
-  function ajouter(nouvelles: Blob[], indice: number | null) {
+  const enEchec = pages.flatMap((page, i) => (page.problemes.length ? [i] : []));
+  const nombreAnnonce = /^\d{1,3}$/.test(nombre.trim()) ? Number(nombre.trim()) : null;
+  const nombreDiffere = nombreAnnonce !== null && nombreAnnonce !== pages.length;
+
+  /** Ajoute des pages en fin de document, ou remplace la page `indice` par la première ; rend le rang de la dernière placée. */
+  function ajouter(nouvelles: Prise[], indice: number | null): number | null {
     const actuelles = pagesCourantes.current;
+    let derniere: number | null = null;
     if (indice !== null && actuelles[indice]) {
       const suite = [...actuelles];
       liberer(suite[indice]);
       suite[indice] = nouvellePage(nouvelles[0]);
       pagesCourantes.current = suite;
       setPages(suite);
+      derniere = indice;
     } else {
       const place = Math.max(0, PAGES_MAX - actuelles.length);
       if (nouvelles.length > place) {
@@ -86,8 +117,22 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
       const suite = [...actuelles, ...nouvelles.slice(0, place).map(nouvellePage)];
       pagesCourantes.current = suite;
       setPages(suite);
+      derniere = suite.length > actuelles.length ? suite.length - 1 : null;
     }
-    setErreurs((e) => ({ ...e, pages: undefined }));
+    setErreurs((e) => ({ ...e, pages: undefined, ecart: undefined }));
+    return derniere;
+  }
+
+  /** Remet la page `indice` une place plus haut (-1) ou plus bas (+1), dans l'ordre du papier. */
+  function deplacer(indice: number, sens: -1 | 1) {
+    const actuelles = pagesCourantes.current;
+    const cible = indice + sens;
+    if (cible < 0 || cible >= actuelles.length) return;
+    const suite = [...actuelles];
+    [suite[indice], suite[cible]] = [suite[cible], suite[indice]];
+    pagesCourantes.current = suite;
+    setPages(suite);
+    setAnnonce(`Page déplacée : elle est maintenant la page ${cible + 1} sur ${suite.length}.`);
   }
 
   function retirer(indice: number) {
@@ -96,6 +141,7 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
     const suite = actuelles.filter((_, i) => i !== indice);
     pagesCourantes.current = suite;
     setPages(suite);
+    setAnnonce(`Page ${indice + 1} retirée : le document compte ${suite.length} pages.`);
   }
 
   async function ouvrirLaCamera(indice: number | null) {
@@ -135,8 +181,17 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
     if (!image || !image.videoWidth) return;
     setPreparation(true);
     try {
-      ajouter([await compresser(image, image.videoWidth, image.videoHeight)], remplacee);
-      if (remplacee !== null) fermerLaCamera();
+      const { problemes } = verifierImage(image, image.videoWidth, image.videoHeight);
+      const placee = ajouter([{ blob: await compresser(image, image.videoWidth, image.videoHeight), problemes }], remplacee);
+      if (problemes.length && placee !== null) {
+        // La photo ne passe pas : la caméra reste ouverte, la prochaine la reprend.
+        setRemplacee(placee);
+        setAnnonce(`La page ${placee + 1} ne passe pas le contrôle : ${problemes.map((p) => p.message).join(" ; ")}.`);
+      } else if (remplacee !== null) {
+        fermerLaCamera();
+      } else if (placee !== null) {
+        setAnnonce(`Page ${placee + 1} gardée.`);
+      }
     } catch (erreur) {
       setRefusDePages(erreur instanceof PageRefusee ? erreur.message : "La photo n'a pas pu être prise : réessayez.");
     } finally {
@@ -148,11 +203,12 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
     if (!liste?.length) return;
     setRefusDePages(null);
     setPreparation(true);
-    const pretes: Blob[] = [];
+    const pretes: Prise[] = [];
     const refus: string[] = [];
     for (const fichier of Array.from(liste)) {
       try {
-        pretes.push(await preparerFichier(fichier));
+        const { problemes } = await verifierFichier(fichier);
+        pretes.push({ blob: await preparerFichier(fichier), problemes });
       } catch (erreur) {
         refus.push(erreur instanceof PageRefusee ? erreur.message : `« ${fichier.name} » ne s'ouvre pas.`);
       }
@@ -172,6 +228,16 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
     }
     if (!donnees.get("lisibilite")) trouvees.lisibilite = "Dites si le document se lit en entier.";
     if (!pages.length) trouvees.pages = "Ajoutez au moins une page : photographiez-la ou choisissez un fichier.";
+    else if (enEchec.length && !abime) {
+      trouvees.pages = `${enEchec.length > 1 ? "Des pages ne passent" : "Une page ne passe"} pas le contrôle (${enEchec
+        .map((i) => `page ${i + 1}`)
+        .join(", ")}) : reprenez-les. Seul un papier abîmé en lui-même permet de les garder.`;
+    }
+    if (enEchec.length && abime && !note.trim()) trouvees.abime = "Dites en quelques mots ce qui est abîmé sur le papier.";
+    if (nombreAnnonce === null || nombreAnnonce < 1) trouvees.nombre = "Comptez les pages du papier, et écrivez leur nombre.";
+    else if (nombreDiffere && !ecart.trim()) {
+      trouvees.ecart = `Le papier compte ${nombreAnnonce} pages, le document ${pages.length} : dites pourquoi, ou ajoutez les pages qui manquent.`;
+    }
     return trouvees;
   }
 
@@ -195,7 +261,7 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
     const trouvees = valider(donnees);
     setErreurs(trouvees);
     setEchec(null);
-    const premiere = (["type", "annee", "lisibilite", "pages"] as Champ[]).find((champ) => trouvees[champ]);
+    const premiere = ORDRE_DES_CHAMPS.find((champ) => trouvees[champ]);
     if (premiere) {
       formulaire.querySelector<HTMLElement>(`[data-champ="${premiere}"]`)?.focus();
       return;
@@ -207,6 +273,8 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
     const etablissement = String(donnees.get("etablissement") ?? "").trim();
     if (etablissement) corps.append("etablissement", etablissement);
     corps.append("lisibilite", String(donnees.get("lisibilite")));
+    // La note ne part que si une page a passé outre le contrôle : elle dit pourquoi on l'a gardée.
+    if (enEchec.length && abime) corps.append("papier_abime", note.trim().slice(0, NOTE_MAX));
     pages.forEach((page, i) => corps.append("pages", page.blob, `page-${i + 1}.${page.pdf ? "pdf" : "jpg"}`));
 
     setEnvoi(true);
@@ -301,6 +369,14 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
         {camera !== "fermee" ? (
           <div className="num-camera">
             <video ref={video} className="num-camera-video" playsInline muted aria-label="Ce que voit la caméra" />
+            <p className="num-visee" aria-live="polite">
+              {visee ? (
+                <>
+                  <Icon name="warning" size={20} />
+                  <span>{visee.message}</span>
+                </>
+              ) : null}
+            </p>
             <div className="num-actions">
               <Button size="pro" icon="video-camera" onClick={photographier} loading={preparation || camera === "ouverture"} disabled={pages.length >= PAGES_MAX && remplacee === null}>
                 {remplacee !== null ? `Reprendre la page ${remplacee + 1}` : `Photographier la page ${pages.length + 1}`}
@@ -333,9 +409,9 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
         {erreurs.pages && <Erreur id="erreur-pages">{erreurs.pages}</Erreur>}
 
         {pages.length > 0 && (
-          <ol className="num-pages">
+          <ol className="num-pages" aria-label="Les pages, dans l'ordre du papier">
             {pages.map((page, i) => (
-              <li key={page.cle} className="num-page">
+              <li key={page.cle} className={page.problemes.length ? "num-page num-page--refusee" : "num-page"}>
                 {page.apercu ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img className="num-vignette" src={page.apercu} alt={`Page ${i + 1}`} />
@@ -349,9 +425,37 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
                   <b>{`Page ${i + 1}`}</b>
                   <span className="num-meta">{enKo(page.blob.size)}</span>
                 </span>
+                {page.problemes.length > 0 && (
+                  <ul className="num-page-problemes" aria-label={`Ce qui ne va pas sur la page ${i + 1}`}>
+                    {page.problemes.map((probleme) => (
+                      <li key={probleme.code}>
+                        <Icon name="warning-octagon" size={18} />
+                        <span>{probleme.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <span className="num-page-actions">
-                  <Button size="pro" variant="ghost" icon="video-camera" onClick={() => ouvrirLaCamera(i)} aria-label={`Reprendre la page ${i + 1}`}>
+                  <Button
+                    size="pro"
+                    variant={page.problemes.length ? "primary" : "ghost"}
+                    icon="video-camera"
+                    onClick={() => ouvrirLaCamera(i)}
+                    aria-label={`Reprendre la page ${i + 1}`}
+                  >
                     Reprendre
+                  </Button>
+                  <Button size="pro" variant="ghost" onClick={() => deplacer(i, -1)} disabled={i === 0} aria-label={`Monter la page ${i + 1}`}>
+                    Monter
+                  </Button>
+                  <Button
+                    size="pro"
+                    variant="ghost"
+                    onClick={() => deplacer(i, 1)}
+                    disabled={i === pages.length - 1}
+                    aria-label={`Descendre la page ${i + 1}`}
+                  >
+                    Descendre
                   </Button>
                   <Button size="pro" variant="ghost" icon="x" onClick={() => retirer(i)} aria-label={`Retirer la page ${i + 1}`}>
                     Retirer
@@ -361,6 +465,87 @@ export function Numeriser({ depot, anneeCourante }: { depot: string; anneeCouran
             ))}
           </ol>
         )}
+        <p className="num-annonce" aria-live="polite">
+          {annonce}
+        </p>
+
+        {enEchec.length > 0 && (
+          <div className="num-abime">
+            <label className="num-case">
+              <input
+                type="checkbox"
+                checked={abime}
+                onChange={(e) => {
+                  setAbime(e.currentTarget.checked);
+                  setErreurs((er) => ({ ...er, pages: undefined, abime: undefined }));
+                }}
+              />
+              <span>Le papier lui-même est abîmé</span>
+            </label>
+            {abime && (
+              <div className={erreurs.abime ? "lf-field lf-field--pro has-error" : "lf-field lf-field--pro"}>
+                <label className="lf-field-label" htmlFor="note-abime">
+                  Ce qui est abîmé sur le papier
+                </label>
+                <p className="lf-field-hint" id="note-abime-aide">
+                  {`Déchiré, taché, encre passée… En ${NOTE_MAX} caractères au plus : la note reste sur le document.`}
+                </p>
+                <textarea
+                  id="note-abime"
+                  className="lf-input num-note"
+                  data-champ="abime"
+                  rows={3}
+                  maxLength={NOTE_MAX}
+                  value={note}
+                  aria-describedby={erreurs.abime ? "note-abime-aide erreur-abime" : "note-abime-aide"}
+                  onChange={(e) => {
+                    setNote(e.currentTarget.value);
+                    if (erreurs.abime) setErreurs((er) => ({ ...er, abime: undefined }));
+                  }}
+                />
+                {erreurs.abime && <Erreur id="erreur-abime">{erreurs.abime}</Erreur>}
+              </div>
+            )}
+          </div>
+        )}
+      </fieldset>
+
+      <fieldset className="num-choix">
+        <legend className="num-legende">Toutes les pages, dans l'ordre</legend>
+        <div className="num-ligne">
+          <TextInput
+            label="Combien de pages compte ce papier ?"
+            hint="Comptez-les sur le papier lui-même."
+            size="pro"
+            inputMode="numeric"
+            maxLength={3}
+            autoComplete="off"
+            className="num-champ-annee"
+            value={nombre}
+            error={erreurs.nombre}
+            data-champ="nombre"
+            onChange={(e) => {
+              setNombre(e.currentTarget.value);
+              setErreurs((er) => ({ ...er, nombre: undefined, ecart: undefined }));
+            }}
+          />
+          {nombreDiffere && (
+            <TextInput
+              label={`Le document compte ${pages.length} pages : pourquoi ?`}
+              hint="Une page blanche laissée de côté, une page en double… Sinon, ajoutez les pages qui manquent."
+              size="pro"
+              autoComplete="off"
+              maxLength={200}
+              value={ecart}
+              error={erreurs.ecart}
+              data-champ="ecart"
+              onChange={(e) => {
+                setEcart(e.currentTarget.value);
+                if (erreurs.ecart) setErreurs((er) => ({ ...er, ecart: undefined }));
+              }}
+            />
+          )}
+        </div>
       </fieldset>
 
       {echec && (
