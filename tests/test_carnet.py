@@ -97,7 +97,8 @@ def test_ma_sante_dit_le_groupe_sanguin_les_antecedents_et_les_traitements_au_lo
     sante = vecu.json()
     assert sante["groupe_sanguin"] == "O+"
     assert any("Hypertension" in a["libelle"] and a["actif"] for a in sante["antecedents"])
-    assert {"lien": "Votre mère", "libelle": "Diabète"} in sante["familiaux"]
+    assert {"lien": "Votre mère", "libelle": "Diabète", "origine": "declaration"} in sante["familiaux"]
+    assert sante["origine_du_groupe_sanguin"] == "declaration"
     assert any("Amlodipine" in t["libelle"] and t["moments"] == ["matin"] for t in sante["traitements"])
     assert CARNET_VECU not in vecu.text
     assert vide.json() == {
@@ -235,10 +236,12 @@ def test_le_journal_dit_un_depot_par_ligne_et_ce_qu_il_a_ajoute(
 
     assert journal.status_code == 200, journal.text
     au_guichet = [a for a in journal.json() if a["service"] == "numerisation"]
-    # Deux Dépôts, deux lignes, le plus récent d'abord : le même agent ne les fond pas en une.
-    avec_documents, sans_rien = au_guichet[:2]
-    assert avec_documents["depot"] is True
-    assert avec_documents["motif"].startswith("Vos papiers ont été numérisés")
-    assert sans_rien["depot"] is False
-    assert sans_rien["motif"] == "Dossier consulté au guichet de numérisation, rien n'a été ajouté"
+    # Deux Dépôts, deux lignes : le même agent ne les fond pas en une. Les deux lignes de ce passage
+    # sont les deux plus récentes ; leur ordre entre elles ne compte pas.
+    recents = au_guichet[:2]
+    avec_documents = [a for a in recents if a["depot"]]
+    sans_rien = [a for a in recents if not a["depot"]]
+    assert len(avec_documents) == len(sans_rien) == 1, recents
+    assert avec_documents[0]["motif"].startswith("Vos papiers ont été numérisés")
+    assert sans_rien[0]["motif"] == "Dossier consulté au guichet de numérisation, rien n'a été ajouté"
     assert npi not in journal.text

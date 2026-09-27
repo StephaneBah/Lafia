@@ -28,6 +28,7 @@ from typing import Any
 
 import donnees
 from commun.fhir import systemes
+from commun.fhir.documents import avec_origine
 from commun.fhir.client import Ressource
 from commun.fhir.ressources import DEVISE
 
@@ -393,4 +394,23 @@ def ressources(maintenant: datetime | None = None) -> list[Ressource]:
     h = _Histoire(maintenant or datetime.now(timezone.utc))
     _patient_a(h)
     _patient_b(h)
-    return h.ressources
+    return [_avec_son_origine(r) for r in h.ressources]
+
+
+# Ce que la patiente a dit d'elle-même, et ce qu'une visite a relevé (ADR 0007).
+_DECLARE = {"FamilyMemberHistory", "MedicationStatement", "AllergyIntolerance"}
+_EN_VISITE = {"EpisodeOfCare", "Encounter", "Observation", "Condition", "MedicationRequest"}
+
+
+def _avec_son_origine(r: Ressource) -> Ressource:
+    """L'origine d'une entrée de l'histoire : un antécédent, une allergie, un traitement au long cours ou
+    le groupe sanguin ont été déclarés ; le reste a été relevé en visite. Les encaissements, délivrances et
+    accès n'en portent pas."""
+    type_ = r["resourceType"]
+    categories = {c.get("code") for cat in r.get("category", []) for c in cat.get("coding", [])}
+    groupe_sanguin = any(c.get("code") == "882-1" for c in r.get("code", {}).get("coding", []))
+    if type_ in _DECLARE or "problem-list-item" in categories or groupe_sanguin:
+        return avec_origine(r, "declaration")
+    if type_ in _EN_VISITE:
+        return avec_origine(r, "visite")
+    return r

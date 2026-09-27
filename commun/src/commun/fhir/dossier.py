@@ -21,7 +21,7 @@ _ACTIONS = {"read": "R", "create": "C", "update": "U"}
 
 def maintenant() -> str:
     """L'instant présent, au format FHIR `instant`."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
 
 def reference(type_: str, id_: str) -> dict[str, str]:
