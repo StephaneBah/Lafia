@@ -128,3 +128,6 @@
 .carnet-page span { display: inline-flex; gap: 6px; align-items: center; }
 .carnet-page:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .carnet-lien { color: var(--color-link); font-weight: 700; }
+
+/* D'où vient une information (ADR 0007) : une icône et quelques mots, discrets. */
+.carnet-origine { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text-muted, inherit); font-size: 0.875rem; }

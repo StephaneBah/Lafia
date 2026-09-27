@@ -100,7 +100,14 @@ def test_ma_sante_dit_le_groupe_sanguin_les_antecedents_et_les_traitements_au_lo
     assert {"lien": "Votre mère", "libelle": "Diabète"} in sante["familiaux"]
     assert any("Amlodipine" in t["libelle"] and t["moments"] == ["matin"] for t in sante["traitements"])
     assert CARNET_VECU not in vecu.text
-    assert vide.json() == {"groupe_sanguin": None, "allergies": [], "antecedents": [], "familiaux": [], "traitements": []}
+    assert vide.json() == {
+        "groupe_sanguin": None,
+        "origine_du_groupe_sanguin": None,
+        "allergies": [],
+        "antecedents": [],
+        "familiaux": [],
+        "traitements": [],
+    }
 
 
 def test_un_antecedent_n_est_jamais_le_diagnostic_d_une_visite_et_chaque_ligne_dit_son_unite(
@@ -145,8 +152,8 @@ def test_le_citoyen_voit_ses_documents_et_jamais_ceux_d_un_autre(
     mes_documents = client.get("/api/citoyen/documents", headers=entetes)
     assert mes_documents.status_code == 200, mes_documents.text
     (document,) = [d for d in mes_documents.json() if d["id"] == document_id]
-    assert (document["type"], document["annee"], document["pages"], document["lisible"]) == (
-        "resultat-analyse", "2021", 1, False
+    assert (document["type"], document["annee"], document["pages"], document["lisibilite"], document["origine"]) == (
+        "resultat-analyse", "2021", 1, "partiel", "numerisation"
     )
     lue = client.get(f"/api/citoyen/documents/{document_id}/pages/1", headers=entetes)
     assert lue.status_code == 200 and lue.content == page
@@ -158,3 +165,80 @@ def test_le_citoyen_voit_ses_documents_et_jamais_ceux_d_un_autre(
     son_jeton = {"Authorization": f"Bearer {jeton_pose(connecter_citoyen(autre, code))}"}
     assert client.get(f"/api/citoyen/documents/{document_id}/pages/1", headers=son_jeton).status_code == 404
     assert document_id not in {d["id"] for d in client.get("/api/citoyen/documents", headers=son_jeton).json()}
+
+
+def _citoyen_reserve_aux_tests(application, jeton_de, jeu, connecter_citoyen, rang: int) -> tuple[str, dict[str, str]]:
+    """Un patient réservé aux tests, son NPI et l'en-tête de son carnet, par un code qu'un médecin lui émet."""
+    npi = [p["npi"] for p in jeu("patients")["patient"] if p.get("reserve_aux_tests")][rang]
+    code = application("soin").post(
+        "/api/identite/codes-carnet", json={"npi": npi}, headers={"Authorization": f"Bearer {jeton_de('médecin')}"}
+    ).json()["code"]
+    return npi, {"Authorization": f"Bearer {jeton_pose(connecter_citoyen(npi, code))}"}
+
+
+def test_ma_sante_dit_d_ou_vient_chaque_information(application, jeton_de, jeu, connecter_citoyen):
+    # Un antécédent saisi par un médecin, sans Document : une déclaration du patient (ADR 0007).
+    npi, carnet = _citoyen_reserve_aux_tests(application, jeton_de, jeu, connecter_citoyen, -1)
+    soin = application("soin")
+    medecin = {"Authorization": f"Bearer {jeton_de('médecin')}"}
+    patient_id = soin.post("/api/soin/recherche", json={"npi": npi}, headers=medecin).json()["patient_id"]
+    cas = soin.post(f"/api/soin/patients/{patient_id}/cas", json={"motif": "Bilan"}, headers=medecin)
+    assert cas.status_code == 201
+    ajoute = soin.post(
+        f"/api/soin/patients/{patient_id}/antecedents",
+        json={"type": "chirurgical", "libelle": "Césarienne", "depuis": "2015"},
+        headers=medecin,
+    )
+    soin.post(f"/api/soin/cas/{cas.json()['cas_id']}/cloture", headers=medecin)
+    assert ajoute.status_code == 201, ajoute.text
+
+    sante = application("citoyen").get("/api/citoyen/ma-sante", headers=carnet)
+
+    assert sante.status_code == 200, sante.text
+    assert {"libelle": "Césarienne", "origine": "declaration"}.items() <= next(
+        a for a in sante.json()["antecedents"] if a["libelle"] == "Césarienne"
+    ).items()
+    assert npi not in sante.text
+
+
+def _agent_de_numerisation(comptes, connecter) -> dict[str, str]:
+    compte = next(
+        c for c in comptes if c.role == "agent de numérisation" and c.etablissement == "cnhu-hkm" and not c.reserve_aux_tests
+    )
+    return {"Authorization": f"Bearer {jeton_pose(connecter(compte))}"}
+
+
+def test_le_journal_dit_un_depot_par_ligne_et_ce_qu_il_a_ajoute(
+    application, jeton_de, jeu, comptes, connecter, connecter_citoyen
+):
+    npi, carnet = _citoyen_reserve_aux_tests(application, jeton_de, jeu, connecter_citoyen, -1)
+    numerisation = application("numerisation")
+    agent = _agent_de_numerisation(comptes, connecter)
+
+    # Un premier Dépôt, clos sans rien : le dossier a été consulté, rien n'y a été ajouté.
+    vide = numerisation.post("/api/numerisation/depots", json={"npi": npi, "piece": "cni"}, headers=agent)
+    assert vide.status_code == 201, vide.text
+    assert numerisation.post(f"/api/numerisation/depots/{vide.json()['depot_id']}/cloture", headers=agent).status_code == 200
+    # Un second, du même agent, avec un Document.
+    plein = numerisation.post("/api/numerisation/depots", json={"npi": npi, "piece": "cni"}, headers=agent)
+    depot = plein.json()["depot_id"]
+    depose = numerisation.post(
+        f"/api/numerisation/depots/{depot}/documents",
+        data={"type": "carnet", "annee": "2018", "lisibilite": "lisible"},
+        files=[("pages", ("page.png", page_png(), "image/png"))],
+        headers=agent,
+    )
+    assert depose.status_code == 201, depose.text
+    assert numerisation.post(f"/api/numerisation/depots/{depot}/cloture", headers=agent).status_code == 200
+
+    journal = application("citoyen").get("/api/citoyen/acces", headers=carnet)
+
+    assert journal.status_code == 200, journal.text
+    au_guichet = [a for a in journal.json() if a["service"] == "numerisation"]
+    # Deux Dépôts, deux lignes, le plus récent d'abord : le même agent ne les fond pas en une.
+    avec_documents, sans_rien = au_guichet[:2]
+    assert avec_documents["depot"] is True
+    assert avec_documents["motif"].startswith("Vos papiers ont été numérisés")
+    assert sans_rien["depot"] is False
+    assert sans_rien["motif"] == "Dossier consulté au guichet de numérisation, rien n'a été ajouté"
+    assert npi not in journal.text

@@ -102,3 +102,6 @@ DEPOT = f"{LAFIA}/identifiant/depot"
 
 LISIBILITE = f"{LAFIA}/StructureDefinition/lisibilite"
 """Extension d'un DocumentReference : lisible ou partiel."""
+
+PIECE_D_IDENTITE = f"{LAFIA}/CodeSystem/piece-d-identite"
+"""La pièce d'identité vérifiée au guichet, motif du Provenance d'un Dépôt : cni, passeport, acte-de-naissance, carte-lafia, autre."""

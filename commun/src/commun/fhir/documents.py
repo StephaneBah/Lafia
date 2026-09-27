@@ -8,7 +8,10 @@ une seule forme, un seul lecteur.
 
 import base64
 from dataclasses import dataclass
-from typing import Literal
+from datetime import date
+from typing import Literal, get_args
+
+from pydantic import BaseModel
 
 from commun.fhir import systemes
 from commun.fhir.client import ClientFhir, Ressource
@@ -16,7 +19,11 @@ from commun.fhir.dossier import id_de, maintenant, reference
 
 Origine = Literal["visite", "numerisation", "declaration", "report"]
 
-TYPES_DE_DOCUMENT = {
+TypeDeDocument = Literal["carnet", "compte-rendu", "resultat-analyse", "ordonnance", "imagerie", "certificat", "autre"]
+Lisibilite = Literal["lisible", "partiel"]
+PieceDIdentite = Literal["cni", "passeport", "acte-de-naissance", "carte-lafia", "autre"]
+
+TYPES_DE_DOCUMENT: dict[str, str] = {
     "carnet": "Carnet de santé",
     "compte-rendu": "Compte rendu",
     "resultat-analyse": "Résultat d'analyse",
@@ -25,8 +32,8 @@ TYPES_DE_DOCUMENT = {
     "certificat": "Certificat",
     "autre": "Autre document",
 }
-LISIBILITES = {"lisible": "Lisible", "partiel": "Partiellement lisible"}
-PIECES_D_IDENTITE = {
+LISIBILITES: dict[str, str] = {"lisible": "Lisible", "partiel": "Partiellement lisible"}
+PIECES_D_IDENTITE: dict[str, str] = {
     "cni": "Carte nationale d'identité",
     "passeport": "Passeport",
     "acte-de-naissance": "Acte de naissance",
@@ -34,10 +41,20 @@ PIECES_D_IDENTITE = {
     "autre": "Autre pièce",
 }
 
-# ADR 0008 : ce qu'une page et un Document admettent.
-FORMATS = {"image/jpeg", "image/png", "application/pdf"}
+assert set(get_args(TypeDeDocument)) == set(TYPES_DE_DOCUMENT)
+assert set(get_args(Lisibilite)) == set(LISIBILITES)
+assert set(get_args(PieceDIdentite)) == set(PIECES_D_IDENTITE)
+
+# ADR 0008 : ce qu'une page et un Document admettent. Une page se reconnaît à ses premiers octets,
+# jamais au format qu'elle déclare.
+SIGNATURES = {
+    "image/jpeg": b"\xff\xd8\xff",
+    "image/png": b"\x89PNG",
+    "application/pdf": b"%PDF",
+}
 OCTETS_PAR_PAGE = 3 * 1024 * 1024
 PAGES_PAR_DOCUMENT = 20
+PREMIERE_ANNEE = 1900
 
 
 def etiquette_d_origine(origine: Origine | Literal["reprise"]) -> dict[str, str]:
@@ -66,24 +83,46 @@ def origine_de(ressource: Ressource) -> str | None:
 
 @dataclass(frozen=True)
 class Page:
-    """Une page reçue : son format et ses octets."""
+    """Une page reçue : le format qu'elle déclare, et ses octets."""
 
     format: str
     octets: bytes
 
 
-class PageRefusee(ValueError):
-    """Une page hors des formats ou des limites de l'ADR 0008."""
+class DocumentRefuse(ValueError):
+    """Type, année, lisibilité ou format d'une page hors de ce que le Document admet (422)."""
 
 
-def verifier_pages(pages: list[Page]) -> None:
-    if not pages or len(pages) > PAGES_PAR_DOCUMENT:
-        raise PageRefusee(f"entre 1 et {PAGES_PAR_DOCUMENT} pages")
+class DocumentTropLourd(DocumentRefuse):
+    """Plus de pages, ou une page plus lourde, que l'ADR 0008 n'en admet (413)."""
+
+
+def format_reconnu(octets: bytes) -> str | None:
+    """Le format d'une page, lu à ses premiers octets : JPEG, PNG ou PDF ; None pour tout autre contenu."""
+    return next((format_ for format_, signature in SIGNATURES.items() if octets.startswith(signature)), None)
+
+
+def valider_document(*, type_: str, annee: str, lisibilite: str, pages: list[Page]) -> None:
+    """La seule validation d'un Document téléversé, par numerisation comme par soin (ADR 0008).
+
+    `DocumentTropLourd` (413) au-delà de 20 pages ou d'une page de 3 Mo ; `DocumentRefuse` (422) pour
+    un type ou une lisibilité inconnus, une année qui n'est pas passée sur quatre chiffres, aucune page,
+    ou une page dont le contenu n'est ni JPEG, ni PNG, ni PDF, ou n'est pas le format qu'elle déclare.
+    """
+    if type_ not in TYPES_DE_DOCUMENT or lisibilite not in LISIBILITES:
+        raise DocumentRefuse("type ou lisibilité inconnus")
+    if not (len(annee) == 4 and annee.isascii() and annee.isdigit() and PREMIERE_ANNEE <= int(annee) <= date.today().year):
+        raise DocumentRefuse(f"année sur quatre chiffres, de {PREMIERE_ANNEE} à cette année")
+    if not pages:
+        raise DocumentRefuse("au moins une page")
+    if len(pages) > PAGES_PAR_DOCUMENT:
+        raise DocumentTropLourd(f"au plus {PAGES_PAR_DOCUMENT} pages")
     for page in pages:
-        if page.format not in FORMATS:
-            raise PageRefusee("format accepté : JPEG, PNG ou PDF")
         if len(page.octets) > OCTETS_PAR_PAGE:
-            raise PageRefusee("une page ne dépasse pas 3 Mo")
+            raise DocumentTropLourd("une page ne dépasse pas 3 Mo")
+        reconnu = format_reconnu(page.octets)
+        if reconnu is None or reconnu != page.format:
+            raise DocumentRefuse("format accepté : JPEG, PNG ou PDF, tel que la page le déclare")
 
 
 def binary(page: Page, patient: str) -> Ressource:
@@ -155,10 +194,9 @@ async def ecrire_document(
     etablissement_d_origine: str | None = None,
     depot: str | None = None,
 ) -> Ressource:
-    """Écrit les pages puis le Document qui les liste ; rend le DocumentReference écrit."""
-    verifier_pages(pages)
-    if type_ not in TYPES_DE_DOCUMENT or lisibilite not in LISIBILITES:
-        raise PageRefusee("type ou lisibilité inconnus")
+    """Valide le Document (`valider_document`), écrit ses pages puis le Document qui les liste ; rend le
+    DocumentReference écrit. Rien n'est écrit d'un Document refusé."""
+    valider_document(type_=type_, annee=annee, lisibilite=lisibilite, pages=pages)
     ecrites = [(await fhir.creer(binary(page, patient)))["id"] for page in pages]
     return await fhir.creer(
         document_reference(
@@ -174,21 +212,28 @@ async def ecrire_document(
     )
 
 
-@dataclass(frozen=True)
-class DocumentVu:
-    """Un Document tel que les applications le montrent."""
+class DocumentVu(BaseModel):
+    """Un Document tel que les services le rendent aux applications : numerisation, soin et citoyen."""
 
     id: str
-    patient: str | None
     type: str
-    libelle_du_type: str
+    """carnet, compte-rendu, resultat-analyse, ordonnance, imagerie, certificat, autre."""
+    libelle: str
     annee: str | None
     etablissement: str | None
+    """L'établissement d'origine, tel qu'il est écrit sur le papier."""
     lisibilite: str | None
+    """lisible ou partiel."""
     pages: int
+    formats: list[str]
+    """Le format de chaque page, dans l'ordre : une image se montre, un PDF s'ouvre."""
     origine: str | None
     depose_le: str | None
-    auteur: str | None
+
+
+def formats_des_pages(ressource: Ressource) -> list[str]:
+    """Le format de chaque page d'un Document, dans l'ordre : de quoi montrer une image ou ouvrir un PDF."""
+    return [c.get("attachment", {}).get("contentType", "") for c in ressource.get("content", [])]
 
 
 def document_vu(ressource: Ressource) -> DocumentVu:
@@ -198,22 +243,16 @@ def document_vu(ressource: Ressource) -> DocumentVu:
     )
     return DocumentVu(
         id=ressource["id"],
-        patient=id_de(ressource.get("subject")),
         type=codage.get("code", "autre"),
-        libelle_du_type=codage.get("display") or ressource.get("type", {}).get("text", "Document"),
+        libelle=codage.get("display") or ressource.get("type", {}).get("text", "Document"),
         annee=ressource.get("context", {}).get("period", {}).get("start"),
         etablissement=ressource.get("description"),
         lisibilite=lisibilite,
         pages=len(ressource.get("content", [])),
+        formats=formats_des_pages(ressource),
         origine=origine_de(ressource),
         depose_le=ressource.get("date"),
-        auteur=id_de(next(iter(ressource.get("author", [])), None)),
     )
-
-
-def formats_des_pages(ressource: Ressource) -> list[str]:
-    """Le format de chaque page d'un Document, dans l'ordre : de quoi montrer une image ou ouvrir un PDF."""
-    return [c.get("attachment", {}).get("contentType", "") for c in ressource.get("content", [])]
 
 
 async def documents_du_patient(fhir: ClientFhir, patient: str) -> list[Ressource]:
@@ -239,8 +278,12 @@ async def page(fhir: ClientFhir, document: Ressource, rang: int) -> Page | None:
 
 
 def provenance_de_depot(*, depot: str, documents: list[str], agent: str, etablissement: str, piece: str, reprise: bool) -> Ressource:
-    """Le Dépôt clos : ses Documents, qui les a numérisés, où, et la pièce d'identité vérifiée."""
-    etiquettes = [etiquette_de_depot(depot)] + ([etiquette_d_origine("reprise")] if reprise else [])
+    """Le Dépôt clos : ses Documents, qui les a numérisés, où, et la pièce d'identité vérifiée.
+    Il porte l'origine `numerisation`, et `reprise` quand il est de la Reprise (ADR 0007)."""
+    etiquettes = [etiquette_de_depot(depot), etiquette_d_origine("numerisation")]
+    if reprise:
+        etiquettes.append(etiquette_d_origine("reprise"))
+    libelle = PIECES_D_IDENTITE.get(piece, piece)
     return {
         "resourceType": "Provenance",
         "meta": {"tag": etiquettes},
@@ -248,7 +291,12 @@ def provenance_de_depot(*, depot: str, documents: list[str], agent: str, etablis
         "recorded": maintenant(),
         "activity": {"coding": [{"system": systemes.ORIGINE, "code": "numerisation", "display": "Numérisation"}]},
         "agent": [{"who": reference("Practitioner", agent), "onBehalfOf": reference("Organization", etablissement)}],
-        "reason": [{"text": f"Identité vérifiée : {PIECES_D_IDENTITE.get(piece, piece)}"}],
+        "reason": [
+            {
+                "coding": [{"system": systemes.PIECE_D_IDENTITE, "code": piece, "display": libelle}],
+                "text": f"Identité vérifiée : {libelle}",
+            }
+        ],
     }
 
 
@@ -290,12 +338,18 @@ def _porte_l_etiquette(ressource: Ressource, etiquette: dict[str, str]) -> bool:
     )
 
 
-def _id_si(ref: dict[str, str] | None, type_: str) -> str | None:
+def _id_si_reference_a(ref: dict[str, str] | None, type_: str) -> str | None:
+    """L'identifiant de `ref` quand elle désigne une ressource de type `type_` ; None sinon."""
     return id_de(ref) if ref and ref.get("reference", "").startswith(f"{type_}/") else None
 
 
+class DepotIncoherent(ValueError):
+    """L'ouverture d'un Dépôt ne dit pas son patient ou son agent : le noyau tient une trace mal formée."""
+
+
 async def ouverture_du_depot(fhir: ClientFhir, depot: str) -> OuvertureDeDepot | None:
-    """L'ouverture du Dépôt `depot`, lue dans ses AuditEvent, et s'il est clos ; None pour un Dépôt inconnu."""
+    """L'ouverture du Dépôt `depot`, lue dans ses AuditEvent, et s'il est clos ; None pour un Dépôt inconnu.
+    `DepotIncoherent` quand l'ouverture ne dit pas son patient ou son agent : rien ne s'écrit alors au hasard."""
     traces = await fhir.chercher("AuditEvent", {"_tag": f"{systemes.DEPOT}|{depot}"})
     ouverture = next((t for t in traces if t.get("action") == "C"), None)
     if not ouverture:
@@ -303,16 +357,19 @@ async def ouverture_du_depot(fhir: ClientFhir, depot: str) -> OuvertureDeDepot |
     agent = next(iter(ouverture.get("agent", [])), {})
     usage = next(iter(agent.get("purposeOfUse", [])), {})
     patient = next(
-        (p for p in (_id_si(e.get("what"), "Patient") for e in ouverture.get("entity", [])) if p), None
+        (p for p in (_id_si_reference_a(e.get("what"), "Patient") for e in ouverture.get("entity", [])) if p), None
     )
+    qui = _id_si_reference_a(agent.get("who"), "Practitioner")
+    if not patient or not qui:
+        raise DepotIncoherent("ouverture de dépôt sans patient ou sans agent")
     clos = any(t.get("action") == "U" for t in traces) or bool(
         await fhir.chercher("Provenance", {"_tag": f"{systemes.DEPOT}|{depot}"})
     )
     return OuvertureDeDepot(
         depot=depot,
-        patient=patient or "",
-        agent=_id_si(agent.get("who"), "Practitioner") or "",
-        etablissement=_id_si(ouverture.get("source", {}).get("observer"), "Organization"),
+        patient=patient,
+        agent=qui,
+        etablissement=_id_si_reference_a(ouverture.get("source", {}).get("observer"), "Organization"),
         piece=str(usage.get("text", "")),
         reprise=_porte_l_etiquette(ouverture, etiquette_d_origine("reprise")),
         clos=clos,

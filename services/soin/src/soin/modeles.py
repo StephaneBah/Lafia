@@ -11,8 +11,6 @@ Npi = Annotated[str, StringConstraints(pattern=r"^\d{13}$")]
 Texte = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 Periode = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 IdDeRessource = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9.-]{1,64}$")]
-ANNEE = r"^(19|20)\d{2}$"
-"""L'année d'un Document apporté : celle du papier d'origine."""
 
 
 class Recherche(BaseModel):

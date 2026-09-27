@@ -127,7 +127,17 @@ class AccesLu(BaseModel):
     urgence: bool
     raison: str | None
     depot: bool = False
-    """Un Dépôt : un agent de numérisation a ajouté des papiers au dossier."""
+    """Un Dépôt qui a ajouté des papiers au dossier : un agent de numérisation les a numérisés."""
+
+
+Origine = str | None
+"""D'où vient une entrée (ADR 0007) : visite, declaration, report, numerisation ; None avant F5.
+L'application le dit en mots : relevé en visite, déclaré par vous, reporté depuis un document, numérisé."""
+
+
+class AllergieLue(BaseModel):
+    libelle: str
+    origine: Origine
 
 
 class AntecedentLu(BaseModel):
@@ -135,12 +145,14 @@ class AntecedentLu(BaseModel):
     libelle: str
     depuis: str | None
     actif: bool
+    origine: Origine
 
 
 class AntecedentFamilialLu(BaseModel):
     lien: str
     """Le parent en mots : « Votre mère »."""
     libelle: str
+    origine: Origine
 
 
 class TraitementLu(BaseModel):
@@ -148,11 +160,13 @@ class TraitementLu(BaseModel):
     posologie: str | None
     moments: list[Moment]
     depuis: str | None
+    origine: Origine
 
 
 class MaSante(BaseModel):
     groupe_sanguin: str | None
-    allergies: list[str]
+    origine_du_groupe_sanguin: Origine
+    allergies: list[AllergieLue]
     antecedents: list[AntecedentLu]
     familiaux: list[AntecedentFamilialLu]
     traitements: list[TraitementLu]
@@ -353,14 +367,15 @@ def ma_sante(dossier: DossierDuCitoyen) -> MaSante:
     antecedents = sorted(dossier.antecedents, key=lambda a: (not a.actif, a.type != "medical", a.libelle))
     return MaSante(
         groupe_sanguin=dossier.groupe_sanguin,
-        allergies=dossier.allergies,
+        origine_du_groupe_sanguin=dossier.origine_du_groupe_sanguin,
+        allergies=[AllergieLue(libelle=a.libelle, origine=a.origine) for a in dossier.allergies_lues],
         antecedents=[
             AntecedentLu(type="chirurgical" if a.type == "chirurgical" else "medical", libelle=a.libelle,
-                         depuis=a.depuis, actif=a.actif)
+                         depuis=a.depuis, actif=a.actif, origine=a.origine)
             for a in antecedents
         ],
         familiaux=[
-            AntecedentFamilialLu(lien=LIENS_EN_MOTS.get(f.lien, "Un parent"), libelle=f.libelle)
+            AntecedentFamilialLu(lien=LIENS_EN_MOTS.get(f.lien, "Un parent"), libelle=f.libelle, origine=f.origine)
             for f in dossier.familiaux
         ],
         traitements=[
@@ -369,6 +384,7 @@ def ma_sante(dossier: DossierDuCitoyen) -> MaSante:
                 posologie=t.posologie,
                 moments=[m for m in ORDRE_DES_MOMENTS if m in t.moments],
                 depuis=(t.depuis or "")[:4] or None,
+                origine=t.origine,
             )
             for t in dossier.traitements
             if t.actif
@@ -399,17 +415,26 @@ def traitement_du_jour(dossier: DossierDuCitoyen, jour: date, heure: int = 0) ->
 
 def journal_des_acces(dossier: DossierDuCitoyen) -> list[AccesLu]:
     """Qui a ouvert le dossier, du plus récent au plus ancien. Les ouvertures du citoyen lui-même, qui
-    se suivent, n'en font qu'une : la plus récente ; de même les accès qui se suivent d'un même dépôt de papiers."""
+    se suivent, n'en font qu'une : la plus récente. Chaque Dépôt au guichet de numérisation fait une
+    ligne, par son étiquette `DEPOT` : deux Dépôts, même du même agent, restent deux lignes. Un accès
+    au guichet d'avant les étiquettes se groupe avec ceux du même agent qui le suivent."""
     moi = f"Patient/{dossier.patient['id']}"
     lus: list[AccesLu] = []
+    depots_vus: set[str] = set()
     precedent: Acces | None = None
     for acces in sorted(dossier.acces, key=lambda a: a.date, reverse=True):
         vous = acces.qui == moi
-        meme_depot = (
-            precedent is not None and precedent.motif == acces.motif == "numerisation" and precedent.qui == acces.qui
-        )
+        au_guichet = acces.motif == "numerisation" and not vous
+        if au_guichet and acces.depot:
+            deja_lu = acces.depot in depots_vus
+            depots_vus.add(acces.depot)
+        else:
+            deja_lu = (
+                au_guichet and precedent is not None and precedent.motif == "numerisation"
+                and not precedent.depot and precedent.qui == acces.qui
+            )
         precedent = acces
-        if (vous and lus and lus[-1].vous) or meme_depot:
+        if (vous and lus and lus[-1].vous) or deja_lu:
             continue
         lus.append(_acces_lu(acces, vous, dossier))
     return lus
@@ -417,13 +442,19 @@ def journal_des_acces(dossier: DossierDuCitoyen) -> list[AccesLu]:
 
 def _acces_lu(acces: Acces, vous: bool, dossier: DossierDuCitoyen) -> AccesLu:
     urgence = acces.motif == "acces-urgence"
-    depot = acces.motif == "numerisation" and not vous
+    au_guichet = acces.motif == "numerisation" and not vous
+    # Un Dépôt n'a numérisé des papiers que s'il a laissé des Documents ; un Dépôt d'avant les
+    # étiquettes, sans quoi le savoir, est tenu pour un dépôt.
+    depot = au_guichet and (acces.depot is None or acces.depot in dossier.depots_avec_documents)
     etablissement = dossier.noms.get(acces.etablissement or "")
     if vous:
         qui, motif = "Vous", "Vous avez ouvert votre carnet"
     elif depot:
         qui = _soignant(acces.qui, dossier) or "Un agent de numérisation"
         motif = f"Vos papiers ont été numérisés à {etablissement}" if etablissement else "Vos papiers ont été numérisés"
+    elif au_guichet:
+        qui = _soignant(acces.qui, dossier) or "Un agent de numérisation"
+        motif = "Dossier consulté au guichet de numérisation, rien n'a été ajouté"
     else:
         qui = _soignant(acces.qui, dossier) or "Un agent de santé"
         motif = {

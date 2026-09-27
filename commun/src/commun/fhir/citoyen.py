@@ -12,6 +12,7 @@ from datetime import datetime
 
 from commun.fhir import systemes
 from commun.fhir.client import ClientFhir, Ressource
+from commun.fhir.documents import origine_de
 from commun.fhir.dossier import id_de
 
 MOMENTS = {"MORN": "matin", "NOON": "midi", "EVE": "soir", "NIGHT": "nuit"}
@@ -97,6 +98,8 @@ class Antecedent:
     depuis: str | None
     actif: bool
     date: str
+    origine: str | None = None
+    """D'où vient l'entrée (ADR 0007) : visite, declaration, report ; None avant F5."""
 
 
 @dataclass(frozen=True)
@@ -104,6 +107,13 @@ class AntecedentFamilial:
     lien: str
     """`mere`, `pere`, `fratrie`, `enfant`, `grand-parent`, ou `parent` quand le lien n'est pas codé."""
     libelle: str
+    origine: str | None = None
+
+
+@dataclass(frozen=True)
+class Allergie:
+    libelle: str
+    origine: str | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +123,7 @@ class TraitementAuLongCours:
     moments: tuple[str, ...]
     depuis: str | None
     actif: bool
+    origine: str | None = None
 
 
 @dataclass(frozen=True)
@@ -124,6 +135,8 @@ class Acces:
     service: str | None
     motif: str | None
     raison: str | None
+    depot: str | None = None
+    """Le Dépôt dont l'accès fait partie, par son étiquette `DEPOT` ; None hors du guichet de numérisation."""
 
 
 @dataclass
@@ -141,11 +154,16 @@ class DossierDuCitoyen:
     allergies: list[str] = field(default_factory=list)
     allergies_atc: list[str] = field(default_factory=list)
     """Le code ATC de chaque allergie codée : `M01A`, pour dire qu'une ligne a été arrêtée par elle."""
+    allergies_lues: list[Allergie] = field(default_factory=list)
+    """Chaque allergie, avec son origine."""
     antecedents: list[Antecedent] = field(default_factory=list)
     familiaux: list[AntecedentFamilial] = field(default_factory=list)
     traitements: list[TraitementAuLongCours] = field(default_factory=list)
     groupe_sanguin: str | None = None
+    origine_du_groupe_sanguin: str | None = None
     acces: list[Acces] = field(default_factory=list)
+    depots_avec_documents: set[str] = field(default_factory=set)
+    """Les Dépôts qui ont ajouté au moins un Document au dossier, par leur étiquette `DEPOT`."""
     noms: dict[str, str] = field(default_factory=dict)
     """Le nom de chaque soignant (`Practitioner/…`) et établissement (`Organization/…`) cité."""
     roles: dict[str, str] = field(default_factory=dict)
@@ -238,6 +256,7 @@ def _antecedent(r: Ressource) -> Antecedent:
         depuis=r.get("onsetString") or (r.get("onsetDateTime") or "")[:4] or None,
         actif=_code(r.get("clinicalStatus"), STATUT_CLINIQUE) not in ("resolved", "inactive", "remission"),
         date=r.get("recordedDate", ""),
+        origine=origine_de(r),
     )
 
 
@@ -246,6 +265,7 @@ def _familial(r: Ressource) -> AntecedentFamilial:
     return AntecedentFamilial(
         lien=LIENS_DE_PARENTE.get(lien or "", "parent"),
         libelle=_texte(((r.get("condition") or [{}])[0]).get("code")) or "Maladie",
+        origine=origine_de(r),
     )
 
 
@@ -258,16 +278,21 @@ def _traitement(r: Ressource) -> TraitementAuLongCours:
         moments=tuple(MOMENTS[m] for m in repetition.get("when", []) if m in MOMENTS),
         depuis=r.get("effectivePeriod", {}).get("start") or r.get("dateAsserted"),
         actif=r.get("status") in (None, "active", "intended"),
+        origine=origine_de(r),
     )
 
 
-def _groupe_sanguin(observations: list[Ressource]) -> str | None:
-    """Le dernier groupe sanguin relevé : le plus récent l'emporte."""
+def _groupe_sanguin(observations: list[Ressource]) -> tuple[str | None, str | None]:
+    """Le dernier groupe sanguin relevé, et son origine : le plus récent l'emporte."""
     releves = [r for r in observations if _code(r.get("code"), systemes.LOINC) == GROUPE_SANGUIN]
     if not releves:
-        return None
+        return None, None
     dernier = max(releves, key=lambda r: r.get("effectiveDateTime") or r.get("issued") or "")
-    return _texte(dernier.get("valueCodeableConcept"))
+    return _texte(dernier.get("valueCodeableConcept")), origine_de(dernier)
+
+
+def _etiquette(r: Ressource, systeme: str) -> str | None:
+    return next((e.get("code") for e in r.get("meta", {}).get("tag", []) if e.get("system") == systeme), None)
 
 
 def _ligne(r: Ressource) -> Ligne:
@@ -308,6 +333,7 @@ def _acces(r: Ressource) -> Acces:
         service=source.get("site"),
         motif=_code(usage, systemes.MOTIF_D_ACCES),
         raison=usage.get("text"),
+        depot=_etiquette(r, systemes.DEPOT),
     )
 
 
@@ -344,7 +370,9 @@ async def lire_dossier(fhir: ClientFhir, patient: Ressource) -> DossierDuCitoyen
     lignes d'ordonnance avec leur paiement et leur remise, allergies, antécédents, traitements au long
     cours, groupe sanguin, et qui a ouvert le dossier."""
     ref = f"Patient/{patient['id']}"
-    cas, visites, observations, conditions, lignes, allergies, acces, familiaux, traitements = await asyncio.gather(
+    (
+        cas, visites, observations, conditions, lignes, allergies, acces, familiaux, traitements, documents
+    ) = await asyncio.gather(
         fhir.chercher("EpisodeOfCare", {"patient": ref}),
         fhir.chercher("Encounter", {"patient": ref}),
         fhir.chercher("Observation", {"patient": ref}),
@@ -354,7 +382,9 @@ async def lire_dossier(fhir: ClientFhir, patient: Ressource) -> DossierDuCitoyen
         fhir.chercher("AuditEvent", {"entity": ref}),
         fhir.chercher("FamilyMemberHistory", {"patient": ref}),
         fhir.chercher("MedicationStatement", {"subject": ref}),
+        fhir.chercher("DocumentReference", {"subject": ref}),
     )
+    groupe_sanguin, origine_du_groupe_sanguin = _groupe_sanguin(observations)
     dossier = DossierDuCitoyen(
         patient=patient,
         cas=[_cas(r) for r in cas],
@@ -364,11 +394,14 @@ async def lire_dossier(fhir: ClientFhir, patient: Ressource) -> DossierDuCitoyen
         lignes=[_ligne(r) for r in lignes],
         allergies=[_texte(r.get("code")) or "Allergie" for r in allergies],
         allergies_atc=[c for r in allergies if (c := _code(r.get("code"), systemes.ATC))],
+        allergies_lues=[Allergie(libelle=_texte(r.get("code")) or "Allergie", origine=origine_de(r)) for r in allergies],
         antecedents=[_antecedent(r) for r in conditions if est_un_antecedent(r)],
         familiaux=[_familial(r) for r in familiaux if r.get("status") != "entered-in-error"],
         traitements=[_traitement(r) for r in traitements if r.get("status") != "entered-in-error"],
-        groupe_sanguin=_groupe_sanguin(observations),
+        groupe_sanguin=groupe_sanguin,
+        origine_du_groupe_sanguin=origine_du_groupe_sanguin,
         acces=[_acces(r) for r in acces],
+        depots_avec_documents={d for r in documents if (d := _etiquette(r, systemes.DEPOT))},
     )
 
     # Payée : un encaissement de son ordonnance porte son identifiant. Remise : la somme de ses délivrances.

@@ -504,29 +504,13 @@ async def acces_d_urgence(
     return str(cas["id"]), str(rencontre["id"])
 
 
-def _document_lu(document: Ressource) -> dict[str, Any]:
-    vu = fhir_documents.document_vu(document)
-    return {
-        "id": vu.id,
-        "type": vu.type,
-        "libelle_du_type": vu.libelle_du_type,
-        "annee": vu.annee,
-        "etablissement": vu.etablissement,
-        "lisibilite": vu.lisibilite,
-        "pages": vu.pages,
-        "formats": fhir_documents.formats_des_pages(document),
-        "origine": vu.origine,
-        "depose_le": vu.depose_le,
-    }
-
-
-async def documents(fhir: ClientFhir, soignant: Agent, patient_id: str) -> list[dict[str, Any]]:
+async def documents(fhir: ClientFhir, soignant: Agent, patient_id: str) -> list[fhir_documents.DocumentVu]:
     """Les Documents du patient, du plus récent au plus ancien, avec une relation de soin. Lecture tracée."""
     await _patient(fhir, patient_id)
     motif = await _motif_exige(fhir, soignant, patient_id)
     trouves = await fhir_documents.documents_du_patient(fhir, patient_id)
     await _tracer(fhir, soignant, patient_id, "read", motif)
-    return [_document_lu(d) for d in trouves]
+    return [fhir_documents.document_vu(d) for d in trouves]
 
 
 async def page_du_document(fhir: ClientFhir, soignant: Agent, document_id: str, rang: int) -> Page:
@@ -555,10 +539,10 @@ async def ajouter_document(
     pages: list[Page],
 ) -> dict[str, Any]:
     """Un Document que le patient a apporté, numérisé pendant la visite : origine `numerisation`,
-    auteur le soignant. Avec une relation de soin. Tracé."""
+    auteur le soignant. Avec une relation de soin. Tracé. `commun.fhir.documents.valider_document` le juge,
+    comme au guichet de numérisation, avant toute écriture."""
     await _patient(fhir, patient_id)
     motif = await _motif_exige(fhir, soignant, patient_id)
-    regles_documents.verifier_limites(pages)
     ecrit = await fhir_documents.ecrire_document(
         fhir,
         patient=patient_id,

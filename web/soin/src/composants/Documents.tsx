@@ -83,7 +83,7 @@ export function ListeDesDocuments({
           >
             <IconeDuType type={d.type} />
             <span>
-              <b>{d.libelle_du_type}</b>
+              <b>{d.libelle}</b>
               <span className="sn-meta sn-bloc">{details(d)}</span>
               <span className="sn-document-etats">
                 <NonVerifie />
@@ -135,7 +135,7 @@ export function Visionneuse({ document, page }: { document: DocumentDuDossier; p
       ) : (
         // Les octets viennent de l'application elle-même, par la session : pas d'optimisation d'image.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={source} alt={`${document.libelle_du_type}, page ${rang} sur ${document.pages}`} className="sn-page-image" />
+        <img src={source} alt={`${document.libelle}, page ${rang} sur ${document.pages}`} className="sn-page-image" />
       )}
       <p className="sn-meta">
         <a href={source} target="_blank" rel="noopener" className="sn-lien">

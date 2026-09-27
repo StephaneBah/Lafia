@@ -124,6 +124,8 @@
 .sn-titre-document { display: flex; gap: 8px; align-items: center; }
 .sn-visionneuse { display: grid; gap: var(--space-3); margin-top: var(--space-3); }
 .sn-pages { display: flex; flex-wrap: wrap; gap: 8px; }
+.sn-page-apercu { display: grid; gap: 4px; justify-items: start; padding: 8px; border: 1px solid var(--color-border); border-radius: 8px; list-style: none; }
+.sn-page-apercu img { display: block; max-width: 96px; height: auto; background: #fff; }
 .sn-page { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border: 1px solid var(--color-border-control); border-radius: var(--radius-pill); color: var(--color-text); font-weight: 700; text-decoration: none; }
 .sn-page[aria-current="page"] { background: var(--color-action); border-color: var(--color-action); color: var(--color-on-action); }
 .sn-page:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }

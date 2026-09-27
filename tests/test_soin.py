@@ -5,6 +5,7 @@ sans relation de soin, le dossier lui reste fermé, sauf par un accès d'urgence
 import re
 import struct
 import zlib
+from datetime import date
 
 from conftest import jeton_pose
 
@@ -278,17 +279,35 @@ def test_un_document_apporte_par_le_patient_entre_au_dossier_et_une_entree_s_en_
         headers=medecin,
     )
     assert gif.status_code == 422
+    # Le format se lit aux premiers octets, jamais à ce que la page déclare ; et l'année est passée.
+    faux_jpeg = soin.post(
+        f"/api/soin/patients/{patient_id}/documents",
+        data={"type": "carnet", "annee": "2019", "lisibilite": "lisible"},
+        files=[("pages", ("page.jpg", page, "image/jpeg"))],
+        headers=medecin,
+    )
+    assert faux_jpeg.status_code == 422
+    a_venir = soin.post(
+        f"/api/soin/patients/{patient_id}/documents",
+        data={"type": "carnet", "annee": str(date.today().year + 1), "lisibilite": "lisible"},
+        files=[("pages", ("page.png", page, "image/png"))],
+        headers=medecin,
+    )
+    assert a_venir.status_code == 422
 
     liste = soin.get(f"/api/soin/patients/{patient_id}/documents", headers=medecin)
     assert liste.status_code == 200, liste.text
     (document,) = [d for d in liste.json() if d["id"] == document_id]
     assert document["origine"] == "numerisation"
-    assert (document["type"], document["annee"], document["pages"]) == ("compte-rendu", "2019", 1)
+    assert (document["type"], document["libelle"], document["annee"], document["pages"]) == (
+        "compte-rendu", "Compte rendu", "2019", 1
+    )
     assert document["etablissement"] == "CHU de Parakou"
 
     lue = soin.get(f"/api/soin/documents/{document_id}/pages/1", headers=medecin)
     assert lue.status_code == 200
     assert lue.headers["content-type"].startswith("image/png")
+    assert lue.headers["x-content-type-options"] == "nosniff"
     assert lue.content == page
     assert soin.get(f"/api/soin/documents/{document_id}/pages/2", headers=medecin).status_code == 404
 

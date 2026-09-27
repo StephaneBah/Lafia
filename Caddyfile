@@ -40,16 +40,17 @@
 	}
 }
 
-# La règle de tout acteur : `import acteur <nom>` sert <nom>.<domaine>, où son service est le
+# La règle de tout acteur : `import acteur <nom> <borne>` sert <nom>.<domaine>, où son service est le
 # conteneur <nom> et son application le conteneur application-<nom>.
-# Caddy ne borne pas le corps d'une requête par défaut : la borne est celle du plus gros envoi, un
-# Document de 20 pages de 3 Mo (ADR 0008), enveloppe comprise. Le service refuse ce qui dépasse ses
-# propres limites, en 413.
+# Caddy ne borne pas le corps d'une requête par défaut : chaque acteur a la sienne. Seuls soin et
+# numerisation reçoivent des Documents, jusqu'à 20 pages de 3 Mo (ADR 0008), enveloppe comprise :
+# 64 Mo. Les autres n'envoient que des formulaires et du JSON : 1 Mo. Le service refuse ce qui dépasse
+# ses propres limites, en 413.
 (acteur) {
 	{args[0]}.{$LAFIA_DOMAINE}, http://{args[0]}.{$LAFIA_DOMAINE}:8080 {
 		import en-tetes
 		request_body {
-			max_size 64MB
+			max_size {args[1]}
 		}
 		handle /api/{args[0]}/* {
 			reverse_proxy {args[0]}:8000
@@ -66,11 +67,11 @@
 	}
 }
 
-import acteur soin
-import acteur caisse
-import acteur pharmacie
-import acteur citoyen
-import acteur numerisation
+import acteur soin 64MB
+import acteur caisse 1MB
+import acteur pharmacie 1MB
+import acteur citoyen 1MB
+import acteur numerisation 64MB
 
 # Le site produit, sur le domaine lui-même : la vision, et un lien vers chaque application. Il n'a pas
 # d'entrée interne, n'appelle aucun service et n'en expose aucun.

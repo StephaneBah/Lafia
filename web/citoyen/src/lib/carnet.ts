@@ -81,17 +81,21 @@ export type AccesLu = {
   depot?: boolean;
 };
 
-/** Un de mes documents : un papier numérisé, que personne n'a vérifié. */
+/** D'où vient une information (ADR 0007) : visite, declaration, report, numerisation ; null avant F5. */
+export type Origine = string | null;
+
+/** Un de mes documents : un papier numérisé, que personne n'a vérifié (`commun.fhir.documents.DocumentVu`). */
 export type DocumentLu = {
   id: string;
   type: string;
   libelle: string;
   annee: string | null;
   etablissement: string | null;
+  lisibilite: "lisible" | "partiel" | null;
   pages: number;
   /** Le format de chaque page : image/jpeg, image/png ou application/pdf. */
   formats: string[];
-  lisible: boolean;
+  origine: Origine;
   depose_le: string | null;
 };
 
@@ -107,13 +111,21 @@ export type Accueil = {
   allergies: string[];
 };
 
-export type AntecedentLu = { type: "medical" | "chirurgical"; libelle: string; depuis: string | null; actif: boolean };
-export type AntecedentFamilialLu = { lien: string; libelle: string };
-export type TraitementLu = { libelle: string; posologie: string | null; moments: Moment[]; depuis: string | null };
+export type AllergieLue = { libelle: string; origine: Origine };
+export type AntecedentLu = {
+  type: "medical" | "chirurgical";
+  libelle: string;
+  depuis: string | null;
+  actif: boolean;
+  origine: Origine;
+};
+export type AntecedentFamilialLu = { lien: string; libelle: string; origine: Origine };
+export type TraitementLu = { libelle: string; posologie: string | null; moments: Moment[]; depuis: string | null; origine: Origine };
 
 export type MaSante = {
   groupe_sanguin: string | null;
-  allergies: string[];
+  origine_du_groupe_sanguin: Origine;
+  allergies: AllergieLue[];
   antecedents: AntecedentLu[];
   familiaux: AntecedentFamilialLu[];
   traitements: TraitementLu[];
@@ -152,24 +164,6 @@ export async function lire<T>(chemin: string): Promise<Lecture<T>> {
   } catch (erreur) {
     console.warn(`service citoyen injoignable : ${chemin}`, erreur);
     return { etat: "injoignable" };
-  }
-}
-
-/**
- * Une page d'un de mes documents, lue au service citoyen avec le cookie de session : la réponse telle
- * quelle (octets et format), que l'application relaie au navigateur.
- */
-export async function lirePage(documentId: string, rang: number): Promise<Response> {
-  const jeton = (await cookies()).get(COOKIE_DE_SESSION)?.value;
-  if (!jeton) return new Response(null, { status: 401 });
-  try {
-    return await fetch(
-      `${adressePasserelle()}/api/citoyen/documents/${encodeURIComponent(documentId)}/pages/${rang}`,
-      { cache: "no-store", headers: { Cookie: `${COOKIE_DE_SESSION}=${jeton}` }, signal: AbortSignal.timeout(30000) },
-    );
-  } catch (erreur) {
-    console.warn("service citoyen injoignable : /documents", erreur);
-    return new Response(null, { status: 503 });
   }
 }
 

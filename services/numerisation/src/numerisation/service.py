@@ -1,14 +1,13 @@
 """Service numerisation : ses routes sous /api/numerisation. /sante et le client du noyau viennent de `commun`."""
 
-from typing import Literal
-
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel
 
 from commun.fhir.client import ClientFhir
-from commun.fhir.documents import OCTETS_PAR_PAGE, Page
+from commun.fhir.documents import Lisibilite, PieceDIdentite, TypeDeDocument
 from commun.jeton import Agent, VerificateurDeJetons
 from commun.service import client_fhir, creer_service
+from commun.televersement import pages_televersees
 from numerisation.regles import depot as regles
 from numerisation.regles.acces import ROLES_ADMIS
 from numerisation.regles.depot import Cloture, Depot, DocumentAjoute, DepotOuvert
@@ -43,7 +42,7 @@ class Ouverture(BaseModel):
     """Le NPI que le citoyen donne, la pièce d'identité que l'agent a vérifiée, et si le Dépôt est de la Reprise."""
 
     npi: str
-    piece: Literal["cni", "passeport", "acte-de-naissance", "carte-lafia", "autre"]
+    piece: PieceDIdentite
     reprise: bool = False
 
 
@@ -89,11 +88,6 @@ async def ouvrir(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="patient introuvable") from erreur
 
 
-async def _pages(fichiers: list[UploadFile]) -> list[Page]:
-    # Un octet de plus que la limite suffit à savoir qu'une page la dépasse, sans la lire toute.
-    return [Page(format=f.content_type or "", octets=await f.read(OCTETS_PAR_PAGE + 1)) for f in fichiers]
-
-
 @routes.post(
     "/depots/{depot_id}/documents",
     status_code=status.HTTP_201_CREATED,
@@ -105,9 +99,9 @@ async def _pages(fichiers: list[UploadFile]) -> list[Page]:
 )
 async def ajouter_document(
     depot_id: str,
-    type: str = Form(description="carnet, compte-rendu, resultat-analyse, ordonnance, imagerie, certificat, autre"),
+    type: TypeDeDocument = Form(description="carnet, compte-rendu, resultat-analyse, ordonnance, imagerie, certificat, autre"),
     annee: str = Form(description="L'année du papier : 2019."),
-    lisibilite: str = Form(description="lisible ou partiel"),
+    lisibilite: Lisibilite = Form(description="lisible ou partiel"),
     etablissement: str | None = Form(None, description="L'établissement d'origine, tel qu'écrit sur le papier."),
     pages: list[UploadFile] = File(default=[], description="Les pages, dans l'ordre."),
     pages_en_tableau: list[UploadFile] = File(default=[], alias="pages[]", description="Les pages, sous le nom pages[]."),
@@ -124,7 +118,7 @@ async def ajouter_document(
             annee=annee.strip(),
             etablissement_d_origine=etablissement,
             lisibilite=lisibilite,
-            pages=await _pages([*pages, *pages_en_tableau]),
+            pages=await pages_televersees([*pages, *pages_en_tableau]),
         )
     except ERREURS_DU_DEPOT as erreur:
         raise _refus_du_depot(erreur) from erreur
@@ -165,7 +159,7 @@ async def lire_page(
     return Response(
         content=page.octets,
         media_type=page.format,
-        headers={"Cache-Control": "no-store", "Content-Disposition": "inline"},
+        headers={"Cache-Control": "private, no-store", "Content-Disposition": "inline", "X-Content-Type-Options": "nosniff"},
     )
 
 

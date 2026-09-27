@@ -81,13 +81,13 @@ export type TypeDeDocument = (typeof TYPES_DE_DOCUMENT)[number][0];
 export type DocumentDuDossier = {
   id: string;
   type: TypeDeDocument | string;
-  libelle_du_type: string;
+  libelle: string;
   annee: string | null;
   etablissement: string | null;
   lisibilite: "lisible" | "partiel" | null;
   pages: number;
   /** Le format de chaque page, dans l'ordre : image/jpeg, image/png ou application/pdf. */
-  formats?: string[];
+  formats: string[];
   origine: Origine | null;
   depose_le: string | null;
 };

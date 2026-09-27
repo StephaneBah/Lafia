@@ -136,12 +136,12 @@ async def _tracer_lecture(fhir: ClientFhir, patient: str, ressource: dict[str, s
 @routes.get("/documents", responses={**REFUS, **CARNET_INTROUVABLE})
 async def mes_documents(
     patient: Ressource = Depends(patient_du_citoyen), fhir: ClientFhir = Depends(client_fhir)
-) -> list[documents.DocumentLu]:
+) -> list[fhir_documents.DocumentVu]:
     """Mes documents : les papiers numérisés, du plus récent au plus ancien, avec leur type, leur année
     et leur nombre de pages. Numérisés, non vérifiés."""
     trouves = await fhir_documents.documents_du_patient(fhir, patient["id"])
     await _tracer_lecture(fhir, patient["id"])
-    return [documents.document_lu(d) for d in trouves]
+    return [fhir_documents.document_vu(d) for d in trouves]
 
 
 @routes.get(

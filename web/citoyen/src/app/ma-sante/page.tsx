@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import type { ReactNode } from "react";
 
 import { Cadre, CarnetNonLu, Retour, Scene } from "../../composants/cadre";
+import { OrigineEnMots } from "../../composants/origine";
 import { lire, type MaSante } from "../../lib/carnet";
 
 /** Une rubrique de « Ma santé » : une icône et un mot pour titre, puis ses éléments. */
@@ -49,12 +50,20 @@ function Sante({ sante }: { sante: MaSante }) {
         <span>
           Groupe sanguin
           <b>{sante.groupe_sanguin ?? "Pas encore connu"}</b>
+          <OrigineEnMots origine={sante.origine_du_groupe_sanguin} />
         </span>
       </section>
 
       {sante.allergies.length > 0 && (
-        <Alert tone="allergie" title={`Allergie : ${sante.allergies.join(", ")}`}>
+        <Alert tone="allergie" title={`Allergie : ${sante.allergies.map((a) => a.libelle).join(", ")}`}>
           Dites-le à chaque soignant et au pharmacien.
+          <ul className="carnet-rubrique-liste">
+            {sante.allergies.map((a) => (
+              <li key={a.libelle}>
+                {a.libelle} <OrigineEnMots origine={a.origine} />
+              </li>
+            ))}
+          </ul>
         </Alert>
       )}
 
@@ -66,6 +75,7 @@ function Sante({ sante }: { sante: MaSante }) {
               {t.moments.length > 0 && <Posology moments={t.moments} size={44} />}
               {t.posologie && <span>{t.posologie}</span>}
               {depuis(t.depuis) && <span className="carnet-doux">{depuis(t.depuis)}</span>}
+              <OrigineEnMots origine={t.origine} />
             </li>
           ))}
         </Rubrique>
@@ -81,6 +91,7 @@ function Sante({ sante }: { sante: MaSante }) {
                 {a.actif ? "Toujours là" : "Guérie"}
               </span>
               {depuis(a.depuis) && <span className="carnet-doux">{depuis(a.depuis)}</span>}
+              <OrigineEnMots origine={a.origine} />
             </li>
           ))}
         </Rubrique>
@@ -92,6 +103,7 @@ function Sante({ sante }: { sante: MaSante }) {
             <li key={a.libelle} className="carnet-element">
               <b className="carnet-element-nom">{a.libelle}</b>
               {a.depuis && <span className="carnet-doux">{/^\d{4}$/.test(a.depuis) ? `En ${a.depuis}` : a.depuis}</span>}
+              <OrigineEnMots origine={a.origine} />
             </li>
           ))}
         </Rubrique>
@@ -102,6 +114,7 @@ function Sante({ sante }: { sante: MaSante }) {
           {sante.familiaux.map((f) => (
             <li key={`${f.lien}-${f.libelle}`} className="carnet-element">
               <b className="carnet-element-nom">{`${f.lien} : ${f.libelle.toLowerCase()}`}</b>
+              <OrigineEnMots origine={f.origine} />
             </li>
           ))}
         </Rubrique>

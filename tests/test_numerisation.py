@@ -5,6 +5,7 @@ le Dépôt. Seul l'agent qui l'a ouvert s'en sert, et plus rien n'y entre après
 
 import struct
 import zlib
+from datetime import date
 
 import pytest
 
@@ -101,14 +102,26 @@ def test_le_guichet_numerise_un_carnet_le_revoit_puis_clot_le_depot(numerisation
 
     lu = numerisation.get(f"{DEPOTS}/{depot}", headers=agent)
     assert lu.status_code == 200, lu.text
-    assert lu.json() == {
-        "patient": identite,
-        "documents": [{"id": document, "type": "carnet", "annee": "2019", "pages": 1}],
+    assert lu.json()["patient"] == identite
+    # La vue d'un Document que soin et citoyen rendent aussi.
+    (vu,) = lu.json()["documents"]
+    assert vu == {
+        "id": document,
+        "type": "carnet",
+        "libelle": "Carnet de santé",
+        "annee": "2019",
+        "etablissement": "CS de Kpanroun",
+        "lisibilite": "lisible",
+        "pages": 1,
+        "formats": ["image/png"],
+        "origine": "numerisation",
+        "depose_le": vu["depose_le"],
     }
 
     page = numerisation.get(f"{DEPOTS}/{depot}/documents/{document}/pages/1", headers=agent)
     assert page.status_code == 200
     assert page.headers["content-type"] == "image/png"
+    assert page.headers["x-content-type-options"] == "nosniff"
     assert page.content == PAGE
     assert numerisation.get(f"{DEPOTS}/{depot}/documents/{document}/pages/2", headers=agent).status_code == 404
 
@@ -136,8 +149,14 @@ def test_le_depot_clos_est_dans_le_noyau_document_et_provenance(numerisation, ag
     assert {(e["system"], e["code"]) for e in ressource["meta"]["tag"]} >= {(ORIGINE, "numerisation"), (DEPOT, depot)}
     (provenance,) = [e["resource"] for e in provenances.ressource.get("entry", [])]
     assert provenance["target"] == [{"reference": f"DocumentReference/{document}"}]
-    assert {(e["system"], e["code"]) for e in provenance["meta"]["tag"]} == {(DEPOT, depot), (ORIGINE, "reprise")}
-    assert "Passeport" in provenance["reason"][0]["text"]
+    assert {(e["system"], e["code"]) for e in provenance["meta"]["tag"]} == {
+        (DEPOT, depot), (ORIGINE, "numerisation"), (ORIGINE, "reprise")
+    }
+    (motif,) = provenance["reason"]
+    assert motif["coding"] == [
+        {"system": "https://lafia.bj/fhir/CodeSystem/piece-d-identite", "code": "passeport", "display": "Passeport"}
+    ]
+    assert "Passeport" in motif["text"]
 
 
 def test_un_depot_ne_sert_qu_a_l_agent_qui_l_a_ouvert(numerisation, agent, autre_agent, patient):
@@ -173,6 +192,10 @@ def test_une_piece_d_identite_inconnue_est_refusee(numerisation, agent, patient)
         pytest.param([("page.txt", b"du texte", "text/plain")], CARNET_DE_2019, 422, id="format refusé"),
         pytest.param([("page.png", PAGE, "image/png")], {**CARNET_DE_2019, "type": "radio"}, 422, id="type inconnu"),
         pytest.param([("page.png", PAGE, "image/png")], {**CARNET_DE_2019, "annee": "19"}, 422, id="année mal écrite"),
+        pytest.param(
+            [("page.png", PAGE, "image/png")], {**CARNET_DE_2019, "annee": str(date.today().year + 1)}, 422, id="année à venir"
+        ),
+        pytest.param([("page.png", PAGE, "image/png")], {**CARNET_DE_2019, "annee": "1899"}, 422, id="année avant 1900"),
         pytest.param([], CARNET_DE_2019, 422, id="aucune page"),
         pytest.param([("page.png", PAGE, "image/png")] * 21, CARNET_DE_2019, 413, id="plus de 20 pages"),
         pytest.param(

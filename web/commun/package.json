@@ -6,7 +6,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./renouvellement": "./src/renouvellement.ts"
+    "./renouvellement": "./src/renouvellement.ts",
+    "./televersement": "./src/televersement.ts",
+    "./pages": "./src/pages.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
