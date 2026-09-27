@@ -1,9 +1,9 @@
-"""Qui le service relecture sert, et à quelle étape (ADR 0007, 0009).
+"""Qui le service relecture sert, et à quelle étape (ADR 0007, 0009, 0010).
 
-Deux étages : l'agent de relecture fait le triage, et ne valide aucun fait clinique ; le médecin et
-l'infirmier valident les propositions d'une Extraction. Tous passent par la même application. Ni l'un
-ni l'autre ne voit qui est le patient : ni NPI, ni nom, ni lieu du dépôt ; seules les pages peuvent en
-porter un.
+Deux étages : l'agent de relecture fait la Relecture et le Contrôle des Transcriptions, et ne valide
+aucun fait clinique ; le médecin et l'infirmier valident les propositions d'une Extraction. Tous passent
+par la même application. Ni l'un ni l'autre ne voit qui est le patient : ni NPI, ni nom, ni lieu du
+dépôt ; seules les pages peuvent en porter un.
 """
 
 from commun.jeton import Agent, Role
@@ -13,7 +13,8 @@ SOIGNANTS = frozenset({Role.MEDECIN, Role.INFIRMIER})
 ROLES_ADMIS = RELECTEURS | SOIGNANTS
 
 
-def fait_le_triage(agent: Agent) -> bool:
+def relit(agent: Agent) -> bool:
+    """L'agent de relecture : Relectures et Contrôles."""
     return agent.role in RELECTEURS
 
 

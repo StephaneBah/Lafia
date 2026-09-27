@@ -25,10 +25,11 @@ routes = APIRouter()
 
 @routes.post("/extraire")
 async def extraire(demande: DemandeDExtraction) -> Extraction:
-    """Lit les pages d'un Document : son texte, et les faits proposés, chacun avec sa confiance. Le modèle
+    """Lit les pages d'un Document : son texte, un brouillon de Transcription en volets (ADR 0010) qui
+    renvoie à ces pages, et les faits proposés, chacun avec sa confiance. Le modèle
     et sa version sont nommés : aujourd'hui `demonstration:0`, l'Extraction de démonstration."""
     debut = time.perf_counter()
-    extraction = demonstration.extraire(demande.type_de_document)
+    extraction = demonstration.extraire(demande.type_de_document, len(demande.pages))
     journal.info(
         "document %s lu : %d pages, %d propositions, modèle %s:%s, %.0f ms",
         demande.document_id,

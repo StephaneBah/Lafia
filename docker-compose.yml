@@ -208,6 +208,7 @@ services:
       <<: *environnement-fhir
       EXTRACTION_URL: http://extraction:8000/api/extraction
       QUOTA_DE_RELECTURE: ${QUOTA_DE_RELECTURE:-10}
+      PART_CONTROLEE: ${PART_CONTROLEE:-1}
     networks:
       - passerelle
       - noyau

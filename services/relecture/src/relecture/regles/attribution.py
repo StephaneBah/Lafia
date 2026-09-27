@@ -1,21 +1,24 @@
-"""La semaine d'un agent de relecture : son quota de Tâches, tirées du pool, jamais de son département.
+"""La semaine d'un agent de relecture : ses Relectures et ses Contrôles, tirés du pool, jamais de son département.
 
-Le pool, ce sont les Documents numérisés (origine `numerisation`) qu'aucune Tâche de relecture ne vise
-encore, et ceux dont la Tâche de triage est restée ouverte une semaine passée : à la fin de sa semaine,
-une Tâche non faite retourne au pool. Les plus anciens papiers passent d'abord (l'année du Document, puis
-la date de sa numérisation).
+Deux pools. Celui des Relectures : les Documents numérisés (origine `numerisation`) qu'aucune Tâche ne vise
+encore, et ceux dont la Tâche de relecture est restée ouverte une semaine passée (à la fin de sa semaine,
+une Tâche non faite retourne au pool, son brouillon avec elle) ; les plus anciens papiers passent d'abord
+(l'année du Document, puis la date de sa numérisation). Celui des Contrôles : les Transcriptions confirmées
+qu'aucun contrôleur ne tient, les plus anciennes d'abord ; jamais à l'agent qui a fait la relecture.
 
-Un agent ne relit jamais un Document déposé dans son propre département : le département d'un Document
-est celui de l'établissement où il a été numérisé, que dit le Provenance de son Dépôt (`onBehalfOf`),
-ou, pour un Document ajouté pendant une visite, l'AuditEvent qui trace son écriture. Un Document dont
-le lieu ne se retrouve pas reste assignable.
+Un agent ne relit ni ne contrôle jamais un Document déposé dans son propre département : le département
+d'un Document est celui de l'établissement où il a été numérisé, que dit le Provenance de son Dépôt
+(`onBehalfOf`), ou, pour un Document ajouté pendant une visite, l'AuditEvent qui trace son écriture. Un
+Document dont le lieu ne se retrouve pas reste assignable.
 
-Le quota compte les Tâches que l'agent tient pour la semaine : celles à trier, et celles qu'il a closes
-au triage. Une Tâche qu'il a passée en validation n'est plus à lui, et libère sa place.
+Le quota borne ce que l'agent tient ouvert : ses Relectures à faire ou en cours de la semaine, et, à
+part, ses Contrôles à faire. Une Relecture confirmée ou close libère sa place ; une Relecture renvoyée
+par le Contrôle la reprend. Ce qu'il a fait de sa semaine, `suivi` le compte.
 """
 
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from datetime import date
 
 from commun.fhir import relecture, systemes
@@ -75,44 +78,50 @@ def _cle_d_anciennete(document: Ressource) -> tuple[str, str]:
 
 
 async def attribuer(fhir: ClientFhir, agent: Agent, jour: date) -> int:
-    """Complète la semaine de l'agent jusqu'à son quota, depuis le pool ; rend le nombre de Tâches ajoutées."""
+    """Complète la semaine de l'agent jusqu'à son quota, Contrôles puis Relectures, depuis les pools ;
+    rend le nombre de Tâches ajoutées."""
     semaine = relecture.semaine(jour)
-    manque = quota() - len(await relecture.taches_de(fhir, agent.sub, semaine))
-    if manque <= 0:
+    ouvertes = await relecture.taches_ouvertes_de(fhir, agent.sub)
+    manque_de_controles = quota() - sum(1 for t in ouvertes if relecture.etape_de(t) == "controle")
+    manque_de_relectures = quota() - sum(
+        1 for t in ouvertes if relecture.etape_de(t) == "relecture" and relecture.semaine_de(t) == semaine
+    )
+    if manque_de_controles <= 0 and manque_de_relectures <= 0:
         return 0
-    # Les seuls champs qui disent quel Document est suivi, et où en est sa Tâche : pas les propositions.
-    taches = await fhir.chercher("Task", {"code": f"{systemes.RELECTURE}|", "_elements": "focus,status,code,meta"})
-    suivis = {relecture.document_de(t) for t in taches}
-    # Une Tâche de triage non faite d'une semaine passée retourne au pool.
-    perimees = {
-        relecture.document_de(t): t
-        for t in taches
-        if relecture.etape_de(t) == "triage"
-        and t.get("status") == "ready"
-        and (relecture.semaine_de(t) or "") < semaine
-    }
-    documents = await fhir.chercher(
-        "DocumentReference", {"_tag": f"{systemes.ORIGINE}|numerisation", "status": "current"}
+    # Les seuls champs qui disent quel Document est suivi, où en est sa Tâche et à qui elle est : ni le
+    # brouillon, ni les propositions.
+    taches = await fhir.chercher(
+        "Task", {"code": f"{systemes.RELECTURE}|", "_elements": "focus,status,code,meta,owner,requester,authoredOn"}
     )
     departements = Departements(fhir)
     le_mien = await departements.de_l_etablissement(agent.etablissement)
+
+    async def du_mien(document: str | None) -> bool:
+        return bool(le_mien and document and await departements.du_document(document) == le_mien)
+
     ecritures: list[dict[str, object]] = []
-    for document in sorted(documents, key=_cle_d_anciennete):
-        if len(ecritures) >= manque:
+    controles = sorted(
+        (
+            t
+            for t in taches
+            if relecture.etape_de(t) == "controle" and t.get("status") == "ready" and not t.get("owner")
+            and relecture.auteur_de(t) != agent.sub
+        ),
+        key=lambda t: t.get("authoredOn", ""),
+    )
+    for controle in controles:
+        if manque_de_controles <= 0:
             break
-        patient = id_de(document.get("subject"))
-        if not patient or (document["id"] in suivis and document["id"] not in perimees):
+        if await du_mien(relecture.document_de(controle)):
             continue
-        if le_mien and await departements.du_document(document["id"]) == le_mien:
-            continue
-        perimee = perimees.get(document["id"])
-        if perimee:
-            # Lue en entier : la recherche n'en a rendu que quelques champs.
-            entiere = await fhir.lire("Task", perimee["id"])
-            if entiere:
-                ecritures.append(_reassigner(entiere, agent.sub, jour))
-        else:
-            ecritures.append(_creer(relecture.tache_de_relecture(document=document["id"], patient=patient, relecteur=agent.sub, jour=jour)))
+        # Lue en entier : la recherche n'en a rendu que quelques champs.
+        entiere = await fhir.lire("Task", controle["id"])
+        if entiere:
+            ecritures.append(ecriture_si_inchangee(relecture.reassignee(entiere, agent.sub, jour), entiere))
+            manque_de_controles -= 1
+
+    if manque_de_relectures > 0:
+        ecritures.extend(await _relectures(fhir, agent, jour, taches, manque_de_relectures, du_mien))
     if not ecritures:
         return 0
     try:
@@ -125,6 +134,43 @@ async def attribuer(fhir: ClientFhir, agent: Agent, jour: date) -> int:
     return len(ecritures)
 
 
+async def _relectures(
+    fhir: ClientFhir,
+    agent: Agent,
+    jour: date,
+    taches: list[Ressource],
+    manque: int,
+    du_mien: Callable[[str | None], Awaitable[bool]],
+) -> list[dict[str, object]]:
+    """Les Relectures qui complètent la semaine : Documents sans Tâche, ou dont la Relecture est restée
+    ouverte une semaine passée ; les plus vieux papiers d'abord."""
+    semaine = relecture.semaine(jour)
+    suivis = {relecture.document_de(t) for t in taches}
+    perimees = {
+        relecture.document_de(t): t
+        for t in taches
+        if relecture.etape_de(t) == "relecture" and relecture.est_ouverte(t) and (relecture.semaine_de(t) or "") < semaine
+    }
+    documents = await fhir.chercher("DocumentReference", {"_tag": f"{systemes.ORIGINE}|numerisation", "status": "current"})
+    ecritures: list[dict[str, object]] = []
+    for document in sorted(documents, key=_cle_d_anciennete):
+        if len(ecritures) >= manque:
+            break
+        patient = id_de(document.get("subject"))
+        if not patient or (document["id"] in suivis and document["id"] not in perimees):
+            continue
+        if await du_mien(document["id"]):
+            continue
+        perimee = perimees.get(document["id"])
+        if perimee:
+            entiere = await fhir.lire("Task", perimee["id"])
+            if entiere:
+                ecritures.append(ecriture_si_inchangee(relecture.reassignee(entiere, agent.sub, jour), entiere))
+        else:
+            ecritures.append(_creer(relecture.tache_de_relecture(document=document["id"], patient=patient, relecteur=agent.sub, jour=jour)))
+    return ecritures
+
+
 def _creer(tache: Ressource) -> dict[str, object]:
     """Créée seulement si aucune Tâche ne vise déjà ce Document : deux agents servis au même instant
     n'en créent pas deux."""
@@ -132,7 +178,3 @@ def _creer(tache: Ressource) -> dict[str, object]:
         "resource": tache,
         "request": {"method": "POST", "url": "Task", "ifNoneExist": f"focus={tache['focus']['reference']}"},
     }
-
-
-def _reassigner(tache: Ressource, relecteur: str, jour: date) -> dict[str, object]:
-    return ecriture_si_inchangee(relecture.reassignee(tache, relecteur, jour), tache)

@@ -103,12 +103,13 @@ DEPOT = f"{LAFIA}/identifiant/depot"
 LISIBILITE = f"{LAFIA}/StructureDefinition/lisibilite"
 """Extension d'un DocumentReference : lisible ou partiel."""
 
-# F6 : la Relecture et l'Extraction (docs/specs/F6-relecture-et-extraction.md, ADR 0009).
+# F6 : la Relecture et l'Extraction (docs/specs/F6-relecture-et-extraction.md, ADR 0009, 0010).
 RELECTURE = f"{LAFIA}/CodeSystem/relecture"
-"""L'étape d'une Tâche de relecture (`Task.code`) : `triage`, puis `validation`."""
+"""L'étape d'une Tâche de relecture (`Task.code`) : `relecture`, `controle`, `validation` ; et l'activité
+du Provenance d'une version de Transcription : `relecture` ou `controle`."""
 
-VERDICT_DE_TRIAGE = f"{LAFIA}/CodeSystem/verdict-de-triage"
-"""utilisable, illisible, non-medical, mauvais-type, doublon."""
+ISSUE_DE_RELECTURE = f"{LAFIA}/CodeSystem/issue-de-relecture"
+"""L'issue d'une Tâche (`Task.businessStatus`) : confirmee, relue, renvoyee, acceptee, non-medical, doublon."""
 
 SEMAINE_DE_RELECTURE = f"{LAFIA}/identifiant/semaine-de-relecture"
 """La semaine d'une Tâche (`meta.tag`) : `2026-W39`."""
