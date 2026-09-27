@@ -111,4 +111,4 @@ Each row is a feature, not a ticket, worked in dependency order. One session gri
 | F3 | v1 complète: soin with relation de soin and accès d'urgence, caisse, pharmacie, citoyen carnet, audit (`docs/specs/F3-v1-complete.md`) | F0, F2 | 2 |
 | F4 | Dossier approfondi (antécédents, traitements au long cours, groupe sanguin), espace patient in soin, carnet aéré (`docs/specs/F4-dossier-approfondi.md`) | F3 | 2 |
 | F5 | Reprise du passé médical: numérisation of paper history by a new actor, Documents in soin and the carnet, origine on every entry (`docs/specs/F5-reprise-du-passe-medical.md`) | F4 | 4 |
-| F6 | Relecture and Extraction: pseudonymised triage by agents de relecture, clinical validation by soignants, stand-in extraction behind the future model's contract (`docs/specs/F6-relecture-et-extraction.md`) | F5 | 5 |
+| F6 | Transcription of paper history: rigorous capture at the desk, draft Transcriptions by a stand-in Extraction, Relecture and Contrôle by agents de relecture, reading in soin and the carnet (`docs/specs/F6-relecture-et-extraction.md`, ADR 0009, 0010) | F5 | 5 |
