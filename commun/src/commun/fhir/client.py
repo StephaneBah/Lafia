@@ -37,6 +37,14 @@ def ecriture(ressource: Ressource) -> Entree:
     }
 
 
+def ecriture_si_inchangee(ressource: Ressource, lue: Ressource) -> Entree:
+    """L'entrée qui écrit la nouvelle version de `lue`, si personne ne l'a changée depuis sa lecture
+    (`If-Match` sur sa version) : sinon le noyau refuse la transaction entière."""
+    entree = ecriture(ressource)
+    entree["request"]["ifMatch"] = f'W/"{lue.get("meta", {}).get("versionId", "1")}"'
+    return entree
+
+
 def _codes_d_erreur(reponse: httpx.Response) -> str:
     """Les codes d'erreur du noyau (`HAPI-0450`) dans son OperationOutcome : jamais son message, qui
     peut citer le contenu d'une ressource."""

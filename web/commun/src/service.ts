@@ -21,7 +21,7 @@ export type Sante = {
 };
 
 /** Le rôle d'un agent, professionnel rattaché à un établissement (`commun.jeton.Role`). */
-export type RoleAgent = "médecin" | "infirmier" | "caissier" | "pharmacien" | "agent de numérisation";
+export type RoleAgent = "médecin" | "infirmier" | "caissier" | "pharmacien" | "agent de numérisation" | "agent de relecture";
 
 /** Un agent connecté, tel que `GET /api/identite/session` le rend : de quoi le nommer, lui et son établissement. */
 export type SessionAgent = {

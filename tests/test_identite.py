@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption,
 
 from conftest import (
     APPLICATION_DU_ROLE,
+    APPLICATIONS_DU_ROLE,
     CLE_PRIVEE_DE_DEVELOPPEMENT,
     COOKIE_DE_RENOUVELLEMENT,
     COOKIE_DE_SESSION,
@@ -27,7 +28,7 @@ from conftest import (
     par_cookie,
 )
 
-APPLICATIONS = ["soin", "caisse", "pharmacie", "citoyen", "numerisation"]
+APPLICATIONS = ["soin", "caisse", "pharmacie", "citoyen", "numerisation", "relecture"]
 DUREE_DU_JETON = 15 * 60
 INACTIVITE_MAXIMALE_D_UN_AGENT = 30 * 60
 DUREE_MAXIMALE_D_UN_CITOYEN = 60 * 60
@@ -98,10 +99,10 @@ def test_mauvais_mot_de_passe_et_identifiant_inconnu_recoivent_la_meme_reponse(c
     ("role", "acteur"),
     [
         (role, acteur)
-        for role, application_du_role in APPLICATION_DU_ROLE.items()
+        for role, applications_du_role in APPLICATIONS_DU_ROLE.items()
         if role != "citoyen"
         for acteur in APPLICATIONS
-        if acteur != application_du_role
+        if acteur not in applications_du_role
     ],
 )
 def test_un_compte_ne_se_connecte_pas_sur_l_application_d_un_autre_role(compte_de, connecter, role, acteur):
@@ -111,7 +112,7 @@ def test_un_compte_ne_se_connecte_pas_sur_l_application_d_un_autre_role(compte_d
 
 
 @pytest.mark.parametrize("chemin", ["/", "/connexion"])
-@pytest.mark.parametrize("acteur", ["soin", "caisse", "pharmacie", "numerisation"])
+@pytest.mark.parametrize("acteur", ["soin", "caisse", "pharmacie", "numerisation", "relecture"])
 def test_depuis_les_pages_d_une_application_le_navigateur_joint_son_origine_aux_formulaires(
     application, acteur, chemin
 ):
@@ -279,7 +280,7 @@ def test_chaque_citoyen_liste_sur_la_page_de_connexion_se_connecte_avec_son_code
     assert [rang for rang, issue in enumerate(issues) if issue != "/"] == []
 
 
-@pytest.mark.parametrize("acteur", ["soin", "caisse", "pharmacie", "numerisation"])
+@pytest.mark.parametrize("acteur", ["soin", "caisse", "pharmacie", "numerisation", "relecture"])
 def test_un_citoyen_ne_se_connecte_que_sur_l_application_citoyen(connecter_citoyen, citoyen_de_demonstration, acteur):
     citoyen = citoyen_de_demonstration
 
@@ -315,7 +316,7 @@ def test_un_soignant_obtient_un_code_carnet_qui_ouvre_le_carnet_et_remplace_le_p
     assert connecter_citoyen(npi, nouveau).headers.get("location") == "/"
 
 
-@pytest.mark.parametrize("role", ["caissier", "pharmacien", "agent de numérisation", "officine", "citoyen"])
+@pytest.mark.parametrize("role", ["caissier", "pharmacien", "agent de numérisation", "agent de relecture", "officine", "citoyen"])
 def test_seuls_les_soignants_obtiennent_un_code_carnet(application, jeton_de, npi_sans_code_de_demonstration, role):
     reponse = application(APPLICATION_DU_ROLE[role]).post(
         "/api/identite/codes-carnet", json={"npi": npi_sans_code_de_demonstration}, headers=_porteur(jeton_de(role))
@@ -392,7 +393,7 @@ def noms_des_structures(jeu) -> dict[str, str]:
     return {s["id"]: s["nom"] for s in [*jeu("etablissements")["etablissement"], *jeu("officines")["officine"]]}
 
 
-@pytest.mark.parametrize("role", ["médecin", "infirmier", "caissier", "pharmacien", "agent de numérisation"])
+@pytest.mark.parametrize("role", ["médecin", "infirmier", "caissier", "pharmacien", "agent de numérisation", "agent de relecture"])
 def test_la_session_d_identite_nomme_l_agent_et_son_etablissement(
     application, jeu, compte_de, jeton_de, noms_des_structures, role
 ):
@@ -448,7 +449,7 @@ def test_un_agent_a_deux_comptes_se_connecte_dans_l_etablissement_du_compte_choi
     assert compte_a.etablissement != compte_b.etablissement
 
 
-@pytest.mark.parametrize("acteur", ["soin", "caisse", "pharmacie", "numerisation"])
+@pytest.mark.parametrize("acteur", ["soin", "caisse", "pharmacie", "numerisation", "relecture"])
 def test_chaque_application_liste_ses_comptes_de_demonstration_sans_ceux_reserves_aux_tests(
     application, comptes, noms_des_structures, acteur
 ):
@@ -464,7 +465,7 @@ def test_chaque_application_liste_ses_comptes_de_demonstration_sans_ceux_reserve
                 "structure": noms_des_structures[c.etablissement or c.sub],
             }
             for c in comptes
-            if c.application == acteur and not c.reserve_aux_tests
+            if acteur in c.applications and not c.reserve_aux_tests
         ),
         key=lambda c: c["identifiant"],
     )

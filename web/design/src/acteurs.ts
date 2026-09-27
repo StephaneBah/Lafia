@@ -3,7 +3,7 @@
 
 import type { NomIcone } from "./generes/icones";
 
-export type Acteur = "citoyen" | "soin" | "caisse" | "pharmacie" | "numerisation";
+export type Acteur = "citoyen" | "soin" | "caisse" | "pharmacie" | "numerisation" | "relecture";
 
 export const ACTEURS: Record<Acteur, { libelle: string; icone: NomIcone }> = {
   citoyen: { libelle: "Carnet citoyen", icone: "user" },
@@ -11,10 +11,11 @@ export const ACTEURS: Record<Acteur, { libelle: string; icone: NomIcone }> = {
   caisse: { libelle: "Caisse", icone: "cash-register" },
   pharmacie: { libelle: "Pharmacie", icone: "pill" },
   numerisation: { libelle: "Numérisation", icone: "copy" },
+  relecture: { libelle: "Relecture", icone: "magnifying-glass" },
 };
 
 /** L'ordre dans lequel le site et son pied de page présentent les applications. */
-export const ORDRE_DES_ACTEURS: Acteur[] = ["citoyen", "soin", "caisse", "pharmacie", "numerisation"];
+export const ORDRE_DES_ACTEURS: Acteur[] = ["citoyen", "soin", "caisse", "pharmacie", "numerisation", "relecture"];
 
 /** Le nom d'hôte d'une application : `soin.lafia.stephanebah.page`. */
 export function hoteDApplication(acteur: Acteur, domaine: string): string {

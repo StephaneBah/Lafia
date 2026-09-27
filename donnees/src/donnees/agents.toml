@@ -1,8 +1,8 @@
-# Agents du jeu de démonstration : soignants, caissiers, pharmaciens et agents de numérisation. Personnes synthétiques.
+# Agents du jeu de démonstration : soignants, caissiers, pharmaciens, agents de numérisation et de relecture. Personnes synthétiques.
 #
 # id      identifiant fixe du Practitioner dans le noyau ; c'est aussi le `sub` des jetons de l'agent.
 #         Il ne dit rien de la personne : les journaux le citent.
-# role    médecin, infirmier, caissier, pharmacien ou agent de numérisation.
+# role    médecin, infirmier, caissier, pharmacien, agent de numérisation ou agent de relecture.
 # compte  un compte par établissement où l'agent travaille : un jeton ne porte qu'un établissement.
 #         Identifiants et mots de passe publics, listés sur la page de connexion de chaque application.
 #         `reserve_aux_tests` : compte que la suite verrouille exprès ; jamais listé.
@@ -189,6 +189,23 @@ nom = "ZINSOU"
 prenoms = ["Hervé", "Dossou"]
 role = "agent de numérisation"
 compte = [{ identifiant = "numerisation.kpanroun", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" }]
+
+# Agents de relecture : l'un au CHUD de Parakou, l'autre au centre de santé de Kpanroun. Chacun ne trie que
+# des Documents déposés hors de son département ; les soignants valident, sur la même application.
+
+[[agent]]
+id = "agent-25"
+nom = "BIO TCHANE"
+prenoms = ["Salimatou"]
+role = "agent de relecture"
+compte = [{ identifiant = "relecture.parakou", mot_de_passe = "lafia-demo", etablissement = "chud-borgou-alibori" }]
+
+[[agent]]
+id = "agent-26"
+nom = "KOUTON"
+prenoms = ["Fidèle"]
+role = "agent de relecture"
+compte = [{ identifiant = "relecture.kpanroun", mot_de_passe = "lafia-demo", etablissement = "cs-kpanroun" }]
 
 # Réservés à la suite de tests, qui les verrouille exprès : jamais listés sur une page de connexion.
 

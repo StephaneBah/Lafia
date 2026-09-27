@@ -8,7 +8,7 @@ règle de la clé de développement (`lire_cle`).
 
 Revendications, selon le porteur, plus `exp` pour tous :
 - agent : `sub`, l'identifiant de son Practitioner ; `role`, médecin, infirmier, caissier,
-  pharmacien ou agent de numérisation ; `etablissement`, l'identifiant de l'Organization où il s'est connecté ;
+  pharmacien, agent de numérisation ou agent de relecture ; `etablissement`, l'identifiant de l'Organization où il s'est connecté ;
 - officine : `sub`, l'identifiant de son Organization ; `role`, officine ;
 - citoyen : `sub`, tiré au hasard à chaque connexion ; `role`, citoyen ; `npi`.
 """
@@ -53,6 +53,7 @@ class Role(StrEnum):
     CAISSIER = "caissier"
     PHARMACIEN = "pharmacien"
     AGENT_DE_NUMERISATION = "agent de numérisation"
+    AGENT_DE_RELECTURE = "agent de relecture"
     OFFICINE = "officine"
     CITOYEN = "citoyen"
 

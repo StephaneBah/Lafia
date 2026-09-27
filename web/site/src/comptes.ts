@@ -37,4 +37,8 @@ export const COMPTES_DU_SITE: Record<Acteur, { comptes: CompteAffiche[]; note: s
     comptes: [agent("numerisation.cnhu")],
     note: "Agent de numérisation au guichet de la Reprise du CNHU Hubert Koutoukou Maga, Cotonou.",
   },
+  relecture: {
+    comptes: [agent("relecture.parakou"), agent("medecin.cnhu.1")],
+    note: "Une agente de relecture du CHUD de Parakou trie les documents d'autres départements ; un médecin du CNHU valide ce que l'extraction de démonstration propose.",
+  },
 };

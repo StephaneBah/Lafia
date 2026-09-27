@@ -3,7 +3,8 @@
 Les applications et identite ne sont pas sur le réseau noyau : ils ne joignent pas le noyau, ni par
 son nom ni par son adresse. La base d'identite n'est que sur le réseau identite : aucune application,
 aucun service qui parle FHIR ne la joint. Seule la passerelle publie des ports : HAPI n'est joignable
-que par un service qui parle FHIR.
+que par un service qui parle FHIR. Le modèle de lecture, extraction, n'est joint que par relecture, et
+ne joint rien (ADR 0009).
 """
 
 import json
@@ -51,20 +52,25 @@ APPLICATIONS = [
     "application-pharmacie",
     "application-citoyen",
     "application-numerisation",
+    "application-relecture",
     "application-site",
 ]
-SERVICES_FHIR = ["soin", "caisse", "pharmacie", "citoyen", "numerisation"]
+SERVICES_FHIR = ["soin", "caisse", "pharmacie", "citoyen", "numerisation", "relecture"]
 
 # Chaque conteneur a les sondes de l'interpréteur qu'il embarque : HTTP, puis TCP.
 SONDES = {
     **{application: (SONDE_NODE, SONDE_TCP_NODE) for application in APPLICATIONS},
-    **{service: (SONDE_PYTHON, SONDE_TCP_PYTHON) for service in [*SERVICES_FHIR, "identite"]},
+    **{service: (SONDE_PYTHON, SONDE_TCP_PYTHON) for service in [*SERVICES_FHIR, "identite", "extraction"]},
 }
 
 # Les conteneurs hors du réseau noyau.
 HORS_DU_NOYAU = [*APPLICATIONS, "identite"]
 # Les conteneurs hors du réseau identite : tout ce qui pourrait vouloir lire les comptes.
 HORS_D_IDENTITE = [*APPLICATIONS, *SERVICES_FHIR]
+# Le modèle de lecture n'est joint que par relecture (ADR 0009) : ni par la passerelle, ni par une
+# application, ni par un autre service.
+EXTRACTION = "http://extraction:8000/api/extraction/sante"
+HORS_D_EXTRACTION = [*APPLICATIONS, *[s for s in SERVICES_FHIR if s != "relecture"], "identite"]
 
 
 def sonder(docker, conteneur: str, url: str) -> int:
@@ -119,6 +125,28 @@ def test_hors_du_reseau_identite_la_base_d_identite_est_injoignable(docker, cont
     assert sonder_tcp(docker, conteneur, "base-identite", 5432) == SANS_REPONSE
     for adresse in adresses_ip(docker, "base-identite"):
         assert sonder_tcp(docker, conteneur, adresse, 5432) == SANS_REPONSE
+
+
+@pytest.mark.parametrize("conteneur", HORS_D_EXTRACTION)
+def test_hors_de_relecture_l_extraction_est_injoignable(docker, conteneur):
+    # Témoin : relecture, lui, la joint. Sans lui, une sonde qui ne tourne pas passerait pour une extraction injoignable.
+    assert sonder(docker, "relecture", EXTRACTION) == REPONSE
+
+    assert sonder(docker, conteneur, EXTRACTION) == SANS_REPONSE
+    for adresse in adresses_ip(docker, "extraction"):
+        assert sonder(docker, conteneur, f"http://{adresse}:8000/api/extraction/sante") == SANS_REPONSE
+
+
+def test_l_extraction_n_est_que_sur_son_reseau_et_ne_joint_rien(docker):
+    identifiant = docker("compose", "ps", "--quiet", "extraction").stdout.strip()
+    assert identifiant, "extraction ne tourne pas"
+    inspection = docker("inspect", "--format", "{{json .NetworkSettings.Networks}}", identifiant)
+    assert set(json.loads(inspection.stdout)) == {"lafia_extraction"}
+
+    # Ni le noyau, ni la passerelle : elle ne rend rien à personne d'autre que relecture.
+    assert sonder(docker, "extraction", "http://localhost:8000/api/extraction/sante") == REPONSE
+    assert sonder(docker, "extraction", "http://noyau:8080/fhir/metadata") == SANS_REPONSE
+    assert sonder(docker, "extraction", "http://passerelle:8080/") == SANS_REPONSE
 
 
 def test_le_chargement_n_est_que_sur_le_reseau_noyau(docker):
