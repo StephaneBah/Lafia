@@ -1,7 +1,7 @@
 [project]
 name = "lafia-relecture"
 version = "0.1.0"
-description = "Service relecture : les Tâches de relecture des Documents, du triage à la validation par un soignant (F6, ADR 0009)."
+description = "Service relecture : les Tâches de relecture des Documents, de la Relecture et du Contrôle de leur Transcription à la validation par un soignant (F6, ADR 0009, 0010)."
 requires-python = ">=3.11"
 dependencies = [
     "lafia-commun",

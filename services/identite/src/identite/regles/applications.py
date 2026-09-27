@@ -29,7 +29,7 @@ ROLES_PAR_APPLICATION: dict[Application, frozenset[Role]] = {
     Application.PHARMACIE: frozenset({Role.PHARMACIEN, Role.OFFICINE}),
     Application.CITOYEN: frozenset({Role.CITOYEN}),
     Application.NUMERISATION: frozenset({Role.AGENT_DE_NUMERISATION}),
-    # Le triage par les agents de relecture, la validation par les soignants : une même application (F6).
+    # La Relecture et le Contrôle par les agents de relecture, la validation par les soignants : une même application (F6).
     Application.RELECTURE: frozenset({Role.AGENT_DE_RELECTURE, Role.MEDECIN, Role.INFIRMIER}),
 }
 

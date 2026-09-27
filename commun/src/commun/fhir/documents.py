@@ -273,9 +273,11 @@ def document_vu(ressource: Ressource) -> DocumentVu:
 
 
 async def documents_du_patient(fhir: ClientFhir, patient: str) -> list[Ressource]:
-    """Les Documents courants du patient, du plus récent au plus ancien."""
+    """Les Documents courants du patient, du plus récent au plus ancien. Une lecture tirée d'un Document
+    (origine `extraction` : une Transcription, ADR 0010) n'en est pas un : elle se lit avec son scan."""
     trouves = await fhir.chercher("DocumentReference", {"subject": f"Patient/{patient}", "status": "current"})
-    return sorted(trouves, key=lambda d: d.get("date", ""), reverse=True)
+    documents = [d for d in trouves if origine_de(d) != "extraction"]
+    return sorted(documents, key=lambda d: d.get("date", ""), reverse=True)
 
 
 async def documents_du_depot(fhir: ClientFhir, depot: str) -> list[Ressource]:
