@@ -2,6 +2,7 @@
 
 import { Alert, Button, Logo, Posology } from "@lafia/design";
 
+import { adresseDuPatient } from "../lib/adresses";
 import { traceQr } from "../lib/qr";
 import type { Catalogue, Recu } from "../lib/types";
 
@@ -25,12 +26,12 @@ function dateEtHeure(iso: string): string {
 export function RecuImprimable({
   recu,
   catalogue,
-  npi,
+  patientId,
   adresseDuCarnet,
 }: {
   recu: Recu;
   catalogue: Catalogue;
-  npi: string;
+  patientId: string;
   adresseDuCarnet: string;
 }) {
   const libelles = new Map(catalogue.produits.map((p) => [p.code, p.libelle]));
@@ -44,7 +45,7 @@ export function RecuImprimable({
           <Button size="pro" icon="printer" onClick={() => window.print()}>
             Imprimer le reçu
           </Button>
-          <Button href={`/patients/${npi}/dossier`} size="pro" variant="secondary" icon="eye">
+          <Button href={adresseDuPatient(patientId, "/cas")} size="pro" variant="secondary" icon="eye">
             Voir le dossier
           </Button>
           <Button href="/" size="pro" variant="ghost" icon="magnifying-glass">
@@ -85,7 +86,7 @@ export function RecuImprimable({
                     <Posology count={l.dose} moments={l.moments} days={l.jours} size={30} />
                   </div>
                 ) : null}
-                <div className="sn-petit">{`Quantité : ${l.quantite}`}</div>
+                <div className="sn-petit">{`Quantité : ${l.quantite}${l.unite ? ` ${l.unite}` : ""}`}</div>
               </div>
             ))}
           </>

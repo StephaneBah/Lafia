@@ -1,9 +1,12 @@
 import { Alert, Button, Icon } from "@lafia/design";
 import type { ReactNode } from "react";
 
+import { adresseDuPatient } from "../lib/adresses";
 import type { Bandeau, SessionSoignant } from "../lib/types";
 import { Cadre } from "./Cadre";
 import { BandeauPatient } from "./Patient";
+
+export { adresseDuPatient };
 
 export type Onglet = "synthese" | "cas" | "visite";
 
@@ -12,11 +15,6 @@ const ONGLETS: { onglet: Onglet; libelle: string; suite: string; icone: "stethos
   { onglet: "cas", libelle: "Cas", suite: "/cas", icone: "heartbeat" },
   { onglet: "visite", libelle: "Nouvelle visite", suite: "/visite", icone: "plus" },
 ];
-
-/** L'adresse d'un écran de l'espace patient : par l'id de sa ressource Patient, jamais par son NPI. */
-export function adresseDuPatient(patientId: string, suite = ""): string {
-  return `/patients/${encodeURIComponent(patientId)}${suite}`;
-}
 
 /** Le soignant connecté, rappelé au-dessus du patient : qui lit ce dossier, et pour quel établissement. */
 function Connecte({ session }: { session: SessionSoignant }) {

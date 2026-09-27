@@ -60,8 +60,8 @@ export async function cloreCas(donnees: FormData) {
   const id = patientId(donnees);
   const cas = texte(donnees, "cas");
   const reponse = await soin.clore(cas);
-  const suite = reponse.statut === 200 ? "?clos=1" : reponse.statut === 403 ? "?erreur=cloture-relation" : "?erreur=cloture";
-  redirect(espace(id, `/cas${suite}`));
+  const suite = reponse.statut === 200 ? "clos=1" : reponse.statut === 403 ? "erreur=cloture-relation" : "erreur=cloture";
+  redirect(espace(id, `/cas?cas=${encodeURIComponent(cas)}&${suite}`));
 }
 
 export async function accesDUrgence(donnees: FormData) {
