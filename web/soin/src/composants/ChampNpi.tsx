@@ -9,7 +9,7 @@ export function ChampNpi() {
       name="npi"
       size="pro"
       label="NPI du patient"
-      hint="Treize chiffres : la fiche s’ouvre dès le dernier."
+      hint="Treize chiffres : le patient s’ouvre dès le dernier."
       autoFocus
       required
       onComplete={() => {

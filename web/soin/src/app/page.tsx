@@ -7,7 +7,7 @@ import { Cadre } from "../composants/Cadre";
 import { lireSession } from "../lib/soin";
 import { rechercher } from "./actions";
 
-/** Sans session : l'état de l'application et la connexion. Avec : la recherche d'un patient par NPI. */
+/** Sans session : l'état de l'application et la connexion. Avec : la recherche d'un patient par NPI, qui ne passe par aucune adresse. */
 export default async function Accueil({ searchParams }: ParametresDePage) {
   await connection();
   const session = await lireSession();
@@ -20,15 +20,17 @@ export default async function Accueil({ searchParams }: ParametresDePage) {
         <Card className="sn-panneau">
           <h1 className="lf-app-titre">Rechercher un patient</h1>
           {erreur === "npi" && <Alert tone="danger" title="Un NPI a treize chiffres." />}
+          {erreur === "inconnu" && <Alert tone="attention" title="Aucun patient n’a ce NPI. Vérifiez-le avec le patient." />}
+          {erreur === "service" && <Alert tone="danger" title="Le service soin ne répond pas. Réessayez dans un instant." />}
           <form action={rechercher} className="lf-formulaire">
             <ChampNpi />
             <Button type="submit" size="pro" icon="magnifying-glass">
-              Ouvrir la fiche
+              Ouvrir le patient
             </Button>
           </form>
           <p className="sn-meta">
-            La fiche montre l’identité, les allergies et les cas. Le dossier s’ouvre par une relation de soin : un cas que vous
-            continuez ou que vous ouvrez.
+            Le patient s’ouvre sur son identité, ses allergies et son groupe sanguin. Le dossier s’ouvre par une relation de
+            soin : un cas que vous continuez ou que vous ouvrez.
           </p>
         </Card>
         <Card className="sn-panneau">

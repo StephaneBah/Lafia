@@ -88,8 +88,91 @@
 .sn-code { border: 3px solid #121212; border-radius: 10px; padding: 10px; text-align: center; display: grid; gap: 2px; }
 .sn-code span { font: 700 30px/34px var(--font-mono); letter-spacing: .2em; }
 
+/* Espace patient : barre, bandeau persistant, onglets (docs/specs/F4-dossier-approfondi.md) */
+.sn-h2 { margin: 0; font-size: 20px; line-height: 26px; font-weight: 700; display: flex; gap: 8px; align-items: center; }
+.sn-h2--urgence { color: var(--status-danger-fg); }
+.sn-lien { color: var(--color-link); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.sn-barre { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
+.sn-connecte { margin: 0; display: flex; gap: 8px; align-items: center; color: var(--color-text-muted); font-size: 15px; }
+.sn-connecte b { color: var(--color-text); }
+.sn-bandeau { display: grid; gap: var(--space-3); position: sticky; top: 0; z-index: 2; }
+.sn-bandeau-identite { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
+.sn-bandeau .sn-nom { margin: 0; }
+.sn-groupe { display: grid; justify-items: center; gap: 2px; padding: 6px 14px; border: 2px solid var(--status-danger-fg); border-radius: var(--radius-sm); background: var(--color-surface); }
+.sn-groupe-titre { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-muted); }
+.sn-groupe strong { font: 800 22px/26px var(--font-sans); color: var(--status-danger-fg); }
+.sn-sans-allergie { display: flex; gap: 6px; align-items: center; }
+.sn-bandeau-histoire { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin: 0; font-size: 15px; }
+.sn-bandeau-histoire dt { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-muted); }
+.sn-bandeau-histoire dd { margin: 2px 0 0; display: flex; flex-wrap: wrap; gap: 4px var(--space-3); }
+.sn-traitement-court { display: inline-flex; gap: 6px; align-items: center; }
+.sn-onglets { display: flex; gap: var(--space-1); border-bottom: 2px solid var(--color-border); flex-wrap: wrap; }
+.sn-onglet { display: inline-flex; gap: 8px; align-items: center; min-height: 44px; padding: 8px 16px; color: var(--color-text-muted); font-weight: 700; text-decoration: none; border-bottom: 4px solid transparent; margin-bottom: -2px; }
+.sn-onglet:hover { color: var(--color-text); }
+.sn-onglet:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.sn-onglet[aria-current="page"] { color: var(--color-action); border-bottom-color: var(--color-action); }
+.sn-espace-contenu { display: grid; gap: var(--space-4); }
+.sn-intro { margin: 0; display: flex; gap: 8px; align-items: center; font-weight: 700; }
+.sn-choix { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4); align-items: start; }
+.sn-synthese { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.sn-sous-partie { display: grid; gap: 4px; }
+.sn-puces { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.sn-etiquette { display: inline-block; margin-left: 8px; padding: 0 8px; border: 1px solid var(--color-border-control); border-radius: var(--radius-pill); font-size: 13px; font-weight: 700; color: var(--color-text-muted); }
+.sn-traitement { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-3); align-items: center; }
+.sn-mesures { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-3); margin: 0; }
+.sn-mesures > div { padding: var(--space-3); background: var(--color-surface-soft); border-radius: var(--radius-sm); }
+.sn-mesures dt { font-size: 14px; color: var(--color-text-muted); }
+.sn-mesures dd { margin: 0; font-weight: 700; font-size: 18px; }
+.sn-mesures dd.sn-meta { font-weight: 400; font-size: 13px; }
+.sn-replie > summary { list-style: none; cursor: pointer; width: fit-content; }
+.sn-replie > summary::-webkit-details-marker { display: none; }
+.sn-replie[open] > summary { margin-bottom: var(--space-3); }
+.sn-replie-corps { padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.sn-radios--ligne { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sn-radios--groupes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.sn-details > summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
+.sn-details > summary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.sn-details--cas { padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); }
+.sn-details--cas[open] > summary { margin-bottom: var(--space-3); }
+.sn-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.sn-table th, .sn-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--color-border); }
+
+/* Courbe de température : seuil de fièvre en pointillé et nommé, fièvre en carré, pas en couleur seule */
+.sn-courbe { margin: 0; display: grid; gap: var(--space-2); }
+.sn-courbe-svg { width: 100%; height: auto; }
+.sn-courbe-grille { stroke: var(--color-border); stroke-width: 1; }
+.sn-courbe-axe { fill: var(--color-text-muted); font: 400 12px var(--font-sans); }
+.sn-courbe-seuil { stroke: var(--status-danger-fg); stroke-width: 2; stroke-dasharray: 6 4; }
+.sn-courbe-seuil-texte { fill: var(--status-danger-fg); font: 700 12px var(--font-sans); }
+.sn-courbe-ligne { fill: none; stroke: var(--color-action); stroke-width: 2.5; }
+.sn-courbe-rond { fill: var(--color-surface); stroke: var(--color-action); stroke-width: 2.5; }
+.sn-courbe-fievre { fill: var(--status-danger-fg); }
+.sn-courbe-point:focus { outline: none; }
+.sn-courbe-point:focus-visible > circle, .sn-courbe-point:focus-visible > rect { stroke: var(--color-focus); stroke-width: 4; }
+
+/* Nouvelle visite par étapes : numéro, mot et état ensemble */
+.sn-etapes { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.sn-etape { display: inline-flex; gap: 8px; align-items: center; padding: 6px 12px 6px 6px; border-radius: var(--radius-pill); border: 2px solid var(--color-border); font-weight: 700; font-size: 15px; color: var(--color-text-muted); }
+.sn-etape-numero { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--color-surface-soft); color: var(--color-text); font-size: 14px; }
+.sn-etape--courante { border-color: var(--color-action); color: var(--color-text); }
+.sn-etape--courante .sn-etape-numero { background: var(--color-action); color: var(--color-on-action); }
+.sn-etape--faite { color: var(--color-text); }
+.sn-etape--faite .sn-etape-numero { background: var(--status-paye-bg); color: var(--status-paye-fg); }
+.sn-etape-corps { display: grid; gap: var(--space-3); }
+.sn-etape-corps[hidden] { display: none; }
+.sn-ligne--allergie { border: 2px solid var(--status-danger-fg); }
+.sn-coche--danger { color: var(--status-danger-fg); }
+.sn-coche--danger input { accent-color: var(--status-danger-fg); }
+.sn-actions--etapes { align-items: center; border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
+.sn-recap { display: grid; gap: var(--space-3); margin: 0; }
+.sn-recap > div { display: grid; grid-template-columns: 160px 1fr; gap: var(--space-3); padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-border); }
+.sn-recap dt { font-weight: 700; color: var(--color-text-muted); }
+.sn-recap dd { margin: 0; }
+
 @media (max-width: 860px) {
-  .sn-recherche, .sn-deux, .sn-deux--urgence, .sn-dossier, .sn-recu-ecran, .sn-grille { grid-template-columns: minmax(0, 1fr); }
+  .sn-recherche, .sn-deux, .sn-deux--urgence, .sn-dossier, .sn-recu-ecran, .sn-grille, .sn-synthese, .sn-bandeau-histoire, .sn-recap > div { grid-template-columns: minmax(0, 1fr); }
+  .sn-bandeau { position: static; }
+  .sn-radios--ligne, .sn-radios--groupes { grid-template-columns: 1fr 1fr; }
   .sn-tension { grid-column: auto; }
   .sn-ligne { grid-template-columns: 1fr 1fr; }
   .sn-ligne-produit { grid-column: 1 / -1; }
@@ -98,7 +181,7 @@
 @media print {
   @page { size: 80mm auto; margin: 0; }
   body { background: #FFFFFF !important; }
-  .lf-appheader, .sn-retour, .sn-recu-actions { display: none !important; }
+  .lf-appheader, .sn-retour, .sn-recu-actions, .sn-barre, .sn-bandeau, .sn-onglets, .sn-historique { display: none !important; }
   .sn-main { padding: 0; margin: 0; max-width: none; }
   .sn-recu-ecran { display: block; }
   .sn-papier { box-shadow: none; width: 72mm; padding: 4mm; }
