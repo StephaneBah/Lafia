@@ -47,7 +47,7 @@ def _http(erreur: Exception) -> HTTPException:
         case dossier.CasClos():
             return HTTPException(status.HTTP_409_CONFLICT, "ce cas est clos")
         case VisiteRefusee() | SaisieRefusee():
-            return HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(erreur))
+            return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(erreur))
     raise erreur
 
 
