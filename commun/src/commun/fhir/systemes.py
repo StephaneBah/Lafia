@@ -115,5 +115,6 @@ SEMAINE_DE_RELECTURE = f"{LAFIA}/identifiant/semaine-de-relecture"
 
 MODELE_DE_LECTURE = f"{LAFIA}/identifiant/modele-de-lecture"
 """Un modèle d'Extraction, en Device : `demonstration:0`."""
+
 PIECE_D_IDENTITE = f"{LAFIA}/CodeSystem/piece-d-identite"
 """La pièce d'identité vérifiée au guichet, motif du Provenance d'un Dépôt : cni, passeport, acte-de-naissance, carte-lafia, autre."""
