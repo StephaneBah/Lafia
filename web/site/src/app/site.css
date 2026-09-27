@@ -91,7 +91,7 @@ p { margin: 0; }
 /* Services */
 .services-grid { display: grid; gap: var(--space-5); grid-template-columns: 1fr; align-items: start; }
 @media (min-width: 720px) { .services-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1180px) { .services-grid { grid-template-columns: repeat(4, 1fr); gap: var(--space-4); } .services-grid .lf-service-title { font-size: 24px; line-height: 30px; } }
+@media (min-width: 1180px) { .services-grid { grid-template-columns: repeat(3, 1fr); gap: var(--space-4); } .services-grid .lf-service-title { font-size: 24px; line-height: 30px; } }
 .services-note { margin-top: var(--space-6); display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--status-apayer-bg); color: var(--status-apayer-fg); font-weight: 700; font-size: 17px; line-height: 26px; max-width: 760px; }
 .lf-service-illu img, .lf-service-illu svg { width: 112px; height: 112px; display: block; }
 .lf-service-card:hover .lf-service-illu svg, .lf-service-card:focus-visible .lf-service-illu svg { transform: none; }

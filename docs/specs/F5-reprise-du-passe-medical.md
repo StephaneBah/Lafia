@@ -34,7 +34,7 @@ A citizen's medical past is on paper: old carnets, comptes rendus, lab reports, 
 
 ## HTTP API
 
-numerisation (role `agent-numerisation`):
+numerisation (role `agent de numérisation`):
 - `POST /api/numerisation/depots` `{npi, piece: "cni"|"passeport"|"acte-de-naissance"|"carte-lafia"|"autre", reprise: bool}` → 201 `{depot_id, patient:{nom, prenoms, annee_de_naissance}}` \| 404. `depot_id` is a fresh random id signed into nothing: the opening `AuditEvent` (motif `numerisation`, entity the Patient) carries the `DEPOT` tag, so the service finds the dépôt's patient and the agent who opened it by `AuditEvent?_tag=`, and its Documents by `DocumentReference?_tag=`. Only that agent may add to or read the dépôt, and only until it is closed.
 - `POST /api/numerisation/depots/{depot_id}/documents` multipart: `type`, `annee`, `etablissement?`, `lisibilite`, `pages[]` (files) → 201 `{document_id, pages}`; 413 over the limits; 422 on a bad type/format.
 - `GET /api/numerisation/depots/{depot_id}` → `{patient:{nom, prenoms, annee_de_naissance}, documents:[{id, type, annee, pages}]}` (only this dépôt's Documents).
