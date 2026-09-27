@@ -14,7 +14,7 @@ from commun.fhir.client import ClientFhir, Ressource
 # L'alphabet du numéro d'ordonnance et du code carnet : ni 0, O, 1, I ni L.
 ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 
-Motif = Literal["relation-de-soin", "acces-urgence", "citoyen", "numero-d-ordonnance"]
+Motif = Literal["recherche", "relation-de-soin", "acces-urgence", "citoyen", "numero-d-ordonnance"]
 Action = Literal["read", "create", "update"]
 _ACTIONS = {"read": "R", "create": "C", "update": "U"}
 

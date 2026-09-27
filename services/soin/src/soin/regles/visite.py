@@ -2,7 +2,7 @@
 d'ordonnance tarifées à l'établissement. Un infirmier ne pose qu'un diagnostic provisoire ; seul un
 médecin clôt un cas."""
 
-from commun.fhir.soin import MESURES, RESULTATS_TDR
+from commun.fhir.soin import DIAGNOSTICS, MESURES, RESULTATS_TDR
 from commun.jeton import Role
 
 
@@ -31,6 +31,11 @@ def verifier_mesure(code: str, valeur: float | str, valeur2: float | None) -> No
         raise VisiteRefusee(f"mesure {code} : valeur numérique attendue")
     if mesure.forme == "tension" and not isinstance(valeur2, int | float):
         raise VisiteRefusee("une tension a deux valeurs : systolique et diastolique")
+
+
+def verifier_diagnostic(code: str) -> None:
+    if code not in DIAGNOSTICS:
+        raise VisiteRefusee(f"diagnostic hors de la liste : {code}")
 
 
 def verifier_ligne(produit: str, tarifs: dict[str, object], moments: list[str], jours: int, quantite: int) -> None:

@@ -20,6 +20,13 @@ def _porteur(jeton: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {jeton}"}
 
 
+def _patient_id(soin, en_tete: dict[str, str], npi: str) -> str:
+    """Le NPI n'entre qu'une fois, dans le corps de la recherche : les routes de soin prennent l'identifiant du Patient."""
+    trouve = soin.post("/api/soin/recherche", json={"npi": npi}, headers=en_tete)
+    assert trouve.status_code == 200, trouve.text
+    return str(trouve.json()["patient_id"])
+
+
 def _compte(comptes, role: str, etablissement: str):
     return next(c for c in comptes if c.role == role and c.etablissement == etablissement and not c.reserve_aux_tests)
 
@@ -32,7 +39,10 @@ def numero_d_ordonnance(application, comptes, connecter, jeu) -> str:
     npi = next(p["npi"] for p in jeu("patients")["patient"] if not p.get("reserve_aux_tests"))
     soin = application("soin")
 
-    cas = soin.post(f"/api/soin/patients/{npi}/cas", json={"motif": "Fièvre depuis trois jours"}, headers=_porteur(jeton))
+    patient_id = _patient_id(soin, _porteur(jeton), npi)
+    cas = soin.post(
+        f"/api/soin/patients/{patient_id}/cas", json={"motif": "Fièvre depuis trois jours"}, headers=_porteur(jeton)
+    )
     assert cas.status_code in (200, 201), cas.text
     visite = soin.post(
         f"/api/soin/cas/{cas.json()['cas_id']}/visites",
