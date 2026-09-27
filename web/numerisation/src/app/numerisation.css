@@ -1,0 +1,100 @@
+/* Le bureau de numérisation : une étape à la fois, en grand, pour un guichet où l'on attend. */
+
+.num-main { max-width: 960px; }
+.num-meta { margin: 0; color: var(--color-text-muted); font-size: 15px; line-height: 22px; }
+.num-chiffres { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.num-entete { display: flex; justify-content: space-between; align-items: end; gap: var(--space-4); flex-wrap: wrap; }
+.num-session { display: grid; grid-template-columns: auto auto; gap: 2px var(--space-3); margin: 0; font-size: 15px; line-height: 22px; }
+.num-session dt { color: var(--color-text-muted); }
+.num-session dd { margin: 0; font-weight: 700; }
+
+/* Les étapes : la pastille et le mot, jamais la couleur seule. */
+.num-etapes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); counter-reset: etape; }
+.num-etapes li { display: flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); font-size: 16px; line-height: 22px; }
+.num-etape-pastille { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-pill); border: 2px solid var(--color-border-control); font-weight: 800; }
+.num-etapes li.is-en-cours { color: var(--color-text); font-weight: 800; }
+.num-etapes li.is-en-cours .num-etape-pastille { background: var(--color-action); border-color: var(--color-action); color: var(--color-on-action); }
+.num-etapes li.is-faite .num-etape-pastille { border-color: var(--status-paye-fg); color: var(--status-paye-fg); background: var(--status-paye-bg); }
+
+.num-carte { display: grid; gap: var(--space-5); padding: var(--space-5); background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-card); }
+.num-formulaire { gap: var(--space-5); }
+.num-champ-npi { max-width: 420px; }
+.num-champ-npi .lf-input { font-size: 24px; }
+
+.num-choix { margin: 0; padding: 0; border: 0; display: grid; gap: var(--space-3); min-width: 0; }
+.num-legende { display: flex; align-items: center; gap: var(--space-2); padding: 0; font: 700 18px/24px var(--font-sans); }
+.num-aide { margin: 0; color: var(--color-text-muted); font-size: 15px; line-height: 22px; }
+
+/* Choix larges : toute l'étiquette se clique, le rond reste visible. */
+.num-radios { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.num-radio, .num-case { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 48px; padding: 0 var(--space-4); border: 2px solid var(--color-border-control); border-radius: var(--radius-sm); background: var(--color-surface); font-size: 17px; cursor: pointer; }
+.num-radio input, .num-case input { width: 22px; height: 22px; margin: 0; accent-color: var(--color-action); }
+.num-radio:has(input:checked), .num-case:has(input:checked) { border-color: var(--color-action); background: var(--color-surface-soft); font-weight: 700; }
+.num-radio:has(input:focus-visible), .num-case:has(input:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.num-case { justify-self: start; }
+
+/* Les types de document : une tuile par type, icône et mot. */
+.num-tuiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-3); }
+.num-tuile { position: relative; display: grid; justify-items: center; align-content: center; gap: var(--space-2); min-height: 112px; padding: var(--space-3); border: 2px solid var(--color-border-control); border-radius: var(--radius-md); background: var(--color-surface); text-align: center; font-size: 16px; line-height: 20px; font-weight: 600; cursor: pointer; transition: border-color var(--motion-quick) var(--ease-standard), background var(--motion-quick) var(--ease-standard); }
+.num-tuile input { position: absolute; top: var(--space-2); left: var(--space-2); width: 20px; height: 20px; margin: 0; accent-color: var(--color-action); }
+.num-tuile:hover { border-color: var(--color-action); }
+.num-tuile:has(input:checked) { border-color: var(--color-action); background: var(--color-surface-soft); font-weight: 800; box-shadow: inset 0 0 0 1px var(--color-action); }
+.num-tuile:has(input:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+
+.num-ligne { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.num-champ-annee .lf-input { font-family: var(--font-mono); font-size: 20px; letter-spacing: .06em; }
+
+.num-erreur { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--status-danger-fg); font-weight: 700; }
+
+.num-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
+.num-actions form { display: contents; }
+.num-actions--fin { padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
+
+/* La caméra : ce qu'elle voit, en grand, et le bouton qui prend la page. */
+.num-camera { display: grid; gap: var(--space-3); }
+.num-camera-video { width: 100%; max-height: 60vh; border-radius: var(--radius-sm); background: #121212; object-fit: contain; }
+
+/* Les pages prises : vignette, numéro, poids, reprendre ou retirer. */
+.num-pages { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-3); }
+.num-page { display: grid; gap: var(--space-2); padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-sunken); }
+.num-page-legende { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.num-page-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.num-page-actions .lf-btn { padding: 0 var(--space-2); }
+
+.num-vignette { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: var(--radius-sm); background: #FFFFFF; border: 1px solid var(--color-border); }
+.num-vignette--pdf { display: grid; place-items: center; align-content: center; gap: var(--space-1); color: var(--color-text-muted); font-weight: 700; text-decoration: none; }
+a.num-vignette--pdf { color: var(--color-link); }
+
+/* Confirmer l'identité : ce qui se compare avec la pièce, lisible à un bras de distance. */
+.num-identite { justify-items: start; }
+.num-consigne { display: flex; align-items: center; gap: var(--space-2); margin: 0; font: 700 20px/26px var(--font-sans); }
+.num-personne { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3) var(--space-5); align-items: baseline; margin: 0; }
+.num-personne dt { color: var(--color-text-muted); font-size: 17px; }
+.num-personne dd { margin: 0; font: 800 36px/42px var(--font-sans); letter-spacing: -.01em; overflow-wrap: anywhere; }
+
+/* Le dépôt : ses Documents, chacun avec sa première page. */
+.num-depot-tete { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
+.num-vide { margin: 0; color: var(--color-text-muted); }
+.num-documents { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-4); }
+.num-document { display: grid; gap: var(--space-2); }
+.num-document-texte { display: grid; gap: 2px; }
+.num-document-type { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-weight: 800; }
+
+/* Dépôt clos : les papiers retournent au patient. */
+.num-clos { justify-items: center; text-align: center; padding: var(--space-7) var(--space-5); }
+.num-clos-marque { display: grid; place-items: center; width: 72px; height: 72px; border-radius: var(--radius-pill); background: var(--status-paye-bg); color: var(--status-paye-fg); }
+.num-clos-titre { margin: 0; font: 800 32px/38px var(--font-sans); letter-spacing: -.01em; }
+.num-clos-compte { margin: 0; font-size: 20px; line-height: 28px; font-weight: 700; }
+
+@media (max-width: 640px) {
+  .num-ligne { grid-template-columns: 1fr; }
+  .num-carte { padding: var(--space-4); }
+  .num-personne { grid-template-columns: 1fr; gap: var(--space-1); }
+  .num-personne dd { font-size: 30px; line-height: 36px; margin-bottom: var(--space-2); }
+  .num-tuiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .num-tuile { transition: none; }
+}
