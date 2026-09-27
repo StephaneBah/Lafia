@@ -257,3 +257,65 @@ def provenance_de_report(*, cible: dict[str, str], document: str, soignant: str)
         "agent": [{"who": reference("Practitioner", soignant)}],
         "entity": [{"role": "source", "what": reference("DocumentReference", document)}],
     }
+
+
+# Un Dépôt ouvert n'est rien d'autre que l'AuditEvent de son ouverture (action `C`), étiqueté `DEPOT` :
+# il dit le patient, l'agent qui l'a ouvert, son établissement, la pièce d'identité vérifiée (le texte
+# du motif) et la Reprise (étiquette d'origine `reprise`). La clôture laisse un AuditEvent de mise à
+# jour (action `U`) au même `DEPOT`, et le Provenance du Dépôt quand il a des Documents.
+
+
+@dataclass(frozen=True)
+class OuvertureDeDepot:
+    """Ce que l'ouverture d'un Dépôt a tracé, et s'il est clos depuis."""
+
+    depot: str
+    patient: str
+    agent: str
+    etablissement: str | None
+    piece: str
+    reprise: bool
+    clos: bool
+
+
+def _porte_l_etiquette(ressource: Ressource, etiquette: dict[str, str]) -> bool:
+    return any(
+        e.get("system") == etiquette["system"] and e.get("code") == etiquette["code"]
+        for e in ressource.get("meta", {}).get("tag", [])
+    )
+
+
+def _id_si(ref: dict[str, str] | None, type_: str) -> str | None:
+    return id_de(ref) if ref and ref.get("reference", "").startswith(f"{type_}/") else None
+
+
+async def ouverture_du_depot(fhir: ClientFhir, depot: str) -> OuvertureDeDepot | None:
+    """L'ouverture du Dépôt `depot`, lue dans ses AuditEvent, et s'il est clos ; None pour un Dépôt inconnu."""
+    traces = await fhir.chercher("AuditEvent", {"_tag": f"{systemes.DEPOT}|{depot}"})
+    ouverture = next((t for t in traces if t.get("action") == "C"), None)
+    if not ouverture:
+        return None
+    agent = next(iter(ouverture.get("agent", [])), {})
+    usage = next(iter(agent.get("purposeOfUse", [])), {})
+    patient = next(
+        (p for p in (_id_si(e.get("what"), "Patient") for e in ouverture.get("entity", [])) if p), None
+    )
+    clos = any(t.get("action") == "U" for t in traces) or bool(
+        await fhir.chercher("Provenance", {"_tag": f"{systemes.DEPOT}|{depot}"})
+    )
+    return OuvertureDeDepot(
+        depot=depot,
+        patient=patient or "",
+        agent=_id_si(agent.get("who"), "Practitioner") or "",
+        etablissement=_id_si(ouverture.get("source", {}).get("observer"), "Organization"),
+        piece=str(usage.get("text", "")),
+        reprise=_porte_l_etiquette(ouverture, etiquette_d_origine("reprise")),
+        clos=clos,
+    )
+
+
+def identite_au_guichet(patient: Ressource) -> tuple[str, str, str | None]:
+    """Nom, prénoms et année de naissance d'un Patient : tout ce que le guichet de numérisation en voit."""
+    nom = next(iter(patient.get("name", [])), {})
+    naissance = patient.get("birthDate")
+    return str(nom.get("family", "")), " ".join(nom.get("given", [])), str(naissance)[:4] if naissance else None

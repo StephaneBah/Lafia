@@ -79,6 +79,7 @@ services:
           - caisse.${LAFIA_DOMAINE:-localhost}
           - pharmacie.${LAFIA_DOMAINE:-localhost}
           - citoyen.${LAFIA_DOMAINE:-localhost}
+          - numerisation.${LAFIA_DOMAINE:-localhost}
     mem_limit: 128m
 
   base-noyau:
@@ -179,6 +180,16 @@ services:
         SERVICE: citoyen
     image: lafia/citoyen
 
+  # Le guichet de la Reprise : il n'ajoute que des Documents au dossier, pages comprises.
+  numerisation:
+    <<: *service-fhir
+    build:
+      context: services
+      additional_contexts: *bibliotheques
+      args:
+        SERVICE: numerisation
+    image: lafia/numerisation
+
   # Identite ne parle jamais FHIR : hors du réseau noyau, il ne peut pas le joindre. Il signe les jetons
   # de la clé privée JETON_CLE_PRIVEE ; vide, sur localhost seulement, il prend la clé de développement ;
   # sur tout autre domaine, il refuse de démarrer. Il lit ses comptes dans donnees/, construit dans son image.
@@ -263,6 +274,16 @@ services:
     image: lafia/application-citoyen
     environment:
       PASSERELLE_URL: http://citoyen.${LAFIA_DOMAINE:-localhost}:8080
+
+  application-numerisation:
+    <<: *application
+    build:
+      context: web
+      args:
+        APPLICATION: numerisation
+    image: lafia/application-numerisation
+    environment:
+      PASSERELLE_URL: http://numerisation.${LAFIA_DOMAINE:-localhost}:8080
 
   # Le site produit, sur le domaine lui-même. Il n'appelle aucun service : il ne reçoit que le domaine,
   # pour ses liens vers chaque application.

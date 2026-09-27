@@ -26,8 +26,9 @@ ACTEURS = {
     "caisse": Acteur("Caisse", ("caissier",)),
     "pharmacie": Acteur("Pharmacie", ("pharmacien", "officine")),
     "citoyen": Acteur("Mon carnet", ("citoyen",)),
+    "numerisation": Acteur("Numérisation", ("agent de numérisation",)),
 }
-ROLES = ("médecin", "infirmier", "caissier", "pharmacien", "officine", "citoyen")
+ROLES = ("médecin", "infirmier", "caissier", "pharmacien", "agent de numérisation", "officine", "citoyen")
 
 # Les agents que chaque service sert : leur session porte un établissement.
 AGENTS_ADMIS = [
@@ -78,7 +79,7 @@ def test_application_affiche_son_service_et_la_version_fhir_du_noyau(page, acteu
 
 
 # Les applications où un agent ou une officine se connecte ; celle du citoyen attend F6.
-APPLICATIONS_D_AGENTS = ["soin", "caisse", "pharmacie"]
+APPLICATIONS_D_AGENTS = ["soin", "caisse", "pharmacie", "numerisation"]
 
 
 @pytest.fixture(scope="session")

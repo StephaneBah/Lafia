@@ -50,9 +50,10 @@ APPLICATIONS = [
     "application-caisse",
     "application-pharmacie",
     "application-citoyen",
+    "application-numerisation",
     "application-site",
 ]
-SERVICES_FHIR = ["soin", "caisse", "pharmacie", "citoyen"]
+SERVICES_FHIR = ["soin", "caisse", "pharmacie", "citoyen", "numerisation"]
 
 # Chaque conteneur a les sondes de l'interpréteur qu'il embarque : HTTP, puis TCP.
 SONDES = {
