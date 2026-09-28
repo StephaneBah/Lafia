@@ -163,6 +163,7 @@ export function Feuilles({
   demandeDeZone,
   onZone,
   onAnnulerZone,
+  gestesDePage,
 }: {
   tache: string;
   pages: number;
@@ -178,6 +179,13 @@ export function Feuilles({
   demandeDeZone?: { page: number } | null;
   onZone?: (page: number, zone: Zone) => void;
   onAnnulerZone?: () => void;
+  /** Les gestes d'un clic sur la page en vue, à la Relecture : `voletActif` nomme le volet qui les reçoit. */
+  gestesDePage?: {
+    voletActif: string | null;
+    onInsererPage: (page: number) => void;
+    onZone: (page: number) => void;
+    onNouveauVolet: (page: number) => void;
+  };
 }) {
   const total = Math.max(1, pages);
   const [zoom, setZoom] = useState(0);
@@ -185,6 +193,8 @@ export function Feuilles({
   const [enPdf, setEnPdf] = useState<Record<number, boolean>>({});
   const [proportions, setProportions] = useState<Record<number, number>>({});
   const [enVue, setEnVue] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [contraste, setContraste] = useState(false);
   const [trace, setTrace] = useState<{ page: number; zone: Zone | null }>({ page: 1, zone: null });
   const defilement = useRef<HTMLDivElement>(null);
   const enVueRef = useRef(1);
@@ -228,6 +238,19 @@ export function Feuilles({
     }
     setTimeout(() => montrer(enVueRef.current, false), 0);
   }, [zoom]);
+
+  // Ctrl + molette : agrandir ou réduire, sans zoomer toute la fenêtre.
+  useEffect(() => {
+    const racine = defilement.current;
+    if (!racine) return;
+    function molette(e: WheelEvent) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      setZoom((z) => Math.min(ZOOMS.length - 1, Math.max(0, z + (e.deltaY < 0 ? 1 : -1))));
+    }
+    racine.addEventListener("wheel", molette, { passive: false });
+    return () => racine.removeEventListener("wheel", molette);
+  }, []);
 
   // La page la plus visible dans le panneau.
   useEffect(() => {
@@ -282,6 +305,14 @@ export function Feuilles({
             Agrandir
           </Button>
         </div>
+        <div className="rel-feuilles-lecture" role="group" aria-label="Lecture des pages">
+          <button type="button" className="rel-geste" onClick={() => setRotation((r) => (r + 90) % 360)}>
+            {rotation ? `Tourner (${rotation}°)` : "Tourner"}
+          </button>
+          <button type="button" className="rel-geste" aria-pressed={contraste} onClick={() => setContraste((c) => !c)}>
+            Renforcer l'encre pâle
+          </button>
+        </div>
         <button
           type="button"
           className="lf-btn lf-btn--secondary lf-btn--pro rel-feuilles-replier"
@@ -311,6 +342,32 @@ export function Feuilles({
         </nav>
       )}
 
+      {gestesDePage && !demandeDeZone && !repliee && (
+        <div className="rel-gestes-de-page" role="group" aria-label={`Gestes sur la page ${enVue}`}>
+          <span className="rel-gestes-de-page-titre">{`Page ${enVue} :`}</span>
+          <button
+            type="button"
+            className="rel-geste"
+            disabled={!gestesDePage.voletActif}
+            onClick={() => gestesDePage.onInsererPage(enVue)}
+          >
+            <Icon name="plus" size={16} /> Insérer cette page{gestesDePage.voletActif ? ` dans le ${gestesDePage.voletActif}` : ""}
+          </button>
+          <button
+            type="button"
+            className="rel-geste"
+            disabled={!gestesDePage.voletActif || enPdf[enVue] || formats[enVue - 1] === "application/pdf"}
+            onClick={() => gestesDePage.onZone(enVue)}
+          >
+            <Icon name="magnifying-glass" size={16} /> Sélectionner une zone
+          </button>
+          <button type="button" className="rel-geste" onClick={() => gestesDePage.onNouveauVolet(enVue)}>
+            <Icon name="plus" size={16} /> Nouveau volet à partir de cette page
+          </button>
+          {!gestesDePage.voletActif && <span className="rel-meta">Choisissez d'abord un volet à droite pour y insérer la page.</span>}
+        </div>
+      )}
+
       {demandeDeZone && onZone && (
         <ChoixDeZone
           page={trace.page}
@@ -326,13 +383,15 @@ export function Feuilles({
         />
       )}
 
-      <div className="rel-feuilles-defilement" id={idDefilement} ref={defilement} tabIndex={0} aria-label="Pages, défilables">
+      <div className={contraste ? "rel-feuilles-defilement is-contraste" : "rel-feuilles-defilement"} id={idDefilement} ref={defilement} tabIndex={0} aria-label="Pages, défilables">
         <div className="rel-feuilles-piste" style={{ width: `${ZOOMS[zoom] * 100}%` }}>
           {numeros.map((numero) => {
             const src = adresseDeLaPage(tache, numero);
             const pdf = enPdf[numero] || formats[numero - 1] === "application/pdf";
             const cites = citations?.[numero] ?? [];
-            const tracable = Boolean(demandeDeZone) && !pdf;
+            const tracable = Boolean(demandeDeZone) && !pdf && rotation === 0;
+            const proportion = proportions[numero] ?? 1 / Math.SQRT2;
+            const couchee = rotation === 90 || rotation === 270;
             return (
               <figure
                 key={numero}
@@ -372,7 +431,7 @@ export function Feuilles({
                 </figcaption>
                 <div
                   className="rel-feuille-cadre"
-                  style={!pdf ? { aspectRatio: String(proportions[numero] ?? 1 / Math.SQRT2) } : undefined}
+                  style={!pdf ? { aspectRatio: String(couchee ? 1 / proportion : proportion) } : undefined}
                 >
                   {pdf ? (
                     <iframe className="rel-feuille-pdf" src={src} loading="lazy" title={`Page ${numero} sur ${total} : ${description}`} />
@@ -384,6 +443,14 @@ export function Feuilles({
                       loading="lazy"
                       decoding="async"
                       draggable={false}
+                      className={rotation ? "is-tournee" : undefined}
+                      style={
+                        rotation
+                          ? couchee
+                            ? { width: `${proportion * 100}%`, height: `${100 / proportion}%`, transform: `translate(-50%, -50%) rotate(${rotation}deg)` }
+                            : { transform: `translate(-50%, -50%) rotate(${rotation}deg)` }
+                          : undefined
+                      }
                       onLoad={(e) => {
                         const image = e.currentTarget;
                         if (image.naturalWidth && image.naturalHeight) {
@@ -401,6 +468,9 @@ export function Feuilles({
                     />
                   )}
                 </div>
+                {Boolean(demandeDeZone) && !pdf && rotation !== 0 && (
+                  <p className="rel-meta">Remettez la page droite (Tourner) pour y tracer une zone.</p>
+                )}
                 {Boolean(demandeDeZone) && pdf && (
                   <p className="rel-meta">Page en PDF : on ne peut pas y tracer de zone. Insérez la page entière.</p>
                 )}

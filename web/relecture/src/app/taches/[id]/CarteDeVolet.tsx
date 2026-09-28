@@ -11,11 +11,11 @@ import {
   dateEnLettres,
   type TypeDeVolet,
 } from "@lafia/commun/transcription";
-import { Button, Icon } from "@lafia/design";
+import { Button, Icon, type NomIcone } from "@lafia/design";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { adresseDeLaPage } from "../../../libelles";
-import { FORMAT_DE_DATE, enVolet, lirePages, pagesEnTexte, type Meta, type VoletEdite } from "../../../edition";
+import { enVolet, lirePages, normaliserDate, pagesEnTexte, type Meta, type VoletEdite } from "../../../edition";
 
 export type GestesDuVolet = {
   onMeta: (meta: Partial<Meta>) => void;
@@ -32,6 +32,38 @@ export type GestesDuVolet = {
   onPhotoEntiere: (page: number, legende: string) => void;
   onPhotoZone: (page: number, legende: string) => void;
 };
+
+/** Chaque type de volet avec son icône : le choix se fait d'un geste, pas dans une liste. */
+export const ICONES_DES_VOLETS: Record<TypeDeVolet, NomIcone> = {
+  consultation: "stethoscope",
+  analyse: "test-tube",
+  ordonnance: "pill",
+  vaccination: "shield-check",
+  hospitalisation: "hospital",
+  imagerie: "eye",
+  certificat: "identification-card",
+  note: "list",
+  illisible: "warning",
+  autre: "info",
+};
+
+/** Les pages que cite un volet, en vignettes : un clic les montre à gauche. */
+export function Vignettes({ tache, pages, onVoirPage }: { tache: string; pages: number[]; onVoirPage: (page: number) => void }) {
+  if (!pages.length) return null;
+  return (
+    <ul className="rel-vignettes" aria-label="Pages citées">
+      {pages.map((page) => (
+        <li key={page}>
+          <button type="button" className="rel-vignette" onClick={() => onVoirPage(page)} aria-label={`Voir la page ${page} à gauche`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={adresseDeLaPage(tache, page)} alt="" loading="lazy" decoding="async" />
+            <span className="rel-chiffres">{`p. ${page}`}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function PhotoDePage({
   pages,
@@ -105,6 +137,7 @@ function FormulaireDeVolet({
   gestes,
   photoOuverte,
   onPhoto,
+  suggestions,
 }: {
   volet: VoletEdite;
   rang: number;
@@ -113,16 +146,29 @@ function FormulaireDeVolet({
   gestes: GestesDuVolet;
   photoOuverte: boolean;
   onPhoto: (ouverte: boolean) => void;
+  suggestions: string[];
 }) {
   const id = useId();
   const [date, setDate] = useState(volet.date ?? "");
   const [lieu, setLieu] = useState(volet.etablissement ?? "");
   const [pagesSaisies, setPagesSaisies] = useState(pagesEnTexte(volet.pages));
   const texte = useRef<HTMLTextAreaElement>(null);
-  const premier = useRef<HTMLSelectElement>(null);
-  useEffect(() => premier.current?.focus(), []);
+  const typeChoisi = useRef<HTMLButtonElement>(null);
+  useEffect(() => typeChoisi.current?.focus(), []);
 
-  const dateInvalide = date.trim() !== "" && !FORMAT_DE_DATE.test(date.trim());
+  /** Les flèches passent d'un type à l'autre, comme dans tout groupe de boutons radio. */
+  function flecheDeType(e: React.KeyboardEvent, i: number) {
+    const pas = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    if (!pas) return;
+    e.preventDefault();
+    const suivant = TYPES_DE_VOLET[(i + pas + TYPES_DE_VOLET.length) % TYPES_DE_VOLET.length];
+    gestes.onMeta({ type: suivant });
+    const boutons = e.currentTarget.parentElement?.children;
+    (boutons?.[TYPES_DE_VOLET.indexOf(suivant)] as HTMLElement | undefined)?.focus();
+  }
+
+  const dateLue = date.trim() ? normaliserDate(date) : null;
+  const dateInvalide = date.trim() !== "" && dateLue === null;
   const lues = lirePages(pagesSaisies);
   const pagesInvalides = lues === null || lues.length === 0 || lues.some((p) => p < 1 || p > pages);
 
@@ -133,22 +179,29 @@ function FormulaireDeVolet({
   return (
     <div className="rel-formulaire">
       <div className="rel-formulaire-champs">
-        <label className="rel-champ" htmlFor={`${id}-type`}>
-          <span className="rel-champ-libelle">Type</span>
-          <select
-            id={`${id}-type`}
-            ref={premier}
-            className="lf-input rel-select"
-            value={volet.type}
-            onChange={(e) => gestes.onMeta({ type: e.target.value as TypeDeVolet })}
-          >
-            {TYPES_DE_VOLET.map((type) => (
-              <option key={type} value={type}>
-                {LIBELLES_DES_VOLETS[type]}
-              </option>
+        <div className="rel-champ rel-types">
+          <span className="rel-champ-libelle" id={`${id}-type`}>
+            Type
+          </span>
+          <div className="rel-types-liste" role="radiogroup" aria-labelledby={`${id}-type`}>
+            {TYPES_DE_VOLET.map((type, i) => (
+              <button
+                key={type}
+                type="button"
+                role="radio"
+                ref={volet.type === type ? typeChoisi : undefined}
+                className="rel-type"
+                aria-checked={volet.type === type}
+                tabIndex={volet.type === type ? 0 : -1}
+                onClick={() => gestes.onMeta({ type })}
+                onKeyDown={(e) => flecheDeType(e, i)}
+              >
+                <Icon name={ICONES_DES_VOLETS[type]} size={20} />
+                <span>{LIBELLES_DES_VOLETS[type]}</span>
+              </button>
             ))}
-          </select>
-        </label>
+          </div>
+        </div>
 
         <div className="rel-champ">
           <label className="rel-champ-libelle" htmlFor={`${id}-date`}>
@@ -158,28 +211,29 @@ function FormulaireDeVolet({
             id={`${id}-date`}
             className="lf-input rel-chiffres"
             value={date}
-            inputMode="numeric"
             autoComplete="off"
-            placeholder="AAAA-MM-JJ"
+            placeholder="14/03/2019"
             aria-invalid={dateInvalide || undefined}
             aria-describedby={`${id}-date-aide`}
             onChange={(e) => {
               setDate(e.target.value);
               const propre = e.target.value.trim();
+              const lue = propre ? normaliserDate(propre) : null;
               if (!propre) gestes.onMeta({ date: null });
-              else if (FORMAT_DE_DATE.test(propre)) gestes.onMeta({ date: propre });
+              else if (lue) gestes.onMeta({ date: lue });
             }}
+            onBlur={() => dateLue && setDate(dateLue)}
           />
           <span id={`${id}-date-aide`} className={dateInvalide ? "rel-champ-aide is-erreur" : "rel-champ-aide"}>
             {dateInvalide ? (
               <>
                 <Icon name="warning-octagon" size={16} />
-                {" Pas encore une date : AAAA, AAAA-MM ou AAAA-MM-JJ."}
+                {" Pas encore une date : « 14/03/2019 », « mars 2019 », « 2019 »."}
               </>
-            ) : date.trim() ? (
-              dateEnLettres(date.trim())
+            ) : dateLue ? (
+              `Compris : ${dateEnLettres(dateLue)} (${dateLue})`
             ) : (
-              "AAAA, AAAA-MM ou AAAA-MM-JJ. Vide : date inconnue."
+              "« 14/03/2019 », « mars 2019 » ou « 2019 ». Vide : date inconnue."
             )}
           </span>
         </div>
@@ -193,6 +247,7 @@ function FormulaireDeVolet({
             className="lf-input"
             value={lieu}
             autoComplete="off"
+            list={`${id}-lieux`}
             aria-describedby={`${id}-lieu-aide`}
             onChange={(e) => {
               // « · » sépare les parties du titre : il ne peut pas être dans un nom.
@@ -201,8 +256,13 @@ function FormulaireDeVolet({
               gestes.onMeta({ etablissement: propre.trim() || null });
             }}
           />
+          <datalist id={`${id}-lieux`}>
+            {suggestions.map((nom) => (
+              <option key={nom} value={nom} />
+            ))}
+          </datalist>
           <span id={`${id}-lieu-aide`} className="rel-champ-aide">
-            Tel que la page l'écrit. Vide : établissement inconnu.
+            Tel que la page l'écrit ; les noms déjà lus sont proposés. Vide : établissement inconnu.
           </span>
         </div>
 
@@ -309,6 +369,10 @@ export function CarteDeVolet({
   pageEnVue,
   erreurs,
   gestes,
+  actif,
+  attention,
+  suggestions,
+  onActiver,
 }: {
   tache: string;
   volet: VoletEdite;
@@ -319,6 +383,10 @@ export function CarteDeVolet({
   pageEnVue: number;
   erreurs: string[];
   gestes: GestesDuVolet;
+  actif: boolean;
+  attention: string[];
+  suggestions: string[];
+  onActiver: () => void;
 }) {
   const [photoOuverte, setPhotoOuverte] = useState(false);
   const enVue = volet.pages.includes(pageEnVue);
@@ -330,7 +398,17 @@ export function CarteDeVolet({
     <li
       id={`volet-${volet.cle}`}
       tabIndex={-1}
-      className={["rel-volet", volet.verifie && "is-verifie", enVue && "is-en-vue", enEdition && "is-en-edition", erreurs.length && "is-en-erreur"]
+      onFocus={onActiver}
+      onPointerDown={onActiver}
+      aria-current={actif ? "true" : undefined}
+      className={[
+        "rel-volet",
+        volet.verifie && "is-verifie",
+        enVue && "is-en-vue",
+        enEdition && "is-en-edition",
+        erreurs.length && "is-en-erreur",
+        actif && "is-actif",
+      ]
         .filter(Boolean)
         .join(" ")}
     >
@@ -340,6 +418,15 @@ export function CarteDeVolet({
           <span className="rel-marque rel-marque--vue">
             <Icon name="eye" size={16} />
             <span>{`page ${pageEnVue} en vue`}</span>
+          </span>
+        )}
+        {actif && (
+          <span className="rel-marque rel-marque--actif">Volet actif</span>
+        )}
+        {attention.length > 0 && !volet.verifie && (
+          <span className="rel-marque rel-marque--attention">
+            <Icon name="warning" size={16} />
+            <span>{`À regarder de près : ${attention.join(", ")}`}</span>
           </span>
         )}
         {volet.verifie && (
@@ -406,8 +493,11 @@ export function CarteDeVolet({
         </ul>
       )}
 
+      <Vignettes tache={tache} pages={volet.pages} onVoirPage={gestes.onVoirPage} />
+
       {enEdition ? (
         <FormulaireDeVolet
+          suggestions={suggestions}
           volet={volet}
           rang={rang}
           pages={pages}

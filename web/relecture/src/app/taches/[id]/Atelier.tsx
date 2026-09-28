@@ -10,12 +10,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import {
+  aRegarder,
   avecMeta,
   changements,
   couper,
   deplacer,
   depuisLeBrut,
   depuisMarkdown,
+  detailDesChangements,
   empreinte,
   erreursDuVolet,
   fusionner,
@@ -77,6 +79,40 @@ function EtatDeLaSauvegarde({ sauvegarde, onReessayer }: { sauvegarde: Sauvegard
   );
 }
 
+function DetailDesChangements({ depart, volets }: { depart: string[]; volets: VoletEdite[] }) {
+  const detail = detailDesChangements(depart, volets);
+  if (!detail.length) return null;
+  return (
+    <details className="rel-detail">
+      <summary>Voir le détail, volet par volet</summary>
+      <ul className="rel-detail-liste">
+        {detail.map((c) => (
+          <li key={`${c.genre}-${c.genre === "supprime" ? c.origine : c.rang}`}>
+            {c.genre === "ajoute" ? (
+              <>
+                <strong>{`Volet ${c.rang + 1} ajouté`}</strong>
+                <pre className="rel-diff rel-diff--ajoute">{c.texte}</pre>
+              </>
+            ) : c.genre === "supprime" ? (
+              <>
+                <strong>{`Volet ${c.origine + 1} d'origine supprimé`}</strong>
+                <pre className="rel-diff rel-diff--retire">{c.texte}</pre>
+              </>
+            ) : (
+              <>
+                <strong>{c.rang === c.origine ? `Volet ${c.rang + 1} corrigé` : `Volet ${c.rang + 1} corrigé (volet ${c.origine + 1} à l'ouverture)`}</strong>
+                {c.retirees.length > 0 && <pre className="rel-diff rel-diff--retire">{c.retirees.map((l) => `− ${l}`).join("\n")}</pre>}
+                {c.ajoutees.length > 0 && <pre className="rel-diff rel-diff--ajoute">{c.ajoutees.map((l) => `+ ${l}`).join("\n")}</pre>}
+                {!c.retirees.length && !c.ajoutees.length && <p className="rel-meta">Lignes remises en ordre, sans autre changement.</p>}
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function ListeDesChangements({ depart, volets }: { depart: string[]; volets: VoletEdite[] }) {
   const c = changements(depart, volets);
   const lignes: [number, string, string][] = [
@@ -133,6 +169,7 @@ export function Atelier({
   const [mode, setMode] = useState<"volets" | "brut">("volets");
   const [brut, setBrut] = useState("");
   const [enEdition, setEnEdition] = useState<string | null>(null);
+  const [actif, setActif] = useState<string | null>(null);
   const [annulable, setAnnulable] = useState<{ message: string; avant: VoletEdite[] } | null>(null);
   const [pageEnVue, setPageEnVue] = useState(1);
   const [cible, setCible] = useState<{ page: number; n: number } | null>(null);
@@ -178,6 +215,9 @@ export function Atelier({
     [lue],
   );
   const erreursParVolet = useMemo(() => volets.map((v) => erreursDuVolet(v, pages)), [volets, pages]);
+  // Les établissements déjà lus dans cette Transcription : le même nom se retape souvent d'un volet à l'autre.
+  const suggestions = useMemo(() => [...new Set(volets.map((v) => v.etablissement).filter((e): e is string => Boolean(e)))], [volets]);
+  const rangActif = volets.findIndex((v) => v.cle === actif);
   const citations = useMemo(() => {
     const parPage: Record<number, Citation[]> = {};
     volets.forEach((v, i) => {
@@ -290,11 +330,12 @@ export function Atelier({
     carte?.focus({ preventScroll: true });
   }, []);
 
-  function ajouterVolet(apres?: number) {
-    const neuf = voletVide([pageEnVue]);
+  function ajouterVolet(apres?: number, page = pageEnVue) {
+    const neuf = voletVide([page]);
     modifier((vs) => (apres === undefined ? [...vs, neuf] : [...vs.slice(0, apres + 1), neuf, ...vs.slice(apres + 1)]));
     setEnEdition(neuf.cle);
-    setAnnonce(`Volet ajouté, sur la page ${pageEnVue}.`);
+    setActif(neuf.cle);
+    setAnnonce(`Volet ajouté, sur la page ${page}.`);
     // Le formulaire du volet neuf prend le focus lui-même, et le navigateur le fait voir.
   }
 
@@ -303,7 +344,9 @@ export function Atelier({
       const position = Math.min(curseurs.current[cle] ?? v.corps.length, v.corps.length);
       const image = imageDePage(page, legende, z);
       curseurs.current[cle] = position + image.length + 2;
-      return { ...v, corps: inserer(v.corps, position, image) };
+      // La photo d'une page que le volet ne cite pas encore : le titre la cite aussi (ADR 0010, « p. »).
+      const cite = v.pages.includes(page) ? v : avecMeta(v, { pages: [...v.pages, page].sort((a, b) => a - b) });
+      return { ...cite, corps: inserer(v.corps, position, image) };
     });
     setAnnonce(z ? `Zone de la page ${page} insérée dans le volet.` : `Page ${page} insérée dans le volet.`);
   }
@@ -340,6 +383,7 @@ export function Atelier({
       },
       onSupprimer: () => {
         if (enEdition === v.cle) setEnEdition(null);
+        if (actif === v.cle) setActif(null);
         modifier((vs) => vs.filter((x) => x.cle !== v.cle), `${nom} supprimé`);
       },
       onVerifier: (verifie) => {
@@ -477,6 +521,22 @@ export function Atelier({
           setZone(null);
           if (cle) focaliser(`volet-${cle}`);
         }}
+        gestesDePage={
+          mode === "volets"
+            ? {
+                voletActif: rangActif >= 0 ? `volet ${rangActif + 1}` : null,
+                onInsererPage: (page) => {
+                  if (rangActif >= 0) insererPhoto(volets[rangActif].cle, page, "");
+                },
+                onZone: (page) => {
+                  if (rangActif < 0) return;
+                  setZone({ cle: volets[rangActif].cle, page, legende: "" });
+                  setAnnonce(`Tracez la zone sur la page ${page}, à gauche.`);
+                },
+                onNouveauVolet: (page) => ajouterVolet(rangActif >= 0 ? rangActif : undefined, page),
+              }
+            : undefined
+        }
       />
 
       <section className="rel-panneau" aria-labelledby="titre-transcription">
@@ -614,6 +674,10 @@ export function Atelier({
                     pageEnVue={pageEnVue}
                     erreurs={erreursParVolet[i]}
                     gestes={gestesDe(v, i)}
+                    actif={actif === v.cle}
+                    attention={aRegarder(v, erreursParVolet[i])}
+                    suggestions={suggestions}
+                    onActiver={() => actif !== v.cle && setActif(v.cle)}
                   />
                 ))}
               </ol>
@@ -694,6 +758,7 @@ export function Atelier({
         </p>
         <h3 className="rel-dialogue-sous-titre">Ce que vous avez changé depuis l'ouverture</h3>
         <ListeDesChangements depart={ouverture.depart} volets={volets} />
+        <DetailDesChangements depart={ouverture.depart} volets={volets} />
         <div className="rel-champ">
           <label className="rel-champ-libelle" htmlFor={idResume}>
             Résumé de vos changements

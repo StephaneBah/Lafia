@@ -275,3 +275,92 @@ export function empreinte(v: Pick<VoletEdite, "titre" | "corps">): string {
   for (let i = 0; i < texte.length; i++) h = ((h << 5) + h + texte.charCodeAt(i)) | 0;
   return `${texte.length.toString(36)}-${(h >>> 0).toString(36)}`;
 }
+
+// ---- Pour aller vite ----
+
+const MOIS = ["janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre", "decembre"];
+
+function sansAccents(texte: string): string {
+  return texte.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+function deuxChiffres(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/**
+ * Une date telle qu'on la lit sur le papier, dans le format de l'ADR 0010 : « 14/03/2019 », « 14-3-2019 »,
+ * « 03/2019 », « mars 2019 », « 14 mars 2019 », « 2019 » ; `null` quand elle ne se lit pas.
+ */
+export function normaliserDate(texte: string): string | null {
+  const t = sansAccents(texte.trim()).replace(/\s+/g, " ").replace(/^le /, "").replace(/(\d)er\b/, "$1");
+  // Un jour qui existe dans son mois : le 31/02 n'est pas une lecture, c'est une erreur de saisie.
+  const valide = (a: number, m?: number, j?: number) =>
+    a >= 1900 &&
+    a <= 2100 &&
+    (m === undefined || (m >= 1 && m <= 12)) &&
+    (j === undefined || (m !== undefined && j >= 1 && j <= new Date(Date.UTC(a, m, 0)).getUTCDate()));
+  let m = /^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?$/.exec(t);
+  if (m && valide(+m[1], m[2] ? +m[2] : undefined, m[3] ? +m[3] : undefined)) {
+    return [m[1], ...(m[2] ? [deuxChiffres(+m[2])] : []), ...(m[3] ? [deuxChiffres(+m[3])] : [])].join("-");
+  }
+  m = /^(\d{1,2})[/.\- ](\d{1,2})[/.\- ](\d{4})$/.exec(t);
+  if (m && valide(+m[3], +m[2], +m[1])) return `${m[3]}-${deuxChiffres(+m[2])}-${deuxChiffres(+m[1])}`;
+  m = /^(\d{1,2})[/.\- ](\d{4})$/.exec(t);
+  if (m && valide(+m[2], +m[1])) return `${m[2]}-${deuxChiffres(+m[1])}`;
+  m = /^(?:(\d{1,2}) )?([a-z]+)\.? (\d{4})$/.exec(t);
+  if (m) {
+    // « jui » peut être juin ou juillet : un mois abrégé ne se lit que s'il n'en désigne qu'un.
+    const candidats = m[2].length >= 3 ? MOIS.filter((nom) => nom.startsWith(m![2])) : [];
+    const mois = candidats.length === 1 ? MOIS.indexOf(candidats[0]) + 1 : 0;
+    if (mois && valide(+m[3], mois, m[1] ? +m[1] : undefined)) {
+      return m[1] ? `${m[3]}-${deuxChiffres(mois)}-${deuxChiffres(+m[1])}` : `${m[3]}-${deuxChiffres(mois)}`;
+    }
+  }
+  return null;
+}
+
+/** Pourquoi un volet mérite qu'on le regarde de près : la machine y a buté, ou il manque quelque chose. */
+export function aRegarder(v: VoletEdite, erreurs: string[]): string[] {
+  const raisons: string[] = [];
+  if (v.type === "illisible") raisons.push("passage illisible");
+  if (erreurs.length) raisons.push("hors format");
+  if (!v.corps.trim()) raisons.push("texte vide");
+  if (/\[\?\]|\?\?|illisible/i.test(v.corps) && v.type !== "illisible") raisons.push("lecture incertaine");
+  if (!v.pages.length) raisons.push("aucune page");
+  return raisons;
+}
+
+/** Ce qui a changé dans un volet, ligne à ligne : retirées, ajoutées. */
+export function lignesChangees(avant: string, apres: string): { retirees: string[]; ajoutees: string[] } {
+  const a = avant.split("\n");
+  const b = apres.split("\n");
+  const restantes = [...b];
+  const retirees: string[] = [];
+  for (const ligne of a) {
+    const i = restantes.indexOf(ligne);
+    if (i >= 0) restantes.splice(i, 1);
+    else retirees.push(ligne);
+  }
+  return { retirees: retirees.filter((l) => l.trim()), ajoutees: restantes.filter((l) => l.trim()) };
+}
+
+export type ChangementDeVolet =
+  | { genre: "ajoute"; rang: number; texte: string }
+  | { genre: "modifie"; rang: number; origine: number; retirees: string[]; ajoutees: string[] }
+  | { genre: "supprime"; origine: number; texte: string };
+
+/** Le détail des changements depuis l'ouverture, volet par volet, pour la fenêtre de confirmation. */
+export function detailDesChangements(depart: string[], volets: VoletEdite[]): ChangementDeVolet[] {
+  const presents = new Set(volets.map((v) => v.origine));
+  const detail: ChangementDeVolet[] = [];
+  volets.forEach((v, rang) => {
+    const texte = texteDuVolet(v);
+    if (v.origine === null) detail.push({ genre: "ajoute", rang, texte });
+    else if (texte !== depart[v.origine]) detail.push({ genre: "modifie", rang, origine: v.origine, ...lignesChangees(depart[v.origine], texte) });
+  });
+  depart.forEach((texte, origine) => {
+    if (!presents.has(origine)) detail.push({ genre: "supprime", origine, texte });
+  });
+  return detail;
+}
