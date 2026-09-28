@@ -7,9 +7,7 @@ Built on <strong>HL7 FHIR R4</strong>, vendor-neutral, and ready to run on the S
 
 <p align="center">
   <a href="https://lafia.stephanebah.page"><strong>lafia.stephanebah.page</strong></a>
-  &nbsp;·&nbsp; <a href="docs/architecture.md">Architecture</a>
   &nbsp;·&nbsp; <a href="docs/adr/">Decisions</a>
-  &nbsp;·&nbsp; <a href="#run-the-stack">Run it locally</a>
 </p>
 
 <p align="center"><sub>Demonstration platform: every person, visit and record in it is synthetic.</sub></p>
@@ -44,6 +42,21 @@ Awa has a fever. Follow her through the platform:
 <td align="center" width="20%" valign="top"><img src="web/design/assets/Illustrations/parcours-5-telephone.svg" width="130" alt=""><br><b>Her carnet</b><br><sub>On her son's phone, Awa sees what is paid, collected, and <b>how to take her treatment</b>.</sub></td>
 </tr>
 </table>
+
+## The foundation
+
+![The FHIR noyau at the centre; around it, the contract that decides who reaches what; today's and tomorrow's services plug into it; one door to the outside.](docs/fondation.svg)
+
+**The noyau.** Every medical fact lives in one place as a standard **HL7 FHIR R4** resource in an unmodified HAPI FHIR server: each visite, mesure, diagnostic, ordonnance, délivrance, Document, and each access to the record. The patient is identified by their NPI; Lafia invents no identifier of its own. The record is append-only: a correction is a new version, and history stays readable. The noyau publishes no port and has no route to the internet.
+
+**The contract.** Between the noyau and anyone who wants its data stand the same four rules, enforced by every service:
+
+- **Signed tokens.** identite alone holds the signing key. Each service checks tokens itself with the public key, so a compromised service cannot forge one.
+- **Least privilege.** Each role reaches what its work needs and no more.
+- **Relation de soin.** A soignant opens a dossier only when their établissement is treating that patient. A vital emergency opens it anyway, with a stated reason.
+- **Every access traced.** Each read or write writes an `AuditEvent` into the noyau, and the citizen sees it in their carnet.
+
+**The services.** A service translates its actor's work into FHIR; services never call each other. The only door from outside is the gateway, which sends each subdomain to its own service and nothing else. The network enforces this, and the test suite checks it.
 
 ## The products
 
@@ -164,21 +177,6 @@ Behind them, two services have no screen of their own:
 <td align="center" width="25%" valign="top"><img src="web/design/assets/Illustrations/pilier-sans-lire.svg" width="110" alt=""><br><b>Understood without reading</b><br><sub>Pictograms, icons with words, and statuses shown as shapes and not only colours.</sub></td>
 </tr>
 </table>
-
-## The foundation
-
-![The FHIR noyau at the centre; around it, the contract that decides who reaches what; today's and tomorrow's services plug into it; one door to the outside.](docs/fondation.svg)
-
-**The noyau.** Every medical fact lives in one place as a standard **HL7 FHIR R4** resource in an unmodified HAPI FHIR server: each visite, mesure, diagnostic, ordonnance, délivrance, Document, and each access to the record. The patient is identified by their NPI; Lafia invents no identifier of its own. The record is append-only: a correction is a new version, and history stays readable. The noyau publishes no port and has no route to the internet.
-
-**The contract.** Between the noyau and anyone who wants its data stand the same four rules, enforced by every service:
-
-- **Signed tokens.** identite alone holds the signing key. Each service checks tokens itself with the public key, so a compromised service cannot forge one.
-- **Least privilege.** Each role reaches what its work needs and no more.
-- **Relation de soin.** A soignant opens a dossier only when their établissement is treating that patient. A vital emergency opens it anyway, with a stated reason.
-- **Every access traced.** Each read or write writes an `AuditEvent` into the noyau, and the citizen sees it in their carnet.
-
-**The services.** A service translates its actor's work into FHIR; services never call each other. The only door from outside is the gateway, which sends each subdomain to its own service and nothing else. The network enforces this, and the test suite checks it.
 
 ## Built to grow
 
