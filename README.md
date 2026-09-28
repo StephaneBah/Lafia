@@ -6,7 +6,7 @@
 Built on <strong>HL7 FHIR R4</strong>, vendor-neutral, and ready to run on the State's own infrastructure.</p>
 
 <p align="center">
-  <a href="https://lafia.stephanebah.page"><strong>Try the live demo →</strong></a>
+  <a href="https://lafia.stephanebah.page"><strong>lafia.stephanebah.page</strong></a>
   &nbsp;·&nbsp; <a href="docs/architecture.md">Architecture</a>
   &nbsp;·&nbsp; <a href="docs/adr/">Decisions</a>
   &nbsp;·&nbsp; <a href="#run-the-stack">Run it locally</a>
