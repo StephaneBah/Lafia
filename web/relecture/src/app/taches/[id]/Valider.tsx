@@ -6,7 +6,7 @@ import { Alert, Button, Icon } from "@lafia/design";
 import { useActionState, useState, type FormEvent } from "react";
 
 import { confiance, genreDeProposition, pluriel } from "../../../libelles";
-import type { Proposition } from "../../../relecture";
+import type { Proposition } from "../../../types";
 import { validerLaTache, type IssueDeLaValidation } from "../../actions";
 
 type Choix = "accepter" | "corriger" | "rejeter";
@@ -63,9 +63,9 @@ function CarteDeProposition({
         <div className="rel-proposition-tete">
           <p className="rel-proposition-libelle">{proposition.libelle}</p>
           <p className={choix.decision === "corriger" || choix.decision === "rejeter" ? "rel-proposition-valeur is-barree" : "rel-proposition-valeur"}>
-            {proposition.valeur}
+            {proposition.valeur ?? "Sans valeur lue"}
           </p>
-          <Confiance valeur={proposition.confiance} />
+          {proposition.confiance != null && <Confiance valeur={proposition.confiance} />}
         </div>
         {proposition.extrait && (
           <figure className="rel-extrait">
@@ -153,8 +153,8 @@ function Confirmation({
                   <Icon name={genreDeProposition(p.type).icone} size={20} />
                   <span>
                     <strong>{p.libelle}</strong>
-                    {` : ${corrige ? choix.valeur.trim() : p.valeur}`}
-                    {corrige && <span className="rel-meta">{` (corrigé, la machine avait lu « ${p.valeur} »)`}</span>}
+                    {` : ${corrige ? choix.valeur.trim() : (p.valeur ?? "sans valeur")}`}
+                    {corrige && <span className="rel-meta">{` (corrigé, la machine avait lu « ${p.valeur ?? "rien"} »)`}</span>}
                   </span>
                 </li>
               );
@@ -192,7 +192,7 @@ function Confirmation({
 export function Valider({ tache, propositions }: { tache: string; propositions: Proposition[] }) {
   const [issue, envoyer, enCours] = useActionState(validerLaTache, null);
   const [decisions, setDecisions] = useState<Decisions>(() =>
-    Object.fromEntries(propositions.map((p) => [p.id, { valeur: p.valeur }])),
+    Object.fromEntries(propositions.map((p) => [p.id, { valeur: p.valeur ?? "" }])),
   );
   const [manque, setManque] = useState<string | null>(null);
 
