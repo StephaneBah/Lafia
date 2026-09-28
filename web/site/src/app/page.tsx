@@ -3,7 +3,6 @@ import { Illustration, type NomIllustration } from "@lafia/design/illustration";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 
-import { COMPTES_DU_SITE } from "../comptes";
 import { Parcours } from "./Parcours";
 
 const PROBLEMES: Array<[NomIllustration, string]> = [
@@ -88,36 +87,58 @@ const ETAPES: Array<{ illustration: NomIllustration; lieu: string; texte: ReactN
   },
 ];
 
-const SERVICES: Record<Acteur, { illustration: NomIllustration; pourQui: string; description: string }> = {
+const SERVICES: Record<Acteur, { illustration: NomIllustration; pourQui: string; description: string; points: string[] }> = {
   citoyen: {
     illustration: "acteur-citoyen",
     pourQui: "Pour les citoyens",
-    description: "Voir ce qui est payé, ce qui reste à retirer, et comment prendre son traitement.",
+    description: "Son dossier dans sa poche, lisible sans savoir lire.",
+    points: [
+      "Ce qui est payé, ce qui reste à retirer, quand prendre chaque médicament.",
+      "Ses antécédents, ses papiers numérisés, son histoire par établissement.",
+      "Qui a ouvert son dossier, et quand.",
+    ],
   },
   soin: {
     illustration: "acteur-soignant",
     pourQui: "Pour les médecins et infirmiers",
-    description: "Retrouver un patient par son NPI, suivre le cas de visite, écrire la visite, émettre l'ordonnance.",
+    description: "Tout le patient sur un seul écran, retrouvé par son NPI.",
+    points: [
+      "Allergies, antécédents et traitements toujours en vue.",
+      "Le cas de visite relie visites, analyses et ordonnances.",
+      "Le passé papier du patient, relu, à côté de ses pages.",
+    ],
   },
   caisse: {
     illustration: "acteur-caissiere",
     pourQui: "Pour les caissiers",
-    description: "Ouvrir une ordonnance par son numéro, encaisser sans rien retaper.",
+    description: "Un numéro saisi ou scanné, et l'ordonnance arrive tarifée.",
+    points: ["Rien n'est retapé.", "Le patient paie ce qu'il peut aujourd'hui, le reste attend.", "Les montants, jamais le diagnostic."],
   },
   pharmacie: {
     illustration: "acteur-pharmacien",
     pourQui: "Pour les pharmacies et les officines",
-    description: "Remettre les lignes payées, voir les allergies avant de remettre.",
+    description: "Remettre les bons médicaments, en sécurité.",
+    points: [
+      "Les lignes payées, et rien d'autre.",
+      "Une allergie arrête la remise tant qu'elle n'est pas vue.",
+      "Une délivrance partielle est normale : le reste est à retirer plus tard.",
+    ],
   },
   numerisation: {
     illustration: "probleme-carnet",
     pourQui: "Pour les agents de numérisation",
-    description: "Numériser les anciens papiers médicaux d'un citoyen, qui repart avec eux.",
+    description: "Le passé papier d'un citoyen entre dans son dossier, en une seule venue.",
+    points: ["L'identité vérifiée avant tout document.", "Chaque page contrôlée : netteté, cadrage, lumière.", "Le citoyen repart avec ses papiers."],
   },
   relecture: {
     illustration: "probleme-registres",
     pourQui: "Pour les agents de relecture et les soignants",
-    description: "Trier les documents numérisés sans savoir de qui ils sont, puis valider ce que la lecture en propose.",
+    description: "Des scans aux récits fiables, relus par des humains.",
+    points: [
+      "Les pages à gauche, la transcription à droite, volet par volet.",
+      "Double confirmation, puis le contrôle d'un second relecteur.",
+      "Sans jamais savoir de qui est le dossier.",
+    ],
   },
 };
 
@@ -172,9 +193,6 @@ export default async function Accueil() {
         <section className="hero" id="top" aria-labelledby="hero-title">
           <div className="wrap">
             <div className="hero-text">
-              <span className="demo-banner">
-                <Icon name="info" size={20} /> Démonstration : toutes les données sont fictives.
-              </span>
               <h1 id="hero-title">Votre dossier de santé vous suit, partout au Bénin.</h1>
               <p className="lead">
                 Avec votre seul NPI, chaque soignant retrouve votre histoire médicale, d'un centre de santé à l'autre, de la
@@ -322,15 +340,10 @@ export default async function Accueil() {
                   forWhom={SERVICES[acteur].pourQui}
                   description={SERVICES[acteur].description}
                   illustration={<Illustration name={SERVICES[acteur].illustration} decorative />}
-                  demo={COMPTES_DU_SITE[acteur].comptes}
-                  demoNote={COMPTES_DU_SITE[acteur].note}
+                  points={SERVICES[acteur].points}
                 />
               ))}
             </div>
-            <p className="services-note">
-              <Icon name="warning" size={24} />
-              <span>Ces comptes de démonstration sont publics : n'y saisissez aucune donnée réelle.</span>
-            </p>
           </div>
         </section>
 

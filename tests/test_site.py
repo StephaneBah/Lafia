@@ -1,10 +1,9 @@
 """Le site produit, sur le domaine lui-même : la vision, et une porte vers chaque application.
 
-Il n'appelle aucun service et n'en expose aucun. Les comptes de démonstration qu'il montre doivent
-ouvrir leur application : chacun est l'un de ceux qu'identite liste pour elle.
+Il n'appelle aucun service et n'en expose aucun. Il ne montre aucun compte de démonstration : ceux-ci
+sont sur la page de connexion de chaque application.
 """
 
-import re
 from collections.abc import Iterator
 
 import httpx
@@ -53,29 +52,8 @@ def test_site_n_ouvre_aucun_service(site, chemin):
     assert site.get(chemin).status_code == 404
 
 
-def _comptes_montres(html: str) -> dict[str, list[tuple[str, str]]]:
-    """Par application, les comptes que montre sa carte de service : deux valeurs chacun."""
-    montres: dict[str, list[tuple[str, str]]] = {}
-    for carte in html.split('class="lf-service"')[1:]:
-        porte = re.search(rf'href="https://(\w+)\.{re.escape(DOMAINE)}"', carte)
-        assert porte, "une carte de service sans lien vers son application"
-        valeurs = re.findall(r'<code class="lf-demo-v"[^>]*>([^<]*)</code>', carte)
-        assert valeurs and len(valeurs) % 2 == 0, f"carte {porte[1]} : des comptes incomplets"
-        montres[porte[1]] = list(zip(valeurs[::2], valeurs[1::2]))
-    return montres
-
-
-def test_site_montre_des_comptes_pour_chaque_application(html_du_site):
-    assert sorted(_comptes_montres(html_du_site)) == sorted(ACTEURS)
-
-
-@pytest.mark.parametrize("acteur", ACTEURS)
-def test_comptes_du_site_connus_d_identite(html_du_site, application, acteur):
-    listes = application(acteur).get("/api/identite/comptes-de-demonstration")
-    assert listes.status_code == 200
-    connus = {
-        (compte["npi"], compte["code"]) if compte["role"] == "citoyen" else (compte["identifiant"], compte["mot_de_passe"])
-        for compte in listes.json()
-    }
-
-    assert set(_comptes_montres(html_du_site)[acteur]) <= connus
+def test_site_ne_montre_aucun_compte(html_du_site):
+    """Le site présente le produit ; les comptes de démonstration restent sur /connexion."""
+    assert "lf-demo" not in html_du_site
+    assert "lafia-demo" not in html_du_site
+    assert "compte de démonstration" not in _texte_visible(html_du_site).lower()

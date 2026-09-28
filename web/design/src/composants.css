@@ -223,15 +223,18 @@ label.lf-line:hover { background: var(--color-surface-sunken); }
 .lf-appheader :focus-visible { box-shadow: 0 0 0 3px #FFFFFF !important; outline: 2px solid #121212; }
 
 /* ---------- Service card ---------- */
-.lf-service { display: grid; gap: var(--space-3); font-family: var(--font-sans); }
-.lf-service-card { display: grid; gap: var(--space-2); padding: var(--space-5); background: var(--color-surface); color: var(--color-text); border-radius: var(--radius-xl); box-shadow: var(--shadow-card); text-decoration: none; transition: transform var(--motion-quick) var(--ease-standard), box-shadow var(--motion-quick) var(--ease-standard); }
+.lf-service { display: grid; grid-template-rows: 1fr; gap: var(--space-3); font-family: var(--font-sans); }
+.lf-service-card { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-5); background: var(--color-surface); color: var(--color-text); border-radius: var(--radius-xl); box-shadow: var(--shadow-card); text-decoration: none; transition: transform var(--motion-quick) var(--ease-standard), box-shadow var(--motion-quick) var(--ease-standard); }
 .lf-service-card:hover, .lf-service-card:focus-visible { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
 .lf-service-illu { width: 112px; height: 112px; display: grid; place-items: center; border-radius: 50%; background: var(--color-surface-soft); color: var(--color-action); margin-bottom: var(--space-2); transition: transform var(--motion-standard) var(--ease-spring); }
 .lf-service-card:hover .lf-service-illu, .lf-service-card:focus-visible .lf-service-illu { transform: rotate(-6deg) scale(1.04); }
 .lf-service-for { color: var(--color-text-muted); font-weight: 700; font-size: 16px; }
 .lf-service-title { font-weight: 800; font-size: 28px; line-height: 34px; }
 .lf-service-desc { margin: 0; font-size: 18px; line-height: 28px; }
-.lf-service-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
+.lf-service-points { list-style: none; margin: var(--space-1) 0 0; padding: 0; display: grid; gap: var(--space-2); font-size: 16px; line-height: 24px; }
+.lf-service-points li { display: grid; grid-template-columns: 20px 1fr; gap: var(--space-2); align-items: start; }
+.lf-service-points svg { margin-top: 2px; color: var(--color-action); }
+.lf-service-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: auto; padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
 .lf-service-addr { font-size: 15px; color: var(--color-text-muted); overflow-wrap: anywhere; }
 .lf-service-open { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--target-min); padding: 0 var(--space-5); border-radius: var(--radius-md); background: var(--color-action); color: var(--color-on-action); font-weight: 700; font-size: 18px; }
 
