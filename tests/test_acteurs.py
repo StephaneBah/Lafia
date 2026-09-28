@@ -27,8 +27,11 @@ ACTEURS = {
     "pharmacie": Acteur("Pharmacie", ("pharmacien", "officine")),
     "citoyen": Acteur("Mon carnet", ("citoyen",)),
     "numerisation": Acteur("Numérisation", ("agent de numérisation",)),
+    "relecture": Acteur("Relecture", ("agent de relecture", "médecin", "infirmier")),
 }
-ROLES = ("médecin", "infirmier", "caissier", "pharmacien", "agent de numérisation", "officine", "citoyen")
+ROLES = (
+    "médecin", "infirmier", "caissier", "pharmacien", "agent de numérisation", "agent de relecture", "officine", "citoyen"
+)
 
 # Les agents que chaque service sert : leur session porte un établissement.
 AGENTS_ADMIS = [
@@ -79,7 +82,7 @@ def test_application_affiche_son_service_et_la_version_fhir_du_noyau(page, acteu
 
 
 # Les applications où un agent ou une officine se connecte ; celle du citoyen attend F6.
-APPLICATIONS_D_AGENTS = ["soin", "caisse", "pharmacie", "numerisation"]
+APPLICATIONS_D_AGENTS = ["soin", "caisse", "pharmacie", "numerisation", "relecture"]
 
 
 @pytest.fixture(scope="session")
@@ -125,9 +128,9 @@ def test_page_de_connexion_liste_les_comptes_de_demonstration_de_l_application(
     html = html_de_page(acteur, "/connexion")
 
     assert 'action="/api/identite/connexion"' in html
-    listes = [c for c in comptes if c.application == acteur and not c.reserve_aux_tests]
+    listes = [c for c in comptes if acteur in c.applications and not c.reserve_aux_tests]
     assert [c.identifiant for c in listes if f"{c.identifiant} {c.mot_de_passe}" not in texte] == []
-    non_listes = [c for c in comptes if c.application != acteur or c.reserve_aux_tests]
+    non_listes = [c for c in comptes if acteur not in c.applications or c.reserve_aux_tests]
     assert [c.identifiant for c in non_listes if c.identifiant in html] == []
 
 
@@ -145,8 +148,8 @@ def test_page_de_connexion_explique_chaque_refus(page, erreur):
 
 @pytest.mark.parametrize("acteur", APPLICATIONS_D_AGENTS)
 def test_application_renouvelle_un_jeton_expire_avant_de_rendre_la_page(application, comptes, connecter, acteur):
-    compte = next(c for c in comptes if c.application == acteur and not c.reserve_aux_tests)
-    identifiant_de_session = cookies_poses(connecter(compte))[COOKIE_DE_RENOUVELLEMENT].value
+    compte = next(c for c in comptes if acteur in c.applications and not c.reserve_aux_tests)
+    identifiant_de_session = cookies_poses(connecter(compte, acteur=acteur))[COOKIE_DE_RENOUVELLEMENT].value
 
     # Le navigateur a laissé tomber le cookie du jeton à son expiration ; il garde celui de la session.
     reponse = application(acteur).get(

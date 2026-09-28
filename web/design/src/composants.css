@@ -223,15 +223,18 @@ label.lf-line:hover { background: var(--color-surface-sunken); }
 .lf-appheader :focus-visible { box-shadow: 0 0 0 3px #FFFFFF !important; outline: 2px solid #121212; }
 
 /* ---------- Service card ---------- */
-.lf-service { display: grid; gap: var(--space-3); font-family: var(--font-sans); }
-.lf-service-card { display: grid; gap: var(--space-2); padding: var(--space-5); background: var(--color-surface); color: var(--color-text); border-radius: var(--radius-xl); box-shadow: var(--shadow-card); text-decoration: none; transition: transform var(--motion-quick) var(--ease-standard), box-shadow var(--motion-quick) var(--ease-standard); }
+.lf-service { display: grid; grid-template-rows: 1fr; gap: var(--space-3); font-family: var(--font-sans); }
+.lf-service-card { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-5); background: var(--color-surface); color: var(--color-text); border-radius: var(--radius-xl); box-shadow: var(--shadow-card); text-decoration: none; transition: transform var(--motion-quick) var(--ease-standard), box-shadow var(--motion-quick) var(--ease-standard); }
 .lf-service-card:hover, .lf-service-card:focus-visible { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
 .lf-service-illu { width: 112px; height: 112px; display: grid; place-items: center; border-radius: 50%; background: var(--color-surface-soft); color: var(--color-action); margin-bottom: var(--space-2); transition: transform var(--motion-standard) var(--ease-spring); }
 .lf-service-card:hover .lf-service-illu, .lf-service-card:focus-visible .lf-service-illu { transform: rotate(-6deg) scale(1.04); }
 .lf-service-for { color: var(--color-text-muted); font-weight: 700; font-size: 16px; }
 .lf-service-title { font-weight: 800; font-size: 28px; line-height: 34px; }
 .lf-service-desc { margin: 0; font-size: 18px; line-height: 28px; }
-.lf-service-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
+.lf-service-points { list-style: none; margin: var(--space-1) 0 0; padding: 0; display: grid; gap: var(--space-2); font-size: 16px; line-height: 24px; }
+.lf-service-points li { display: grid; grid-template-columns: 20px 1fr; gap: var(--space-2); align-items: start; }
+.lf-service-points svg { margin-top: 2px; color: var(--color-action); }
+.lf-service-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: auto; padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
 .lf-service-addr { font-size: 15px; color: var(--color-text-muted); overflow-wrap: anywhere; }
 .lf-service-open { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--target-min); padding: 0 var(--space-5); border-radius: var(--radius-md); background: var(--color-action); color: var(--color-on-action); font-weight: 700; font-size: 18px; }
 
@@ -310,3 +313,43 @@ label.lf-line:hover { background: var(--color-surface-sunken); }
 /* Un compte de démonstration : son rôle, et dessous son établissement ou son officine. */
 .lf-compte { display: grid; gap: 2px; min-width: 14em; }
 .lf-compte span { color: var(--color-text-muted); font-size: 14px; line-height: 20px; }
+
+/* Transcription d'un document ancien (ADR 0010) : des volets comme les pages d'un carnet, chacun daté et situé. */
+.lf-transcription { display: grid; gap: var(--space-4); }
+.lf-volet { background: var(--color-surface); border: 1px solid var(--color-border); border-left: 6px solid var(--color-action); border-radius: var(--radius-sm); padding: var(--space-4) var(--space-5); }
+.lf-volet--illisible { border-left-color: var(--status-partiel-fg); background: var(--color-surface-sunken); }
+.lf-volet-entete { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); margin-bottom: var(--space-3); }
+.lf-volet-type { font-weight: 800; font-size: 18px; }
+.lf-volet-date { font-weight: 700; }
+.lf-volet-lieu, .lf-volet-pages { color: var(--color-text-muted); }
+button.lf-volet-pages { background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; cursor: pointer; color: var(--color-action); }
+.lf-volet-corps p { margin: 0 0 var(--space-3); line-height: 1.55; }
+.lf-volet-corps ul { margin: 0 0 var(--space-3); padding-left: var(--space-5); }
+.lf-volet-corps h4 { margin: var(--space-3) 0 var(--space-2); font-size: 16px; }
+.lf-transcription-tableau { overflow-x: auto; margin: 0 0 var(--space-3); }
+.lf-transcription-tableau table { border-collapse: collapse; min-width: 60%; }
+.lf-transcription-tableau th, .lf-transcription-tableau td { border: 1px solid var(--color-border); padding: var(--space-2) var(--space-3); text-align: left; font-variant-numeric: tabular-nums; }
+.lf-transcription-tableau th { background: var(--color-surface-sunken); }
+.lf-transcription-figure { margin: 0 0 var(--space-3); display: inline-block; max-width: 100%; }
+.lf-transcription-figure figcaption { color: var(--color-text-muted); font-size: 14px; margin-top: var(--space-1); }
+.lf-transcription-page { display: block; max-width: min(100%, 420px); border: 1px solid var(--color-border); border-radius: 6px; }
+.lf-transcription-zone { display: block; position: relative; overflow: hidden; width: min(100%, 420px); border: 1px solid var(--color-border); border-radius: 6px; }
+.lf-transcription-zone img { position: absolute; max-width: none; }
+.lf-transcription-voir { background: none; border: 0; padding: 0; cursor: zoom-in; display: block; }
+.lf-transcription-voir:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.lf-mention-patrimoniale { display: flex; gap: var(--space-2); align-items: flex-start; background: var(--color-surface-sunken); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); color: var(--color-text-muted); }
+
+/* Les pages d'un volet en vignettes, et le fil de vie d'une Transcription (dates à gauche, volets à droite). */
+.lf-volet-apercus { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-3) 0 0; padding: 0; }
+.lf-volet-apercus button, .lf-volet-apercu { display: grid; justify-items: center; gap: 2px; background: none; border: 1px solid var(--color-border); border-radius: 6px; padding: 4px; font: inherit; font-size: 13px; color: var(--color-text-muted); }
+.lf-volet-apercus button { cursor: zoom-in; }
+.lf-volet-apercus button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.lf-volet-apercus img { width: 72px; height: 96px; object-fit: cover; object-position: top; border-radius: 3px; background: var(--color-surface-sunken); }
+.lf-fil { list-style: none; margin: 0; padding: 0; gap: 0; }
+.lf-fil-etape { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--space-3); position: relative; padding-bottom: var(--space-4); }
+.lf-fil-etape::before { content: ""; position: absolute; left: 27px; top: 22px; bottom: 0; width: 2px; background: var(--color-border); }
+.lf-fil-etape:last-child::before { display: none; }
+.lf-fil-repere { display: grid; justify-items: center; align-content: start; gap: var(--space-1); position: relative; z-index: 1; }
+.lf-fil-point { width: 14px; height: 14px; border-radius: 50%; background: var(--color-action); border: 3px solid var(--color-surface); box-shadow: 0 0 0 2px var(--color-action); margin-top: 6px; }
+.lf-fil-date { font-weight: 800; font-size: 14px; background: var(--color-bg); padding: 0 2px; }
+@media (max-width: 480px) { .lf-fil-etape { grid-template-columns: 40px minmax(0, 1fr); gap: var(--space-2); } .lf-fil-etape::before { left: 19px; } }

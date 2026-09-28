@@ -17,18 +17,22 @@ Les numéros à montrer (citoyens de citoyens.toml, patients de patients.toml) :
     appendicectomie en 2015, mère diabétique ; traitement au long cours : amlodipine 5 mg le matin.
     Journal d'accès : soignants, caisse, pharmacie, et un accès d'urgence
     au CHUD Borgou-Alibori, avec son motif.
+  - Un ancien carnet papier numérisé (4 pages, 2015-2019), relu et contrôlé : sa Transcription (ADR 0010)
+    en quatre volets, au CS Kpanroun et au CHD Ouémé, qu'on lit dans soin et dans « Par établissement ».
 - patient-007, NPI 0000001763547, code carnet W6N-2JD : cas en cours d'hier au CNHU-HKM, ordonnance
   ORD-3HX-9KT non payée, avec de l'ibuprofène alors qu'une allergie AINS est connue : la caisse encaisse,
   la pharmacie est arrêtée par l'allergie. Groupe sanguin A+, asthme depuis l'enfance.
 - patient-013, NPI 0000002316294, code carnet B8F-5ZE : rien de clinique, le carnet vide.
 """
 
+import struct
+import zlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import donnees
-from commun.fhir import systemes
-from commun.fhir.documents import avec_origine
+from commun.fhir import relecture, systemes
+from commun.fhir.documents import Page, avec_origine, binary, document_reference
 from commun.fhir.client import Ressource
 from commun.fhir.ressources import DEVISE
 
@@ -290,6 +294,50 @@ class _Histoire:
             "entity": [{"what": _ref("Patient", patient)}],
         })
 
+    def document_transcrit(self, id_: str, patient: str, *, numerise: datetime, confirme: datetime,
+                           controle: datetime, agent: str, relecteur: str, controleur: str, markdown: str,
+                           resume: str, pages: list[bytes], **document: Any) -> None:
+        """Un Document numérisé, ses pages, et le chemin de sa Transcription (ADR 0010, docs/specs/F6),
+        écrit par les mêmes fonctions que le service relecture : la version confirmée par `relecteur`,
+        préliminaire puis remplacée ; la version relue, finale, au Contrôle de `controleur` ; leurs
+        Provenance ; la Tâche de relecture et celle du Contrôle, closes, pour que personne ne les reçoive."""
+        pages_ecrites = []
+        for rang, octets in enumerate(pages, start=1):
+            page = Page(format="image/png", octets=octets)
+            self._ajouter({**binary(page, patient), "id": f"{id_}-page-{rang}"})
+            pages_ecrites.append((f"{id_}-page-{rang}", page))
+        scan = {**document_reference(patient=patient, auteur=agent, pages=pages_ecrites, depot=None, **document),
+                "id": id_, "date": _instant(numerise)}
+        self._ajouter(scan)
+
+        texte = {**relecture.binary_de_transcription(markdown, patient), "id": f"{id_}-transcription-texte"}
+        self._ajouter(texte)
+        confirmee_id, relue_id = f"{id_}-transcription-1", f"{id_}-transcription-2"
+        commune = {"scan": scan, "binary": texte["id"], "taille": len(markdown.encode())}
+        confirmee = relecture.transcription(auteurs=[relecteur], relue=False, precedente=None, **commune)
+        self._ajouter({**relecture.remplacee(confirmee), "id": confirmee_id, "date": _instant(confirme)})
+        relue = relecture.transcription(auteurs=[relecteur, controleur], relue=True, precedente=confirmee_id, **commune)
+        self._ajouter({**relue, "id": relue_id, "date": _instant(controle)})
+        for version, qui, activite, quand in (
+            (confirmee_id, relecteur, "relecture", confirme), (relue_id, controleur, "controle", controle)
+        ):
+            provenance = relecture.provenance_de_relecture(
+                cible=_ref("DocumentReference", version), scan=id_, relecteur=qui, activite=activite, modele=None)
+            self._ajouter({**provenance, "id": f"{version}-{activite}", "recorded": _instant(quand)})
+
+        def close(tache: Ressource, debut: datetime, fin: datetime) -> Ressource:
+            periode = {"start": _instant(debut), "end": _instant(fin)}
+            return {**tache, "authoredOn": _instant(debut), "lastModified": _instant(controle), "executionPeriod": periode}
+
+        tache = {**relecture.tache_de_relecture(document=id_, patient=patient, relecteur=relecteur,
+                                                jour=numerise.date()), "id": f"{id_}-relecture"}
+        tache = relecture.confirmee(tache, transcription=_ref("DocumentReference", confirmee_id), resume=resume, relue=False)
+        self._ajouter(close(relecture.relue(tache, _ref("DocumentReference", relue_id)), numerise, confirme))
+        verification = relecture.tache_de_controle(id_=f"{id_}-controle", relecture=tache,
+                                                   transcription=_ref("DocumentReference", confirmee_id), resume=resume)
+        verification = relecture.controlee(relecture.reassignee(verification, controleur, confirme.date()), "accepter")
+        self._ajouter(close(verification, confirme, controle))
+
 
 def _patient_a(h: _Histoire) -> None:
     """patient-001 : un cas terminé, un cas en cours, une allergie, un journal d'accès."""
@@ -338,6 +386,17 @@ def _patient_a(h: _Histoire) -> None:
     h.acces("hist-a-acces-urgence", p, h.il_y_a(21, 19, 48), "agent-11", "chud-borgou-alibori", "soin",
             "acces-urgence", raison="Patient inconscient après un accident de moto, amené par les pompiers.")
 
+    # Un ancien carnet papier, déposé au CNHU-HKM il y a trois semaines, relu hors du Littoral puis contrôlé.
+    h.document_transcrit(
+        "hist-a-carnet-papier", p,
+        numerise=h.il_y_a(24, 11, 5), confirme=h.il_y_a(12, 15, 40), controle=h.il_y_a(10, 16, 20),
+        agent="agent-23", relecteur="agent-25", controleur="agent-26",
+        markdown=CARNET_PAPIER_TRANSCRIT, pages=[_page_de_carnet(n) for n in range(1, 5)],
+        resume="Quatre volets relus contre les pages ; tableau de la page 3 recopié, fin manquante (coin déchiré).",
+        type_="carnet", annee="2015", lisibilite="partiel", etablissement_d_origine="CS Kpanroun",
+        papier_abime="Coin inférieur de la page 3 déchiré avant le dépôt : la fin du tableau manque.",
+    )
+
     # Cas en cours : fièvre et toux, il y a trois jours, au CNHU-HKM.
     cnhu, medecin, infirmier, caissier, pharmacien = "cnhu-hkm", "agent-01", "agent-03", "agent-04", "agent-05"
     visite = h.il_y_a(3, 10, 30)
@@ -369,6 +428,64 @@ def _patient_a(h: _Histoire) -> None:
     h.acces("hist-a-acces-ira-2", p, paye, caissier, cnhu, "caisse", "numero-d-ordonnance")
     h.acces("hist-a-acces-ira-3", p, remis, pharmacien, cnhu, "pharmacie", "numero-d-ordonnance")
 
+
+# Le carnet papier de patient-001, tel que les agents de relecture l'ont recopié (ADR 0010) : l'appendicectomie
+# de 2015 et l'hypertension de 2019 que son dossier connaît déjà.
+CARNET_PAPIER_TRANSCRIT = """---
+etablissements: CS Kpanroun; CHD Ouémé
+periode: 2015-2019
+---
+
+## consultation · 2015-06-02 · CS Kpanroun · p. 1
+Motif : douleurs du ventre à droite depuis la veille, vomissements.
+T° 38,4. Défense en fosse iliaque droite.
+Conclusion : **suspicion d'appendicite** ; orientée au CHD Ouémé.
+
+![Tampon et signature du centre](page:1)
+
+## hospitalisation · 2015-06-03 · CHD Ouémé · p. 2
+Entrée en chirurgie le 3 juin 2015.
+- Appendicectomie le jour même, sous anesthésie générale.
+- Suites simples ; sortie le 6 juin.
+
+*Contrôle à quinze jours au centre de santé.*
+
+## analyse · 2015-06-03 · CHD Ouémé · p. 3
+| Examen | Résultat | Unité |
+|---|---|---|
+| Globules blancs | 14 200 | /mm³ |
+| Hémoglobine | 12,1 | g/dL |
+| Goutte épaisse | négative | |
+
+![Feuille de résultats, haut de la page](page:3#0,0,1000,450)
+
+## consultation · 2019-03-14 · CS Kpanroun · p. 4
+Motif : maux de tête.
+TA 160/95 à deux reprises.
+Conclusion : hypertension artérielle ; amlodipine 5 mg le matin, revoir dans un mois.
+"""
+
+
+def _page_de_carnet(numero: int, largeur: int = 120, hauteur: int = 170) -> bytes:
+    """Une page de carnet de démonstration : un PNG en niveaux de gris, papier clair et lignes d'écriture,
+    généré ici (quelques centaines d'octets) plutôt que lu d'un fichier."""
+
+    def morceau(genre: bytes, donnees: bytes) -> bytes:
+        return struct.pack(">I", len(donnees)) + genre + donnees + struct.pack(">I", zlib.crc32(genre + donnees))
+
+    lignes = []
+    for y in range(hauteur):
+        ecrite = 12 <= y < hauteur - 12 and y % 9 in (0, 1) and (y // 9) % (numero + 2) != 0
+        fin = largeur - 12 - (y * 7 + numero * 13) % 40
+        rangee = bytes(90 if ecrite and 10 <= x < fin else 244 for x in range(largeur))
+        lignes.append(b"\x00" + rangee)
+    entete = struct.pack(">IIBBBBB", largeur, hauteur, 8, 0, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + morceau(b"IHDR", entete)
+        + morceau(b"IDAT", zlib.compress(b"".join(lignes), 9))
+        + morceau(b"IEND", b"")
+    )
 
 def _patient_b(h: _Histoire) -> None:
     """patient-007 : un cas en cours, une ordonnance à payer qui porte un AINS, une allergie AINS."""

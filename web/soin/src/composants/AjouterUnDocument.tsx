@@ -1,6 +1,7 @@
 "use client";
 
 import { Alert, Button, Icon, TextInput } from "@lafia/design";
+import { verifierFichier, type Probleme } from "@lafia/commun/qualite";
 import { enKo, PageRefusee, PAGES_MAX, preparerFichier, TYPES_ACCEPTES } from "@lafia/commun/televersement";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -12,16 +13,20 @@ import { TYPES_DE_DOCUMENT } from "../lib/types";
 // photo, prise à l'appareil ou choisie, devient un JPEG sur fond blanc d'au plus 1600 px et 1 Mo ; un
 // PDF part tel quel, s'il pèse au plus 3 Mo. Le navigateur envoie le Document droit au service soin,
 // par la passerelle, avec la session du soignant : aucun serveur d'application ne relaie ses pages.
+// Chaque image est jugée avant d'être gardée, comme au guichet (@lafia/commun/qualite, F6.5) : une
+// page floue, sombre, coupée ou éblouie se reprend ; seul un papier abîmé en lui-même la fait garder,
+// sur une note du soignant envoyée avec le Document.
 
 const DELAI_D_ENVOI_MS = 60_000;
+const NOTE_MAX = 300;
 
-type Page = { cle: string; blob: Blob; pdf: boolean; apercu: string | null };
+type Page = { cle: string; blob: Blob; pdf: boolean; apercu: string | null; problemes: Probleme[] };
 
 let compteur = 0;
-function nouvellePage(blob: Blob): Page {
+function nouvellePage(blob: Blob, problemes: Probleme[]): Page {
   const pdf = blob.type === "application/pdf";
   compteur += 1;
-  return { cle: `page-${compteur}`, blob, pdf, apercu: pdf ? null : URL.createObjectURL(blob) };
+  return { cle: `page-${compteur}`, blob, pdf, apercu: pdf ? null : URL.createObjectURL(blob), problemes };
 }
 
 function liberer(page: Page) {
@@ -43,12 +48,16 @@ export function AjouterUnDocument({ patientId }: { patientId: string }) {
   const [preparation, setPreparation] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [abime, setAbime] = useState(false);
+  const [note, setNote] = useState("");
   const photo = useRef<HTMLInputElement>(null);
   const toutes = useRef<Page[]>([]);
   toutes.current = pages;
   const anneeCourante = new Date().getFullYear();
 
   useEffect(() => () => toutes.current.forEach(liberer), []);
+
+  const enEchec = pages.flatMap((page, i) => (page.problemes.length ? [i] : []));
 
   async function ajouter(liste: FileList | null) {
     const fichiers = Array.from(liste ?? []);
@@ -57,7 +66,10 @@ export function AjouterUnDocument({ patientId }: { patientId: string }) {
     setPreparation(true);
     try {
       const preparees: Page[] = [];
-      for (const fichier of fichiers) preparees.push(nouvellePage(await preparerFichier(fichier)));
+      for (const fichier of fichiers) {
+        const { problemes } = await verifierFichier(fichier);
+        preparees.push(nouvellePage(await preparerFichier(fichier), problemes));
+      }
       setPages((avant) => {
         if (remplacee !== null && preparees.length === 1) {
           liberer(avant[remplacee]);
@@ -111,6 +123,15 @@ export function AjouterUnDocument({ patientId }: { patientId: string }) {
       return setErreur(`L’année s’écrit en quatre chiffres, de 1900 à ${anneeCourante}.`);
     }
     if (!pages.length) return setErreur("Ajoutez au moins une page : photographiez-la ou choisissez un fichier.");
+    if (enEchec.length && !abime) {
+      const numeros = enEchec.map((i) => i + 1).join(", ");
+      return setErreur(
+        enEchec.length > 1
+          ? `Les pages ${numeros} ne passent pas le contrôle : reprenez-les. Seul un papier abîmé en lui-même permet de les garder.`
+          : `La page ${numeros} ne passe pas le contrôle : reprenez-la. Seul un papier abîmé en lui-même permet de la garder.`,
+      );
+    }
+    if (enEchec.length && !note.trim()) return setErreur("Dites en quelques mots ce qui est abîmé sur le papier.");
 
     const corps = new FormData();
     corps.append("type", String(donnees.get("type")));
@@ -118,6 +139,8 @@ export function AjouterUnDocument({ patientId }: { patientId: string }) {
     const etablissement = String(donnees.get("etablissement") ?? "").trim();
     if (etablissement) corps.append("etablissement", etablissement.slice(0, 200));
     corps.append("lisibilite", String(donnees.get("lisibilite") ?? "lisible"));
+    // La note ne part que si une page a passé outre le contrôle : elle dit pourquoi on l'a gardée.
+    if (enEchec.length && abime) corps.append("papier_abime", note.trim().slice(0, NOTE_MAX));
     pages.forEach((page, i) => corps.append("pages", page.blob, `page-${i + 1}.${page.pdf ? "pdf" : "jpg"}`));
 
     setEnvoi(true);
@@ -191,7 +214,7 @@ export function AjouterUnDocument({ patientId }: { patientId: string }) {
             {pages.length > 0 && (
               <ol className="sn-pages">
                 {pages.map((page, i) => (
-                  <li key={page.cle} className="sn-page-apercu">
+                  <li key={page.cle} className={page.problemes.length ? "sn-page-apercu sn-page-apercu--refusee" : "sn-page-apercu"}>
                     {page.apercu ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={page.apercu} alt={`Page ${i + 1}`} width={96} />
@@ -201,8 +224,24 @@ export function AjouterUnDocument({ patientId }: { patientId: string }) {
                       </span>
                     )}
                     <small>{`Page ${i + 1} · ${enKo(page.blob.size)}`}</small>
+                    {page.problemes.length > 0 && (
+                      <ul className="sn-page-problemes" aria-label={`Ce qui ne va pas sur la page ${i + 1}`}>
+                        {page.problemes.map((probleme) => (
+                          <li key={probleme.code}>
+                            <Icon name="warning-octagon" size={16} />
+                            <span>{probleme.message}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     {!page.pdf && (
-                      <Button size="pro" variant="ghost" icon="video-camera" onClick={() => reprendre(i)} aria-label={`Reprendre la page ${i + 1}`}>
+                      <Button
+                        size="pro"
+                        variant={page.problemes.length ? "primary" : "ghost"}
+                        icon="video-camera"
+                        onClick={() => reprendre(i)}
+                        aria-label={`Reprendre la page ${i + 1}`}
+                      >
                         Reprendre
                       </Button>
                     )}
@@ -212,6 +251,34 @@ export function AjouterUnDocument({ patientId }: { patientId: string }) {
                   </li>
                 ))}
               </ol>
+            )}
+            {enEchec.length > 0 && (
+              <div className="sn-abime">
+                <label className="sn-radio">
+                  <input type="checkbox" checked={abime} onChange={(e) => setAbime(e.currentTarget.checked)} />
+                  Le papier lui-même est abîmé
+                </label>
+                {abime && (
+                  <div className="lf-field lf-field--pro">
+                    <label className="lf-field-label" htmlFor="document-papier-abime">
+                      Ce qui est abîmé sur le papier
+                    </label>
+                    <p className="lf-field-hint" id="document-papier-abime-aide">
+                      {`Déchiré, taché, encre passée… En ${NOTE_MAX} caractères au plus : la note reste sur le document.`}
+                    </p>
+                    <textarea
+                      id="document-papier-abime"
+                      className="lf-input sn-note"
+                      rows={3}
+                      maxLength={NOTE_MAX}
+                      required
+                      value={note}
+                      aria-describedby="document-papier-abime-aide"
+                      onChange={(e) => setNote(e.currentTarget.value)}
+                    />
+                  </div>
+                )}
+              </div>
             )}
             <div className="sn-radios sn-radios--ligne">
               {/* La caméra de l'appareil, quand il en a une ; sinon, le choix d'une image. */}

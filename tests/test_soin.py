@@ -344,3 +344,34 @@ def test_un_document_apporte_par_le_patient_entre_au_dossier_et_une_entree_s_en_
     assert soin.get(f"/api/soin/documents/{document_id}/pages/1", headers=autre).status_code == 403
 
     soin.post(f"/api/soin/cas/{cas.json()['cas_id']}/cloture", headers=medecin)
+
+
+def test_un_medecin_lit_la_transcription_relue_d_un_papier_avec_une_relation_de_soin_seulement(
+    application, jeton_de, comptes, compte_de, connecter
+):
+    # patient-001 et son carnet papier relu (historique.py) ; son cas en cours au CNHU-HKM fonde la relation.
+    soin = application("soin")
+    medecin = _porteur(jeton_de("médecin"))
+    patient_id = _patient_id(soin, medecin, "0000001204815")
+
+    (document,) = [
+        d for d in soin.get(f"/api/soin/patients/{patient_id}/documents", headers=medecin).json()
+        if d["id"] == "hist-a-carnet-papier"
+    ]
+    assert document["transcription"] is True and document["papier_abime"]
+    lue = soin.get("/api/soin/documents/hist-a-carnet-papier/transcription", headers=medecin)
+    assert lue.status_code == 200, lue.text
+    assert lue.json()["pages"] == 4 and lue.json()["relue_le"]
+    assert "## analyse · 2015-06-03 · CHD Ouémé · p. 3" in lue.json()["markdown"]
+    # Une Transcription n'est pas un Document : elle ne s'ajoute pas à la liste, et un scan non relu n'en a pas.
+    assert not any(d["id"].startswith("hist-a-carnet-papier-transcription") for d in soin.get(
+        f"/api/soin/patients/{patient_id}/documents", headers=medecin).json())
+
+    # Un médecin d'un établissement où patient-001 n'a jamais été vu : pas de relation de soin.
+    ailleurs = next(
+        c for c in comptes
+        if c.role == "médecin" and not c.reserve_aux_tests
+        and c.etablissement not in (compte_de("médecin").etablissement, "chu-mel", "chuz-abomey-calavi", "chud-borgou-alibori")
+    )
+    autre = _porteur(jeton_pose(connecter(ailleurs)))
+    assert soin.get("/api/soin/documents/hist-a-carnet-papier/transcription", headers=autre).status_code == 403

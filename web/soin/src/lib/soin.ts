@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 
-import type { Bandeau, Catalogue, DocumentDuDossier, Dossier, Moment, SessionSoignant } from "./types";
+import type { Bandeau, Catalogue, DocumentDuDossier, Dossier, Moment, SessionSoignant, TranscriptionDuDocument } from "./types";
 
 // Le service soin et identite, joints par la passerelle depuis le serveur de l'application, avec le
 // jeton de session du soignant : l'application ne lit jamais le jeton, elle le transmet.
@@ -76,6 +76,8 @@ export const soin = {
   arreterTraitement: (traitementId: string) => appeler<unknown>("POST", `/api/soin/traitements/${encodeURIComponent(traitementId)}/arret`),
   groupeSanguin: (id: string, valeur: string) => appeler<unknown>("PUT", `${patient(id)}/groupe-sanguin`, { valeur }),
   documents: (id: string) => appeler<DocumentDuDossier[]>("GET", `${patient(id)}/documents`),
+  transcription: (documentId: string) =>
+    appeler<TranscriptionDuDocument>("GET", `/api/soin/documents/${encodeURIComponent(documentId)}/transcription`),
 };
 
 /** Le soignant connecté, qu'identite lit du jeton ; `null` sans session valide. */

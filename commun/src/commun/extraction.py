@@ -41,6 +41,10 @@ class Proposition(BaseModel):
 class Extraction(BaseModel):
     modele: Modele
     texte: str
+    """Le texte brut lu, page après page."""
+    transcription: str = ""
+    """Le brouillon de Transcription, en Markdown restreint par volets (ADR 0010) : ce que les
+    agents de relecture corrigent. Vide quand le modèle ne sait pas structurer."""
     propositions: list[Proposition]
 
 

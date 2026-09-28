@@ -10,7 +10,14 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 
 from commun.fhir.client import ClientFhir
-from commun.fhir.documents import DocumentRefuse, DocumentTropLourd, DocumentVu, Lisibilite, TypeDeDocument
+from commun.fhir.documents import (
+    NOTE_DE_PAPIER_ABIME_MAX,
+    DocumentRefuse,
+    DocumentTropLourd,
+    DocumentVu,
+    Lisibilite,
+    TypeDeDocument,
+)
 from commun.jeton import Agent, VerificateurDeJetons
 from commun.service import client_fhir, creer_service
 from commun.televersement import pages_televersees
@@ -46,6 +53,8 @@ def _http(erreur: Exception) -> HTTPException:
             return HTTPException(status.HTTP_404_NOT_FOUND, "aucun traitement sous cet identifiant")
         case dossier.DocumentInconnu() | dossier.PageInconnue():
             return HTTPException(status.HTTP_404_NOT_FOUND, "aucun document ou aucune page sous cet identifiant")
+        case dossier.TranscriptionInconnue():
+            return HTTPException(status.HTTP_404_NOT_FOUND, "ce document n'a pas de transcription relue")
         case DocumentTropLourd():
             return HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, str(erreur))
         case SansRelationDeSoin():
@@ -63,6 +72,7 @@ ERREURS = (
     dossier.TraitementInconnu,
     dossier.DocumentInconnu,
     dossier.PageInconnue,
+    dossier.TranscriptionInconnue,
     SansRelationDeSoin,
     dossier.CasClos,
     VisiteRefusee,
@@ -285,13 +295,27 @@ async def page_du_document(
     )
 
 
+@routes.get("/documents/{document_id}/transcription", responses=REFUS)
+async def transcription_du_document(
+    document_id: str, soignant: Agent = Depends(soignant_connecte), fhir: ClientFhir = Depends(client_fhir)
+) -> modeles.TranscriptionDuDocument:
+    """La Transcription relue d'un Document ancien (ADR 0010) : son Markdown, quand elle a été relue, et le
+    nombre de pages du Document vers lesquelles ses images pointent. Pas une donnée clinique vérifiée.
+    Avec une relation de soin ; lecture tracée. 404 tant qu'elle n'est pas relue."""
+    try:
+        lue = await dossier.transcription_du_document(fhir, soignant, document_id)
+    except ERREURS as erreur:
+        raise _http(erreur) from erreur
+    return modeles.TranscriptionDuDocument(markdown=lue.markdown, relue_le=lue.relue_le, pages=lue.pages)
+
+
 @routes.post(
     "/patients/{patient_id}/documents",
     status_code=status.HTTP_201_CREATED,
     responses={
         **SAISIE,
         413: {"description": "Plus de 20 pages, ou une page de plus de 3 Mo."},
-        422: {"description": "Type, année (quatre chiffres, passée) ou lisibilité refusés, ou page ni JPEG, ni PNG, ni PDF, ou autre que son format déclaré."},
+        422: {"description": "Type, année (quatre chiffres, passée) ou lisibilité refusés, ou page ni JPEG, ni PNG, ni PDF, ou autre que son format déclaré, ou note de papier abîmé de plus de 300 caractères."},
     },
 )
 async def ajouter_document(
@@ -301,11 +325,13 @@ async def ajouter_document(
     lisibilite: Annotated[Lisibilite, Form()],
     pages: Annotated[list[UploadFile], File()],
     etablissement: Annotated[str | None, Form(max_length=200)] = None,
+    papier_abime: Annotated[str | None, Form(max_length=NOTE_DE_PAPIER_ABIME_MAX)] = None,
     soignant: Agent = Depends(soignant_connecte),
     fhir: ClientFhir = Depends(client_fhir),
 ) -> dict[str, Any]:
     """Un Document que le patient a apporté, numérisé pendant la visite : origine `numerisation`, auteur
-    le soignant, avec une relation de soin. Multipart : `type`, `annee`, `etablissement?`, `lisibilite`, `pages`."""
+    le soignant, avec une relation de soin. Multipart : `type`, `annee`, `etablissement?`, `lisibilite`, `pages`,
+    `papier_abime?` (la note du soignant quand le papier, abîmé en lui-même, a passé outre la capture)."""
     try:
         return await dossier.ajouter_document(
             fhir,
@@ -316,6 +342,7 @@ async def ajouter_document(
             lisibilite=lisibilite,
             etablissement=(etablissement or "").strip() or None,
             pages=await pages_televersees(pages),
+            papier_abime=papier_abime,
         )
     except ERREURS as erreur:
         raise _http(erreur) from erreur

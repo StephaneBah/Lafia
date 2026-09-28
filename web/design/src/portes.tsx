@@ -4,7 +4,6 @@
 import type { ReactNode } from "react";
 
 import { ACTEURS, ORDRE_DES_ACTEURS, adresse, hoteDApplication, type Acteur } from "./acteurs";
-import { DemoAccount, type CompteAffiche } from "./DemoAccount";
 import type { NomIcone } from "./generes/icones";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
@@ -101,7 +100,7 @@ function hoteSecable(hote: string): ReactNode {
   ));
 }
 
-/** Carte de service : la porte vers une application, avec son adresse et ses comptes de démonstration. */
+/** Carte de service : la porte vers une application, avec ce qu'elle permet et son adresse. */
 export function ServiceCard({
   actor,
   domaine,
@@ -109,8 +108,7 @@ export function ServiceCard({
   forWhom,
   description,
   illustration,
-  demo,
-  demoNote,
+  points,
 }: {
   actor: Acteur;
   domaine: string;
@@ -118,8 +116,8 @@ export function ServiceCard({
   forWhom: string;
   description: string;
   illustration?: ReactNode;
-  demo?: CompteAffiche[];
-  demoNote?: ReactNode;
+  /** Ce que l'application change pour son métier, en trois lignes courtes au plus. */
+  points?: string[];
 }) {
   const acteur = ACTEURS[actor];
   const libelle = title ?? acteur.libelle;
@@ -133,6 +131,16 @@ export function ServiceCard({
         <div className="lf-service-for">{forWhom}</div>
         <div className="lf-service-title">{libelle}</div>
         <p className="lf-service-desc">{description}</p>
+        {points && points.length > 0 && (
+          <ul className="lf-service-points">
+            {points.map((point) => (
+              <li key={point}>
+                <Icon name="check" size={20} />
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="lf-service-foot">
           <span className="lf-mono lf-service-addr">{hoteSecable(hote)}</span>
           <span className="lf-service-open">
@@ -141,7 +149,6 @@ export function ServiceCard({
           </span>
         </div>
       </a>
-      {demo && demo.length > 0 && <DemoAccount comptes={demo} note={demoNote} />}
     </div>
   );
 }

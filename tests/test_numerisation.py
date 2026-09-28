@@ -14,6 +14,7 @@ from conftest import jeton_pose
 DEPOTS = "/api/numerisation/depots"
 ORIGINE = "https://lafia.bj/fhir/CodeSystem/origine"
 DEPOT = "https://lafia.bj/fhir/identifiant/depot"
+PAPIER_ABIME = "https://lafia.bj/fhir/StructureDefinition/papier-abime"
 
 
 def _porteur(jeton: str) -> dict[str, str]:
@@ -116,6 +117,7 @@ def test_le_guichet_numerise_un_carnet_le_revoit_puis_clot_le_depot(numerisation
         "formats": ["image/png"],
         "origine": "numerisation",
         "depose_le": vu["depose_le"],
+        "papier_abime": None,
     }
 
     page = numerisation.get(f"{DEPOTS}/{depot}/documents/{document}/pages/1", headers=agent)
@@ -207,4 +209,40 @@ def test_un_document_hors_des_limites_est_refuse(numerisation, agent, patient, p
     depot = _ouvrir(numerisation, agent, patient["npi"]).json()["depot_id"]
 
     assert _deposer(numerisation, agent, depot, pages, champs).status_code == statut
+    assert numerisation.get(f"{DEPOTS}/{depot}", headers=agent).json()["documents"] == []
+
+
+NOTE_DE_PAPIER_ABIME = "Coin déchiré et encre passée : le papier ne se lit pas mieux."
+
+
+def _deposer_un_papier_abime(numerisation, agent, patient) -> tuple[str, str]:
+    depot = _ouvrir(numerisation, agent, patient["npi"]).json()["depot_id"]
+    depose = _deposer(
+        numerisation, agent, depot, [("page-1.png", PAGE, "image/png")], {**CARNET_DE_2019, "papier_abime": NOTE_DE_PAPIER_ABIME}
+    )
+    assert depose.status_code == 201, depose.text
+    return depot, depose.json()["document_id"]
+
+
+def test_un_papier_abime_garde_sa_note_et_le_depot_la_montre(numerisation, agent, patient):
+    """Une page qu'un papier abîmé en lui-même empêche de réussir la capture se garde, avec la note de l'agent."""
+    depot, _ = _deposer_un_papier_abime(numerisation, agent, patient)
+
+    (vu,) = numerisation.get(f"{DEPOTS}/{depot}", headers=agent).json()["documents"]
+    assert vu["papier_abime"] == NOTE_DE_PAPIER_ABIME
+
+
+def test_la_note_de_papier_abime_est_une_extension_du_document(numerisation, agent, patient, noyau):
+    _, document = _deposer_un_papier_abime(numerisation, agent, patient)
+
+    (reference,) = noyau([f"DocumentReference/{document}"])
+    assert {"url": PAPIER_ABIME, "valueString": NOTE_DE_PAPIER_ABIME} in reference.ressource["extension"]
+
+
+def test_une_note_de_papier_abime_de_plus_de_300_caracteres_est_refusee(numerisation, agent, patient):
+    depot = _ouvrir(numerisation, agent, patient["npi"]).json()["depot_id"]
+
+    refuse = _deposer(numerisation, agent, depot, [("page-1.png", PAGE, "image/png")], {**CARNET_DE_2019, "papier_abime": "x" * 301})
+
+    assert refuse.status_code == 422
     assert numerisation.get(f"{DEPOTS}/{depot}", headers=agent).json()["documents"] == []

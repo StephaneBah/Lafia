@@ -97,7 +97,27 @@ export type DocumentLu = {
   formats: string[];
   origine: Origine;
   depose_le: string | null;
+  /** La note de l'agent quand le papier était abîmé avant d'être numérisé (F6.5). */
+  papier_abime?: string | null;
+  /** Le papier a été relu : son texte recopié se lit sous lui (ADR 0010). */
+  transcription?: boolean;
 };
+
+/** Le texte relu d'un de mes documents (`GET /documents/{id}/transcription`). */
+export type MaTranscription = { markdown: string; relue_le: string | null; pages: number };
+
+/** Un volet d'un papier relu, et le Document dont il vient. */
+export type VoletLu = {
+  type: string;
+  date: string | null;
+  titre: string;
+  document_id: string;
+  pages: number[];
+  corps: string;
+};
+
+/** Un établissement de mes anciens papiers et ce qui s'y est passé, en ordre de date (`GET /par-etablissement`). */
+export type EtablissementLu = { etablissement: string; volets: VoletLu[] };
 
 export type Accueil = {
   prenom: string;

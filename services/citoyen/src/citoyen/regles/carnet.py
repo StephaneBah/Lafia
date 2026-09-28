@@ -429,9 +429,15 @@ def journal_des_acces(dossier: DossierDuCitoyen) -> list[AccesLu]:
             deja_lu = acces.depot in depots_vus
             depots_vus.add(acces.depot)
         else:
+            # Un accès au guichet d'avant les étiquettes, ou une relecture : les lectures qui se suivent
+            # du même agent ne font qu'une ligne.
             deja_lu = (
-                au_guichet and precedent is not None and precedent.motif == "numerisation"
-                and not precedent.depot and precedent.qui == acces.qui
+                not vous
+                and acces.motif in ("numerisation", "relecture")
+                and precedent is not None
+                and precedent.motif == acces.motif
+                and not precedent.depot
+                and precedent.qui == acces.qui
             )
         precedent = acces
         if (vous and lus and lus[-1].vous) or deja_lu:
@@ -447,6 +453,21 @@ def _acces_lu(acces: Acces, vous: bool, dossier: DossierDuCitoyen) -> AccesLu:
     # étiquettes, sans quoi le savoir, est tenu pour un dépôt.
     depot = au_guichet and (acces.depot is None or acces.depot in dossier.depots_avec_documents)
     etablissement = dossier.noms.get(acces.etablissement or "")
+    # La relecture est pseudonymisée dans les deux sens : le citoyen sait que ses papiers ont été relus,
+    # pas par qui ni où (docs/specs/F6-relecture-et-extraction.md).
+    if acces.motif == "relecture" and not vous:
+        return AccesLu(
+            date=acces.date,
+            vous=False,
+            qui="Un relecteur",
+            role=None,
+            etablissement=None,
+            service=acces.service,
+            motif="Vos papiers ont été relus, sans votre nom",
+            urgence=False,
+            raison=None,
+            depot=False,
+        )
     if vous:
         qui, motif = "Vous", "Vous avez ouvert votre carnet"
     elif depot:

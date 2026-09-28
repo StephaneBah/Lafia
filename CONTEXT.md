@@ -83,17 +83,30 @@ A loose paper found with a Carnet papier (a lab result, a compte rendu) and num�
 _Avoid_: pièce jointe, recueil
 
 **Relecture**:
-The review of numérised Documents after the Dépôt: first a triage (is the scan usable, of the right type, legible), then the validation of the facts an Extraction proposes. Pseudonymised: the reviewer never sees who the patient is from the system, though a page may show a name.
-_Avoid_: correction, contrôle
+The work that turns a numérised Document into a trustworthy Transcription: the reviewer compares the machine's reading with the pages (scan on one side, rendered text on the other), corrects it by hand, puts the volets in order, then confirms twice; a second reviewer's Contrôle follows. Never recalls the citizen. Pseudonymised: the reviewer never sees who the patient is from the system, though a page may show a name.
+_Avoid_: correction, triage
 
 **Agent de relecture**:
-A part-time agent who performs the triage of Documents from a weekly quota of tâches. Validates no clinical fact.
+A part-time agent with some medical literacy (doctors' handwriting is often illegible) who performs Relectures and Contrôles from a weekly quota of tâches. Transcribes and structures; validates no clinical fact.
+_Avoid_: correcteur, opérateur de saisie
 
 **Tâche de relecture**:
-One Document to review, assigned to one reviewer with a due date: triage, then clinical validation by a soignant when the triage keeps it.
+One Document to relire, assigned to one reviewer with a due date; then, once confirmed, a Contrôle by another reviewer.
+
+**Transcription**:
+The structured, human-reviewed reading of a numérised Document: its content in volets, with photos of the pages where they help, in date order where the dates are known. A heritage asset of the patient's history from before Lafia, not verified clinical data, and always labelled so. Each correction is a new version.
+_Avoid_: OCR, résumé, compte rendu (for this meaning)
+
+**Volet**:
+One section of a Transcription: one visite, one lab result, one ordonnance, one vaccination page, with its date and établissement when the paper gives them, and the pages it comes from.
+_Avoid_: rubrique, chapitre
+
+**Contrôle**:
+The second reviewer's check of a confirmed Transcription before it is marked relue: they read it against the pages and accept it or send it back with a note.
+_Avoid_: validation (reserved for a soignant accepting clinical facts)
 
 **Extraction**:
-What a machine reads from a Document: its text and the facts it proposes (a mesure, an antécédent, an allergy, a traitement). A proposal until a soignant validates it; a validated fact enters the dossier with origine extraction.
+What a machine reads from a Document: a draft Transcription and the facts it proposes (a mesure, an antécédent, an allergy, a traitement). Its purpose is to ease the reviewers' work, never to be trusted alone: the draft becomes a Transcription only through Relecture, and a fact enters the dossier (origine extraction) only when a soignant validates it.
 _Avoid_: OCR (the technique, not the result), IA (in UI)
 
 **Ordonnance**:
@@ -177,6 +190,8 @@ _Avoid_: front, portail
 
 - A **Patient** has one **Dossier** and many **Cas de visite**
 - A **Dossier** only grows: each actor adds within its own reach, nobody edits or deletes; a correction is a new entry that supersedes the old one
+- A **Document** has at most one current **Transcription**, made of **Volets**; the dossier's paper history is never closed: a later **Dépôt** adds Documents that join the same views
+- The carnet's view by établissement is computed from the **Volets** of every relue **Transcription**, in date order; nothing is stored per établissement
 - A **Dépôt** produces one or more **Documents**, each numérisé from paper and attached to the patient's **Dossier**
 - A **Dossier** holds **Antécédents**, **Allergies**, **Traitements au long cours** and a **Groupe sanguin**, which outlive any **Cas de visite**; a **Diagnostic** belongs to one **Cas de visite**
 - A **Cas de visite** holds one or more **Visites** and may span several **Établissements**

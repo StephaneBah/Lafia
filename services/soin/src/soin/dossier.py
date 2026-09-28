@@ -9,8 +9,10 @@ Les règles (relation de soin, catalogues, rôles) viennent de `soin.regles` ; l
 from typing import Any
 
 from commun.fhir import documents as fhir_documents
+from commun.fhir import relecture as fhir_relecture
 from commun.fhir import soin as fhir_soin
 from commun.fhir import systemes
+from commun.fhir import transcriptions as fhir_transcriptions
 from commun.fhir.client import ClientFhir, Ressource, ecriture
 from commun.fhir.documents import Origine, Page, avec_origine
 from commun.fhir.dossier import Action, Motif, id_de, numero_d_ordonnance, patient_par_npi, reference, tracer
@@ -32,6 +34,7 @@ __all__ = [
     "PatientInconnu",
     "SansRelationDeSoin",
     "TraitementInconnu",
+    "TranscriptionInconnue",
 ]
 
 
@@ -57,6 +60,10 @@ class DocumentInconnu(Exception):
 
 class PageInconnue(Exception):
     pass
+
+
+class TranscriptionInconnue(Exception):
+    """Le Document n'a pas (encore) de Transcription relue."""
 
 
 async def _tracer(
@@ -509,8 +516,32 @@ async def documents(fhir: ClientFhir, soignant: Agent, patient_id: str) -> list[
     await _patient(fhir, patient_id)
     motif = await _motif_exige(fhir, soignant, patient_id)
     trouves = await fhir_documents.documents_du_patient(fhir, patient_id)
+    relues = await fhir_transcriptions.transcriptions_relues_du_patient(fhir, patient_id)
     await _tracer(fhir, soignant, patient_id, "read", motif)
-    return [fhir_documents.document_vu(d) for d in trouves]
+    return [fhir_documents.document_vu(d, transcription=d["id"] in relues) for d in trouves]
+
+
+async def _document_lisible(fhir: ClientFhir, soignant: Agent, document_id: str) -> tuple[Ressource, str, Motif]:
+    """Le Document, son patient, et le motif de la relation de soin du soignant avec lui."""
+    document = await fhir.lire("DocumentReference", document_id)
+    patient = id_de(document.get("subject")) if document else None
+    if document is None or patient is None:
+        raise DocumentInconnu()
+    return document, patient, await _motif_exige(fhir, soignant, patient)
+
+
+async def transcription_du_document(
+    fhir: ClientFhir, soignant: Agent, document_id: str
+) -> fhir_transcriptions.TranscriptionLue:
+    """La Transcription relue d'un Document, avec une relation de soin avec son patient. Lecture tracée.
+    Une version préliminaire, en relecture, n'en est pas une : `TranscriptionInconnue`."""
+    document, patient, motif = await _document_lisible(fhir, soignant, document_id)
+    relue = await fhir_relecture.transcription_relue(fhir, document_id)
+    lue = await fhir_transcriptions.lire_transcription(fhir, document, relue) if relue else None
+    if lue is None:
+        raise TranscriptionInconnue()
+    await _tracer(fhir, soignant, patient, "read", motif, ressource=reference("DocumentReference", relue["id"]))
+    return lue
 
 
 async def page_du_document(fhir: ClientFhir, soignant: Agent, document_id: str, rang: int) -> Page:
@@ -537,6 +568,7 @@ async def ajouter_document(
     lisibilite: str,
     etablissement: str | None,
     pages: list[Page],
+    papier_abime: str | None = None,
 ) -> dict[str, Any]:
     """Un Document que le patient a apporté, numérisé pendant la visite : origine `numerisation`,
     auteur le soignant. Avec une relation de soin. Tracé. `commun.fhir.documents.valider_document` le juge,
@@ -552,6 +584,7 @@ async def ajouter_document(
         pages=pages,
         lisibilite=lisibilite,
         etablissement_d_origine=etablissement,
+        papier_abime=papier_abime,
     )
     await _tracer(fhir, soignant, patient_id, "create", motif, ressource=reference("DocumentReference", ecrit["id"]))
     return {"document_id": ecrit["id"], "pages": len(pages)}

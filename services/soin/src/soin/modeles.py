@@ -1,5 +1,6 @@
 """Ce qu'un soignant envoie au service soin : les corps des requêtes, validés à l'entrée et passés
-tels quels de la route (`soin.service`) au travail (`soin.dossier`)."""
+tels quels de la route (`soin.service`) au travail (`soin.dossier`) ; et ce qu'il en reçoit, quand
+aucune vue commune (`commun.fhir`) ne le dit déjà."""
 
 from typing import Annotated, Literal
 
@@ -80,3 +81,13 @@ class NouveauTraitement(BaseModel):
 
 class GroupeSanguin(BaseModel):
     valeur: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=5)]
+
+
+class TranscriptionDuDocument(BaseModel):
+    """Ce que le service rend d'une Transcription relue (ADR 0010), que l'application montre à côté des pages."""
+
+    markdown: str
+    relue_le: str | None
+    """L'instant de la version relue, au Contrôle."""
+    pages: int
+    """Le nombre de pages du Document, vers lesquelles pointent ses images `page:N`."""

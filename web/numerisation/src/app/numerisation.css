@@ -62,6 +62,17 @@
 .num-page-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .num-page-actions .lf-btn { padding: 0 var(--space-2); }
 
+/* La capture rigoureuse (F6.5) : une page qui échoue dit pourquoi, et se reprend. */
+.num-page--refusee { border: 2px solid var(--status-danger-fg); background: var(--status-danger-bg); }
+.num-page-problemes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); color: var(--status-danger-fg); font-size: 15px; line-height: 20px; font-weight: 700; }
+.num-page-problemes li { display: flex; gap: var(--space-1); align-items: flex-start; }
+.num-page-problemes svg { flex: none; margin-top: 1px; }
+.num-visee { display: flex; align-items: center; gap: var(--space-2); min-height: 24px; margin: 0; color: var(--status-danger-fg); font-weight: 700; }
+.num-annonce { margin: 0; color: var(--color-text-muted); font-size: 15px; }
+.num-abime { display: grid; gap: var(--space-3); justify-items: start; }
+.num-abime .lf-field { width: 100%; max-width: 640px; }
+.num-note { min-height: 96px; padding: var(--space-2) var(--space-3); resize: vertical; }
+
 .num-vignette { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: var(--radius-sm); background: #FFFFFF; border: 1px solid var(--color-border); }
 .num-vignette--pdf { display: grid; place-items: center; align-content: center; gap: var(--space-1); color: var(--color-text-muted); font-weight: 700; text-decoration: none; }
 a.num-vignette--pdf { color: var(--color-link); }

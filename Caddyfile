@@ -72,6 +72,8 @@ import acteur caisse 1MB
 import acteur pharmacie 1MB
 import acteur citoyen 1MB
 import acteur numerisation 64MB
+import acteur relecture 1MB
+# Le service extraction n'a pas de site : aucune route n'y mène, seul relecture le joint (ADR 0009).
 
 # Le site produit, sur le domaine lui-même : la vision, et un lien vers chaque application. Il n'a pas
 # d'entrée interne, n'appelle aucun service et n'en expose aucun.

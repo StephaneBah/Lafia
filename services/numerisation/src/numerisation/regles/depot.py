@@ -142,6 +142,7 @@ async def ajouter_document(
     etablissement_d_origine: str | None,
     lisibilite: str,
     pages: list[Page],
+    papier_abime: str | None = None,
 ) -> DocumentAjoute:
     """Numérise un Document dans le Dépôt : ses pages en Binary, lui en DocumentReference étiqueté du Dépôt.
     `commun.fhir.documents.valider_document` le juge avant toute écriture."""
@@ -156,6 +157,7 @@ async def ajouter_document(
         lisibilite=lisibilite,
         etablissement_d_origine=(etablissement_d_origine or "").strip() or None,
         depot=depot,
+        papier_abime=papier_abime,
     )
     await _tracer(
         fhir, agent, ouverture.patient, "create", depot, ressource=dossier.reference("DocumentReference", ecrit["id"])
