@@ -2,8 +2,8 @@
 
 <h3 align="center">Your health record follows you, everywhere in Benin.</h3>
 
-<p align="center">One record per citizen, found by their NPI alone, from the health centre to the cashier, the pharmacy and their own phone.<br>
-Built on <strong>HL7 FHIR R4</strong>, owned by no vendor, ready to run on the State's own infrastructure.</p>
+<p align="center">One shared record per citizen, found by NPI from the health centre to the cashier, the pharmacy and their own phone.<br>
+Built on <strong>HL7 FHIR R4</strong>, vendor-neutral, and ready to run on the State's own infrastructure.</p>
 
 <p align="center">
   <a href="https://lafia.stephanebah.page"><strong>Try the live demo →</strong></a>
@@ -29,7 +29,7 @@ Built on <strong>HL7 FHIR R4</strong>, owned by no vendor, ready to run on the S
 </tr>
 </table>
 
-The patient is the only link between their carers. Lafia replaces that with **one shared memory and one door per profession**. It is not another app on top of the problem: it is the ground that apps stand on.
+Today a Beninese citizen's medical memory is scattered: the paper booklet gets lost, each facility keeps its own register, a lab result exists as one physical copy, and the patient is the only link between their carers. Lafia is not one more application on top of that problem. It is the ground applications stand on: one core that holds medical data in an international standard, one contract that decides who reaches what, and services that plug into both.
 
 ## One visit, end to end
 
